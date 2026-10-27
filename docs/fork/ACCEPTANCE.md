@@ -48,3 +48,5 @@
 原生检查结果另见 `evidence/native-checks.json`。没有创建额外后台服务/定时任务，未覆盖安装、清理或重置真实历史。首次原生隔离验证发现 HOME 覆盖后已退出修复；ZCode 此前可能误停实例的操作见 ZCODE_REVIEW.md。跨夜休眠导致超时/取消的旧日志已废弃为通过证据；本表引用随后限制并发完整运行的结果。
 
 2026-10-27 解锁后补验：真实 macOS Keychain 的临时测试凭据写入/读取、URL 隔离和清理通过，见 `evidence/keychain-check.json`；DPAPI 未实测。原生设置的小组件死链与退出残留已修复并重建最终包，见 `native-checks.json` 与 `native-app-settings.png`。
+
+2026-10-27 用户授权 GitHub 分发已完成：`personal-v1.4.11` Release 正式公开，macOS/Windows 两附件和校验和远端 digest 一致，匿名下载均 HTTP 200，见 `evidence/release.json`。发布不改变未实测的平台/真实网盘验收状态。

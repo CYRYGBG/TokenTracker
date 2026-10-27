@@ -41,3 +41,5 @@ TokenTracker 个人同步版，基于上游统计引擎，保留用量、项目�
 ```
 
 源码快照在独立发布分支，沿用应用内部版本 1.4.11，Release 标签为 personal-v1.4.11。本次只发布到个人 fork 的 GitHub Releases，不发布 npm 或原作者渠道。
+
+Source snapshot: [a99edf0d4f54](https://github.com/CYRYGBG/TokenTracker/tree/a99edf0d4f54a8ed358614154917ef471c75a420).

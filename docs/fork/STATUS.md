@@ -64,4 +64,6 @@ ZCode 新增的 512 MiB Codex 解压上限、后台归档回填和缺口台账�
 
 ## GitHub 发布
 
-正在准备 `CYRYGBG/TokenTracker` 的 `personal-v1.4.11` Release，附 macOS arm64 DMG、Windows x64 Setup 和 SHA256SUMS.txt。源码使用独立发布分支；不触发上游 npm / Homebrew 流程。真实会话标识、真实 Token 快照和本机路径已从发布资料中移除，原始审计留在本机 gitignored 目录。实际发布结果以 Release 页面和后续记录为准。
+已于 2026-10-27 19:38（Asia/Shanghai）正式发布 [personal-v1.4.11](https://github.com/CYRYGBG/TokenTracker/releases/tag/personal-v1.4.11)，含 macOS arm64 DMG、Windows x64 Setup 和 SHA256SUMS.txt。三份附件均已上传，GitHub 远端 digest 与本地 SHA-256 全部一致；匿名下载 HEAD 均返回 HTTP 200。
+
+源码快照 `a99edf0d4f54a8ed358614154917ef471c75a420` 位于 `codex/personal-release-20261027`；标签指向此快照。原有本地 main 历史保留，远端 main 未改变。没有执行 npm / Homebrew 发布，也未向原作者仓库写入。真实会话标识、真实 Token 快照和本机路径已从发布资料中移除，原始审计留在本机 gitignored 目录。公开发布与下载验证见 `evidence/release.json`；Windows 实机/DPAPI 和真实坚果云/双机验收仍按前述限制保留。
