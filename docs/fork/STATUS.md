@@ -67,3 +67,11 @@ ZCode 新增的 512 MiB Codex 解压上限、后台归档回填和缺口台账�
 已于 2026-10-27 19:38（Asia/Shanghai）正式发布 [personal-v1.4.11](https://github.com/CYRYGBG/TokenTracker/releases/tag/personal-v1.4.11)，含 macOS arm64 DMG、Windows x64 Setup 和 SHA256SUMS.txt。三份附件均已上传，GitHub 远端 digest 与本地 SHA-256 全部一致；匿名下载 HEAD 均返回 HTTP 200。
 
 源码快照 `a99edf0d4f54a8ed358614154917ef471c75a420` 位于 `codex/personal-release-20261027`；标签指向此快照。原有本地 main 历史保留，远端 main 未改变。没有执行 npm / Homebrew 发布，也未向原作者仓库写入。真实会话标识、真实 Token 快照和本机路径已从发布资料中移除，原始审计留在本机 gitignored 目录。公开发布与下载验证见 `evidence/release.json`；Windows 实机/DPAPI 和真实坚果云/双机验收仍按前述限制保留。
+
+## 本机重复应用图标清理（2026-10-27）
+
+已定位四份同 bundle ID 的个人版：Applications 正式安装版、旧 dist/personal 构建、dist/reviewed 解包产物、旧 personal-build/dmg 临时副本。原因是开发/验收留下多个可被系统索引的 .app；当时实际运行的是旧构建副本。
+
+已通过菜单退出旧副本，注销三个开发路径的 Launch Services 登记。旧 app 与临时副本保留为 dist/app-copies.noindex 内的 .app.backup，可恢复；当前解包产物转入 dist/personal-build.noindex。系统 Spotlight 查询只返回 /Applications/TokenTrackerPersonal.app。安装版二进制与已审核发布版一致，已从 Finder 启动，原生统计窗口正常、个人后端 HTTP 200；没有删除/重置统计目录，没有退出官方版小组件。
+
+构建脚本今后将解包 app 放入 .noindex 构建目录，DMG 创建后清理临时 staging；校验脚本按 manifest 的 appPath 找产物。已验证脚本语法、迁移后的包内资源/签名/隔离 CLI，以及既有 DMG/Setup 的 SHA256SUMS。没有改动已发布安装包；本轮只改构建工具，未重新发布。证据见 evidence/app-deduplication.json。

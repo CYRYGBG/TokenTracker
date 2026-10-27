@@ -73,3 +73,7 @@ powershell -File TokenTrackerWin/scripts/bundle-node.ps1
 ## GitHub 下载
 
 本轮授权发布标签为 `personal-v1.4.11`，目标 [GitHub Release](https://github.com/CYRYGBG/TokenTracker/releases/tag/personal-v1.4.11)。macOS Apple Silicon 选择 DMG；Windows x64 选择 Setup.exe。二者均内含 Node 运行时，Windows 安装器含 WebView2 离线运行时。安装前可用同页 SHA256SUMS.txt 校验。macOS 打开 DMG 后拖入 Applications；WebDAV 凭据只在应用内填写。
+
+## 避免本机出现重复应用图标
+
+安装后日常只从 /Applications/TokenTrackerPersonal.app 启动。构建脚本将未安装的 .app 保留在 dist/personal-build.noindex，交付目录 dist/reviewed 只保留安装器与报告；DMG 临时目录完成后自动清理。不要从旧 dist/personal 目录运行。已有旧开发副本可先正常退出、注销对应应用登记，再移入不参与索引的备份目录；不要删除统计数据目录。

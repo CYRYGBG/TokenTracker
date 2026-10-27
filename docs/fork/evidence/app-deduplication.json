@@ -1,0 +1,17 @@
+{
+  "checkedAt": "2026-10-27T13:47:19.461828+00:00",
+  "cause": "one installed app plus three indexed generated build/staging copies",
+  "indexedPersonalAppsAfterCleanup": [
+    "/Applications/TokenTrackerPersonal.app"
+  ],
+  "installedAppMatchesReviewedNativeBinary": true,
+  "oldCopyStopped": true,
+  "installedAppRunning": true,
+  "localApiStatus": 200,
+  "obsoleteCopiesArchived": true,
+  "buildDirectoryExcludedFromIndexing": true,
+  "dataDirectoriesRemoved": false,
+  "publishedInstallersChanged": false,
+  "buildScriptSyntaxChecked": true,
+  "relocatedArtifactVerificationPassed": true
+}

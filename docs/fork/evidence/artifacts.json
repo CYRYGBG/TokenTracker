@@ -1,5 +1,5 @@
 {
-  "checkedAt": "2026-10-27T11:15:56.914Z",
+  "checkedAt": "2026-10-27T13:40:31.141Z",
   "version": "1.4.11",
   "upstream": "9dc925d89e7c526c9d5831b689a8bac427e7d8ea",
   "dashboard": "dashboard/dist",
@@ -44,7 +44,7 @@
   "windowsAppBuilt": true,
   "installedOrPublished": false,
   "nativeApp": {
-    "path": "dist/reviewed/TokenTrackerPersonal.app",
+    "path": "dist/personal-build.noindex/TokenTrackerPersonal.app",
     "sourceHashesVerified": true,
     "signature": "ad-hoc",
     "notarized": false

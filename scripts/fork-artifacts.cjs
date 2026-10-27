@@ -141,12 +141,12 @@ async function tree(dir) {
       const nativeBuild = JSON.parse(await fs.readFile(path.join(delivery, "macos-build.json"), "utf8"));
       for (const [file, digest] of Object.entries(nativeBuild.nativeSources))
         assert.equal(sha(await fs.readFile(path.join(root, file))), digest, `native source changed: ${file}`);
-      const nativeApp = path.join(delivery, "TokenTrackerPersonal.app");
+      const nativeApp = path.join(root, nativeBuild.appPath || "dist/reviewed/TokenTrackerPersonal.app");
       for (const relative of ["src", "bin", "dashboard/dist"])
         assert.deepEqual(await tree(path.join(nativeApp, "Contents/Resources/EmbeddedServer/tokentracker", relative)), await tree(path.join(root, relative)));
       execFileSync("codesign", ["--verify", "--deep", "--strict", nativeApp]);
       report.macOSAppBuilt = true;
-      report.nativeApp = { path: "dist/reviewed/TokenTrackerPersonal.app", sourceHashesVerified: true, signature: "ad-hoc", notarized: false };
+      report.nativeApp = { path: path.relative(root, nativeApp), sourceHashesVerified: true, signature: "ad-hoc", notarized: false };
       report.installers = {};
       for (const file of ["TokenTrackerPersonal-macOS-arm64.dmg", "TokenTrackerPersonal-Windows-x64-Setup.exe"]) {
         const bytes = await fs.readFile(path.join(delivery, file));

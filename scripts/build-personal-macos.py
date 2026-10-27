@@ -14,7 +14,9 @@ import subprocess
 import tarfile
 
 ROOT = Path(__file__).resolve().parents[1]
-BUILD = ROOT / "dist/personal-build"
+# Keep unpacked apps out of Spotlight/Launch Services discovery. Only the
+# installable DMG belongs in the visible delivery directory.
+BUILD = ROOT / "dist/personal-build.noindex"
 OUT = ROOT / "dist/reviewed"
 REV = "ef5392088d4aeb255c4eee83157dbdafcd31bf07"
 VORTEX_SHA = "69efde37eca214d3de9c59dc33a9fb74ad76aeee5af0814075fdacb148fc2fbb"
@@ -60,7 +62,7 @@ def main():
     run("swiftc", "-O", "-whole-module-optimization", "-swift-version", "5", "-parse-as-library",
         "-module-name", "TokenTrackerPersonal", "-target", target, "-I", BUILD, "-L", BUILD,
         "-lVortex", "-o", executable, *sources)
-    app = OUT / "TokenTrackerPersonal.app"
+    app = BUILD / "TokenTrackerPersonal.app"
     if app.exists():
         shutil.rmtree(app)  # Only this script's generated output, never an installed app.
     resources = app / "Contents/Resources"
@@ -102,12 +104,15 @@ def main():
     shutil.copytree(app, image_root / app.name)
     (image_root / "Applications").symlink_to("/Applications")
     dmg = OUT / "TokenTrackerPersonal-macOS-arm64.dmg"
-    run("hdiutil", "create", "-volname", "TokenTracker Personal", "-srcfolder", image_root,
-        "-ov", "-format", "UDZO", dmg)
+    try:
+        run("hdiutil", "create", "-volname", "TokenTracker Personal", "-srcfolder", image_root,
+            "-ov", "-format", "UDZO", dmg)
+    finally:
+        shutil.rmtree(image_root)
     report = {"version": version, "architecture": "darwin-arm64", "build": "swiftc release",
               "vortexRevision": REV, "vortexStub": False, "nativeBinarySha256": sha(executable),
               "nativeSources": {str(p.relative_to(ROOT)): sha(p) for p in sources},
-              "dmgSha256": sha(dmg), "installed": False}
+              "dmgSha256": sha(dmg), "appPath": str(app.relative_to(ROOT)), "installed": False}
     (OUT / "macos-build.json").write_text(json.dumps(report, indent=2) + "\n")
     print(dmg)
 
