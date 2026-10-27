@@ -2,13 +2,28 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs/promises");
 const os = require("node:os");
 const path = require("node:path");
-const http = require("node:http");
 const { test } = require("node:test");
 const { runSql } = require("./helpers/sqlite-write");
 const { resolveDumateDbPaths, parseDumateIncremental } = require("../src/lib/dumate");
-const { cmdSync, readQueueBatch, drainQueueToCloud } = require("../src/commands/sync");
+const { cmdSync } = require("../src/commands/sync");
 const { compactPendingQueue } = require("../src/lib/upload-queue");
 const { readOpencodeDbMessages } = require("../src/lib/rollout");
+
+// Reads the pending queue region (from byte offset) and returns the latest
+// bucket row per (source, model, hour_start) — the same last-wins semantics
+// every local reader applies to queue.jsonl.
+async function readPendingBuckets(queuePath, offset) {
+  const raw = await fs.readFile(queuePath, "utf8");
+  const latest = new Map();
+  for (const line of raw.slice(offset).split("\n")) {
+    if (!line.trim()) continue;
+    let row;
+    try { row = JSON.parse(line); } catch { continue; }
+    if (!row?.hour_start) continue;
+    latest.set(`${row.source}|${row.model}|${row.hour_start}`, row);
+  }
+  return Array.from(latest.values());
+}
 
 async function buildDb(root, install, rows) {
   const dbPath = path.join(root, install, "data", "opencode", "opencode.db");
@@ -41,9 +56,8 @@ test("DuMate discovers every Windows install and pins explicit overrides", async
   } finally { await fs.rm(tmp, { recursive: true, force: true }); }
 });
 
-test("DuMate SQLite downward and zero corrections survive compaction and HTTP upload exactly once", async () => {
+test("DuMate SQLite downward and zero corrections survive compaction exactly once", async () => {
   const tmp = await fs.mkdtemp(path.join(os.tmpdir(), "tt-dumate-zero-upload-"));
-  let server;
   try {
     const dbPath = await buildDb(tmp, "first", [{ id: "msg_corrected" }]);
     const queuePath = path.join(tmp, "queue.jsonl");
@@ -61,7 +75,7 @@ test("DuMate SQLite downward and zero corrections survive compaction and HTTP up
     };
     correct({ total: 1000, input: 500, output: 400, reasoning: 300, cache: { read: 100, write: 0 } }, 1791443004000);
     await parse();
-    assert.equal((await readQueueBatch(queuePath, offset, 200)).buckets[0].total_tokens, 1000);
+    assert.equal((await readPendingBuckets(queuePath, offset))[0].total_tokens, 1000);
     correct({ total: 0, input: 0, output: 0, reasoning: 0, cache: { read: 0, write: 0 } }, 1791443005000);
     await parse();
     const latest = (await fs.readFile(queuePath, "utf8")).trim().split("\n").map(JSON.parse).at(-1);
@@ -73,31 +87,9 @@ test("DuMate SQLite downward and zero corrections survive compaction and HTTP up
     assert.equal(readOpencodeDbMessages(dbPath).length, 0, "default OpenCode reads still omit zero-token records");
     assert.equal((await compactPendingQueue({ queuePath, offset, minPendingBytes: 0 })).removedRecords, 1);
     const compacted = await fs.readFile(queuePath, "utf8");
-    assert.ok(compacted.startsWith(prefix), "uploaded history is unchanged");
-    assert.equal((await readQueueBatch(queuePath, offset, 200)).buckets[0].total_tokens, 0);
-    let calls = 0;
-    let payload;
-    server = http.createServer((request, response) => {
-      let body = "";
-      request.on("data", (bytes) => { body += bytes; });
-      request.on("end", () => {
-        calls += 1;
-        payload = JSON.parse(body);
-        response.writeHead(200, { "Content-Type": "application/json" });
-        response.end(JSON.stringify({ ok: true, inserted: 1, upload_scope: "cloud" }));
-      });
-    });
-    await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
-    const upload = () => drainQueueToCloud({ baseUrl: `http://127.0.0.1:${server.address().port}`, deviceToken: "fixture-token", queuePath, queueStatePath });
-    assert.equal((await upload()).batches, 1);
-    assert.equal(payload.hourly[0].source, "dumate");
-    assert.equal(payload.hourly[0].total_tokens, 0);
-    assert.equal(payload.hourly[0].total_cost_usd, 0);
-    assert.equal((await upload()).batches, 0);
-    assert.equal(calls, 1);
-    assert.equal(JSON.parse(await fs.readFile(queueStatePath, "utf8")).offset, Buffer.byteLength(compacted));
+    assert.ok(compacted.startsWith(prefix), "history before the offset is unchanged");
+    assert.equal((await readPendingBuckets(queuePath, offset))[0].total_tokens, 0);
   } finally {
-    if (server) await new Promise((resolve) => server.close(resolve));
     await fs.rm(tmp, { recursive: true, force: true });
   }
 });

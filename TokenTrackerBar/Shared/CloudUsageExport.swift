@@ -5,6 +5,7 @@ import Darwin
 struct CloudUsageExport {
     enum Failure: String, Error { case invalidExport = "invalid_export", saveFailed = "save_failed" }
     static let maximumBytes = 5 * 1024 * 1024
+    static let localMaximumBytes = 64 * 1024 * 1024
     let requestID: String
     let filename: String
     let format: String
@@ -21,7 +22,7 @@ struct CloudUsageExport {
               !local || format == "json",
               filename.hasSuffix("." + format),
               let content = message["content"] as? String, !content.isEmpty, !content.contains("\0"),
-              content.utf8.count <= Self.maximumBytes else {
+              content.utf8.count <= (local ? Self.localMaximumBytes : Self.maximumBytes) else {
             throw Failure.invalidExport
         }
         let bytes = Data(content.utf8)

@@ -5,7 +5,7 @@ import { copy } from "./copy";
 
 const SLUG = "tokentracker-sessions";
 
-export type SessionSource = "claude" | "codex" | "grok" | "zcode" | "opencode" | "kimi" | "omp";
+export type SessionSource = "claude" | "codex" | "grok" | "zcode" | "opencode" | "kimi" | "omp" | "dsh";
 
 export interface SessionPerformance {
   estimated_output_tokens: number;
@@ -68,6 +68,10 @@ export interface SessionModelUsage {
 }
 
 export interface SessionRow {
+  device?: string;
+  device_name?: string;
+  remote?: boolean;
+  hidden?: boolean;
   session_hash: string;
   session_id: string | null;
   parent_session_id: string | null;
@@ -146,6 +150,7 @@ interface FetchOptions {
   to?: string;
   limit?: number;
   refresh?: boolean;
+  includeHidden?: boolean;
 }
 
 export async function getSessions(options: FetchOptions = {}): Promise<SessionsResponse> {
@@ -153,6 +158,7 @@ export async function getSessions(options: FetchOptions = {}): Promise<SessionsR
   if (options.from) url.searchParams.set("from", options.from);
   if (options.to) url.searchParams.set("to", options.to);
   if (options.limit) url.searchParams.set("limit", String(options.limit));
+  if (options.includeHidden) url.searchParams.set("include_hidden","1");
   if (options.refresh) url.searchParams.set("refresh", "1");
   const response = await fetch(url.toString(), {
     headers: { Accept: "application/json" },

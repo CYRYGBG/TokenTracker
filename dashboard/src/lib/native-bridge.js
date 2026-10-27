@@ -48,6 +48,9 @@ export function subscribeNativeSystemAppearance(callback) {
 
 export function isNativeApp() {
   if (typeof window === "undefined") return false;
+  // Internal navigation drops ?app=1; the native bridge remains authoritative
+  // even before any page has persisted the legacy query marker.
+  if (isBridgeAvailable()) return true;
   try {
     const params = new URLSearchParams(window.location.search);
     if (params.get("app") === "1") {
@@ -101,14 +104,7 @@ export function canOfferTopBarExtension() {
  * Linux shell's copy of it may never attach to WebKitGTK's host object, so
  * there the Tauri command is called directly.
  */
-export function getNativeOAuthBridge() {
-  if (typeof window === "undefined") return null;
-  const handler = window.webkit?.messageHandlers?.nativeOAuth;
-  if (handler) return handler;
-  const invoke = window.__TAURI_INTERNALS__?.invoke;
-  if (typeof invoke !== "function") return null;
-  return { postMessage: (url) => invoke("open_oauth", { url }) };
-}
+export function getNativeOAuthBridge() { return null; }
 
 function getHandler() {
   if (typeof window === "undefined") return null;
@@ -153,6 +149,7 @@ export function postNativeMessage(message) {
 
 const CLOUD_EXPORT_EVENT = "tokentracker:cloud-export-result";
 const CLOUD_EXPORT_MAX_BYTES = 5 * 1024 * 1024;
+const LOCAL_EXPORT_MAX_BYTES = 64 * 1024 * 1024;
 const CLOUD_EXPORT_NAME = /^tokentracker-cloud-[A-Za-z0-9][A-Za-z0-9_-]{0,150}\.(csv|json)$/;
 
 function cloudExportError(code) {
@@ -179,7 +176,7 @@ function saveUsageExport({ filename, content, format, signal }, local) {
   if ((format !== "csv" && format !== "json") || typeof filename !== "string"
     || !(local ? /^tokentracker-local-[A-Za-z0-9][A-Za-z0-9_-]{0,150}\.json$/.test(filename) && format === "json" : CLOUD_EXPORT_NAME.test(filename)) || !filename.endsWith(`.${format}`)
     || typeof content !== "string" || !content || content.includes("\0")
-    || new TextEncoder().encode(content).byteLength > CLOUD_EXPORT_MAX_BYTES) {
+    || new TextEncoder().encode(content).byteLength > (local ? LOCAL_EXPORT_MAX_BYTES : CLOUD_EXPORT_MAX_BYTES)) {
     return Promise.reject(cloudExportError("invalid_export"));
   }
 

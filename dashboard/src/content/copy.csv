@@ -429,7 +429,7 @@ nav.group.account,shared,*,Sidebar,group_account,"Account",,active
 nav.settings,shared,*,Sidebar,nav_settings,"Settings",,active
 header.auth.open_settings,shared,*,InsforgeUserHeaderControls,open_settings,"Open settings",,active
 settings.page.title,ui,SettingsPage,SettingsPage,title,"Settings",,active
-settings.page.subtitle,ui,SettingsPage,SettingsPage,subtitle,"Manage your account, appearance, and display preferences.",,active
+settings.page.subtitle,ui,SettingsPage,SettingsPage,subtitle,"Manage appearance, local data, and display preferences.",,active
 settings.nav.group.personal,ui,SettingsPage,SettingsPage,nav_group_personal,"Personal",,active
 settings.nav.group.app,ui,SettingsPage,SettingsPage,nav_group_app,"App",,active
 settings.nav.group.developer,ui,SettingsPage,SettingsPage,nav_group_developer,"Developer",,active
@@ -596,8 +596,8 @@ leaderboard.summary.view_profile,ui,LeaderboardPage,LeaderboardMeChip,summary_vi
 settings.account.signOut,ui,SettingsPage,SettingsPage,sign_out,"Sign out",,active
 settings.account.signIn,ui,SettingsPage,SettingsPage,sign_in,"Sign in",,active
 settings.account.signedOutHint,ui,SettingsPage,SettingsPage,signed_out_hint,"Sign in to manage your public profile and account details.",,active
-settings.section.menubar,ui,SettingsPage,SettingsPage,sec_menubar,"App & Updates",,active
-settings.section.menubar.description,ui,SettingsPage,SettingsPage,sec_menubar_description,"Manage background sync, startup behavior, and app updates.",,active
+settings.section.menubar,ui,SettingsPage,SettingsPage,sec_menubar,"App",,active
+settings.section.menubar.description,ui,SettingsPage,SettingsPage,sec_menubar_description,"Manage menu bar statistics, startup behavior, and local collection.",,active
 settings.menubar.showStats,ui,SettingsPage,SettingsPage,mb_show_stats,"Show stats in menu bar",,active
 settings.menubar.showStatsHint,ui,SettingsPage,SettingsPage,mb_show_stats_hint,"Display today's token count and cost beside the menu bar icon.",,active
 pet.menubar.title,ui,PetPage,PetPage,pet_menubar_title,"Run in the menu bar",,active
@@ -617,9 +617,9 @@ settings.menubar.appearance,ui,SettingsPage,MenuBarSection,mb_appearance,"Menu b
 settings.menubar.appearanceHint,ui,SettingsPage,MenuBarSection,mb_appearance_hint,"Stats, metric slots, and the animated icon live on the Menu Bar & Widgets page.",,active
 settings.menubar.appearanceLink,ui,SettingsPage,MenuBarSection,mb_appearance_link,"Open",,active
 settings.menubar.launchAtLogin,ui,SettingsPage,SettingsPage,mb_login,"Launch at login",,active
-settings.menubar.launchAtLoginHint,ui,SettingsPage,SettingsPage,mb_login_hint,"Start TokenTrackerBar automatically when you sign in to macOS.",,active
+settings.menubar.launchAtLoginHint,ui,SettingsPage,SettingsPage,mb_login_hint,"Start TokenTracker Personal automatically when you sign in.",,active
 settings.menubar.syncNow,ui,SettingsPage,SettingsPage,mb_sync_now,"Sync now",,active
-settings.menubar.syncNowHint,ui,SettingsPage,SettingsPage,mb_sync_now_hint,"Trigger an immediate parse and upload of local AI tool logs.",,active
+settings.menubar.syncNowHint,ui,SettingsPage,SettingsPage,mb_sync_now_hint,"Collect local AI tool usage now. WebDAV statistics sync is configured in Sync & Devices.",,active
 settings.menubar.syncing,ui,SettingsPage,SettingsPage,mb_syncing,"Syncing…",,active
 settings.menubar.updates,ui,SettingsPage,SettingsPage,mb_updates,"Updates",,active
 settings.menubar.autoUpdate,ui,SettingsPage,MenuBarSection,mb_auto_update,"Automatic updates",,active
@@ -2138,3 +2138,93 @@ settings.local_data.error.too_many_devices,settings,SettingsPage,LocalDataSectio
 settings.local_data.error.unknown_device,settings,SettingsPage,LocalDataSection,unknown_device,This imported source is no longer available.,,active
 settings.local_data.error.transfer_failed,settings,SettingsPage,LocalDataSection,transfer_failed,"Transfer failed. Check the file and local app, then try again.",,active
 settings.local_data.local_history_only,dashboard,DashboardPage,LocalDataSection,local_history_only,"Offline snapshots omit session records. Select this device for context breakdown; project, session and outcome analyses always use this device's records.",,active
+fork.personal.300ee3dee4,fork,Personal,Personal,text,"Loading…",,active
+fork.personal.174fd6f85c,fork,Personal,Personal,text,"Usage scope",,active
+fork.personal.fb9b2c7f31,fork,Personal,Personal,text,"All devices",,active
+fork.personal.8b4c1c5f0c,fork,Personal,Personal,text,"This device",,active
+fork.personal.7d0ecab92a,fork,Personal,Personal,text,"Sync is incomplete. Showing saved data.",,active
+fork.personal.3651670662,fork,Personal,Personal,text,"Sync & devices",,active
+fork.personal.bfb9248299,fork,Personal,Personal,text,"Sync usage details over HTTPS using your WebDAV app password. The password stays in system credential storage. Conversation content is excluded. Enter credentials here, never in chat.",,active
+fork.personal.86e118291e,fork,Personal,Personal,text,"Server URL",,active
+fork.personal.a1aaf352cb,fork,Personal,Personal,text,"Username",,active
+fork.personal.663d0b2057,fork,Personal,Personal,text,"Sync directory",,active
+fork.personal.4433eb13be,fork,Personal,Personal,text,"Device name",,active
+fork.personal.ae66366412,fork,Personal,Personal,text,"App password",,active
+fork.personal.8a57844ddf,fork,Personal,Personal,text,"Saved; leave blank to keep",,active
+fork.personal.63595e95b7,fork,Personal,Personal,text,"Not configured",,active
+fork.personal.5faab6dc38,fork,Personal,Personal,text,"Background sync",,active
+fork.personal.0cf7912b4d,fork,Personal,Personal,text,"Sync session titles",,active
+fork.personal.cb84a961b0,fork,Personal,Personal,text,"Settings saved",,active
+fork.personal.fadf24dbc5,fork,Personal,Personal,text,"Save",,active
+fork.personal.eb06635875,fork,Personal,Personal,text,"Connection succeeded",,active
+fork.personal.b4a9a5f1b1,fork,Personal,Personal,text,"Save and test connection",,active
+fork.personal.d9c1fcf2bb,fork,Personal,Personal,text,"Sync cycle finished; review device status",,active
+fork.personal.098d06ecac,fork,Personal,Personal,text,"Sync now",,active
+fork.personal.2a0b1ad677,fork,Personal,Personal,text,"Last successful sync:",,active
+fork.personal.9ef840e69f,fork,Personal,Personal,text,"None yet",,active
+fork.personal.76ce8e3d5e,fork,Personal,Personal,text,"Synced",,active
+fork.personal.d82674407c,fork,Personal,Personal,text,"Sync failed; history retained",,active
+fork.personal.bf9c6bfe0c,fork,Personal,Personal,text,"Model pricing",,active
+fork.personal.64b3b59a15,fork,Personal,Personal,text,"Source:",,active
+fork.personal.09ceea7644,fork,Personal,Personal,text,"Built-in",,active
+fork.personal.294d14b41f,fork,Personal,Personal,text," · Version:",,active
+fork.personal.3cd9c327d8,fork,Personal,Personal,text," · Retrieved:",,active
+fork.personal.d41eaf5289,fork,Personal,Personal,text,"Bundled snapshot",,active
+fork.personal.27b67a62cb,fork,Personal,Personal,text,"Totals retain their first observed price basis. Updated usage or explicit re-estimation uses current prices. Session totals retain their observed basis too. Actual spending is stored separately; estimates are not historical invoices.",,active
+fork.personal.b8f0423455,fork,Personal,Personal,text,"Pricing reloaded; cache or bundled prices are used offline",,active
+fork.personal.4043f74f67,fork,Personal,Personal,text,"Refresh pricing",,active
+fork.personal.336dd82bb0,fork,Personal,Personal,text,"Totals re-estimated using current prices",,active
+fork.personal.25f08768a8,fork,Personal,Personal,text,"Re-estimate totals",,active
+fork.personal.1b81c2a94d,fork,Personal,Personal,text,"Custom prices in USD per million tokens apply only to the specified tool source and model. Zero means free.",,active
+fork.personal.0a62e3efba,fork,Personal,Personal,text,"Tool source (e.g. codex)",,active
+fork.personal.2b7c96b260,fork,Personal,Personal,text,"Model ID",,active
+fork.personal.e8850440f2,fork,Personal,Personal,text,"Input",,active
+fork.personal.ded698ae1e,fork,Personal,Personal,text,"Output",,active
+fork.personal.987b1086b2,fork,Personal,Personal,text,"Cache read",,active
+fork.personal.732298044d,fork,Personal,Personal,text,"Cache write",,active
+fork.personal.a4dafd8a12,fork,Personal,Personal,text,"Custom price saved",,active
+fork.personal.0d0a1ff753,fork,Personal,Personal,text,"Save custom price",,active
+fork.personal.4e5c4958dd,fork,Personal,Personal,text,"Removed",,active
+fork.personal.2f752c005e,fork,Personal,Personal,text,"Remove",,active
+fork.personal.9fd90671cc,fork,Personal,Personal,text,"Actual spending",,active
+fork.personal.bd744b773b,fork,Personal,Personal,text,"Manually record verified payments or consumption. Automatic reconciliation is unavailable. Top-ups are separate from spending. Currencies remain separate, and payments are never added to model estimates.",,active
+fork.personal.e4e46c7235,fork,Personal,Personal,text,"Type",,active
+fork.personal.4eb7bf9492,fork,Personal,Personal,text,"Subscription payment",,active
+fork.personal.29e25828d2,fork,Personal,Personal,text,"API consumption",,active
+fork.personal.fa03c46253,fork,Personal,Personal,text,"Top-up",,active
+fork.personal.0c131e3964,fork,Personal,Personal,text,"Provider",,active
+fork.personal.34943c40c9,fork,Personal,Personal,text,"Amount",,active
+fork.personal.27f59ac47f,fork,Personal,Personal,text,"Currency code",,active
+fork.personal.b6fed9af83,fork,Personal,Personal,text,"Date",,active
+fork.personal.fd322799c8,fork,Personal,Personal,text,"Period start",,active
+fork.personal.a74fd5004f,fork,Personal,Personal,text,"Period end",,active
+fork.personal.e0361480e3,fork,Personal,Personal,text,"Note",,active
+fork.personal.6391fe2841,fork,Personal,Personal,text,"Expense saved",,active
+fork.personal.9ecbb3e7d1,fork,Personal,Personal,text,"Save changes",,active
+fork.personal.cedf1b25c9,fork,Personal,Personal,text,"Add record",,active
+fork.personal.8e13b2b6b7,fork,Personal,Personal,text,"Provider / type",,active
+fork.personal.f3ea6d345e,fork,Personal,Personal,text,"Actions",,active
+fork.personal.a7f814c0a4,fork,Personal,Personal,text,"Edit",,active
+fork.personal.35f8fd8c02,fork,Personal,Personal,text,"Record removed",,active
+fork.personal.1b2a661a92,fork,Personal,Personal,text,"Project grouping",,active
+fork.personal.aacf7b101b,fork,Personal,Personal,text,"Use project IDs from the session project filter. Merging preserves source identities; splitting restores them.",,active
+fork.personal.874a561693,fork,Personal,Personal,text,"Source project ID",,active
+fork.personal.4e4e0570a6,fork,Personal,Personal,text,"Target project ID",,active
+fork.personal.3e0303a34e,fork,Personal,Personal,text,"Projects merged",,active
+fork.personal.76c2d222e3,fork,Personal,Personal,text,"Merge",,active
+fork.personal.ca6f6c0ff6,fork,Personal,Personal,text,"Projects split",,active
+fork.personal.726ca479a9,fork,Personal,Personal,text,"Split",,active
+fork.personal.cd2b69b986,fork,Personal,Personal,text,"Unhide",,active
+fork.personal.bb0e7e01aa,fork,Personal,Personal,text,"Hide",,active
+fork.personal.db956b19a4,fork,Personal,Personal,text,"Show hidden sessions (usage totals are unchanged)",,active
+fork.personal.54ddee95eb,fork,Personal,Personal,text,"TokenTracker Personal",,active
+fork.personal.webdav,fork,Personal,Personal,title,"WebDAV sync",,active
+fork.spending.label,fork,Personal,Scope,label,"Actual payments (all recorded dates):",,active
+fork.spending.none,fork,Personal,Scope,empty,"No verified records",,active
+fork.backup.title,fork,Personal,Backup,title,Statistics backup,,active
+fork.backup.hint,fork,Personal,Backup,hint,"Backups include collected totals, projects, sessions and preferences, with no app password. Restore fills missing records and preserves existing records. A backup from another device stays separate.",,active
+fork.backup.export,fork,Personal,Backup,export,Export backup,,active
+fork.backup.restore,fork,Personal,Backup,restore,Restore missing records from backup,,active
+fork.backup.exported,fork,Personal,Backup,exported,Backup exported,,active
+fork.backup.restored,fork,Personal,Backup,restored,Missing records restored,,active
+fork.backup.too_large,fork,Personal,Backup,too_large,Backup exceeds 64 MB,,active

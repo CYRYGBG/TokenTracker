@@ -11,31 +11,10 @@ function readTrayContext() {
     .replace(/\r\n/g, "\n");
 }
 
-test("Windows tray schedules periodic silent update checks while resident", () => {
-  const source = readTrayContext();
-
-  // A long-lived tray process must re-check for updates, not only once at launch.
-  assert.match(
-    source,
-    /private const int UpdateCheckIntervalMinutes = \d+ \* 60;/,
-    "update check interval must be defined in hours worth of minutes",
-  );
-  assert.match(
-    source,
-    /private readonly System\.Windows\.Forms\.Timer _updateCheckTimer = new\(\)\n\s*\{\n\s*Interval = UpdateCheckIntervalMinutes \* 60 \* 1000,\n\s*\};/,
-    "a dedicated timer must drive periodic update checks",
-  );
-  assert.match(
-    source,
-    /_updateCheckTimer\.Tick \+= \(_, _\) => _ = _updateChecker\.CheckAsync\(silent: true\);\n\s*_updateCheckTimer\.Start\(\);/,
-    "timer ticks must run the same silent check as launch",
-  );
-  // The launch check stays in place.
-  assert.match(
-    source,
-    /_ = _updateChecker\.CheckAsync\(silent: true\);\n\s*_updateCheckTimer\.Tick/,
-    "the launch-time check must be kept alongside the periodic one",
-  );
+test("personal Windows tray never starts the official updater timer", () => {
+  const source=readTrayContext();
+  assert.doesNotMatch(source, /_updateCheckTimer\.Start\(\)/);
+  assert.doesNotMatch(source, /_ = _updateChecker\.CheckAsync\(silent: true\)/);
 });
 
 test("periodic update check timer is disposed with the tray context", () => {

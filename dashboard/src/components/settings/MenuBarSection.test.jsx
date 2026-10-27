@@ -62,27 +62,31 @@ describe("MenuBarSection limit-reset feedback", () => {
     expect(nativeSettingsMock.setSetting).toHaveBeenCalledWith("confettiOnReset", false);
   });
 
-  it("toggles automatic updates independently of manual checks", async () => {
+  it("configures native metrics directly without the removed widget route", async () => {
     const user = userEvent.setup();
-    render(
-      <MemoryRouter>
-        <MenuBarSection />
-      </MemoryRouter>,
-    );
+    render(<MemoryRouter><MenuBarSection /></MemoryRouter>);
+    expect(screen.queryByRole("link")).toBeNull();
+    const primary = screen.getByRole("combobox", { name: "menubar.slot.primary" });
+    await act(async () => { await user.click(primary); });
+    const none = await screen.findByRole("option", { name: "menubar.metric.none" });
+    await act(async () => { await user.click(none); });
+    expect(nativeSettingsMock.setSetting).toHaveBeenCalledWith("menuBarItems", ["none", "todayCost"]);
+  });
 
-    const autoUpdateSwitch = screen.getByRole("switch", {
-      name: "settings.menubar.autoUpdate",
-    });
-    expect(autoUpdateSwitch).toHaveAttribute("aria-checked", "true");
+  it("disables metric selection while native statistics are hidden", () => {
+    nativeSettingsMock.settings.showStats = false;
+    try {
+      render(<MemoryRouter><MenuBarSection /></MemoryRouter>);
+      expect(screen.getByRole("combobox", { name: "menubar.slot.primary" })).toBeDisabled();
+      expect(screen.getByRole("combobox", { name: "menubar.slot.secondary" })).toBeDisabled();
+    } finally {
+      delete nativeSettingsMock.settings.showStats;
+    }
+  });
 
-    await act(async () => {
-      await user.click(autoUpdateSwitch);
-    });
-
-    expect(nativeSettingsMock.setSetting).toHaveBeenCalledWith("autoUpdateEnabled", false);
-    // Manual check stays available: the button is untouched by the toggle.
-    expect(
-      screen.getByRole("button", { name: /settings\.menubar\.checkUpdates/ }),
-    ).toBeEnabled();
+  it("omits official update controls from personal settings", () => {
+    render(<MemoryRouter><MenuBarSection/></MemoryRouter>);
+    expect(screen.queryByRole("switch",{name:"settings.menubar.autoUpdate"})).toBeNull();
+    expect(screen.queryByRole("button",{name:/settings\.menubar\.checkUpdates/})).toBeNull();
   });
 });

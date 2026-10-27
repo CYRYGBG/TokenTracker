@@ -71,7 +71,7 @@ function isDeclaredManual(raw) {
 }
 
 function defaultConfigPath() {
-  return path.join(os.homedir(), ".tokentracker", "tracker", "config.json");
+  return path.join(os.homedir(), process.env.TOKENTRACKER_PERSONAL === "1" ? ".tokentracker-personal" : ".tokentracker", "tracker", "config.json");
 }
 
 function readPersistedProxyConfig({ configPath } = {}) {

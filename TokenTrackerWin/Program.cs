@@ -3,7 +3,7 @@ namespace TokenTrackerWin;
 internal static class Program
 {
     // Stable per-user mutex name so subsequent launches reach the tray instance.
-    private const string SingleInstanceMutexName = "TokenTracker.Windows.Tray.SingleInstance";
+    private const string SingleInstanceMutexName = "TokenTrackerPersonal.Windows.Tray.SingleInstance";
 
     [STAThread]
     private static void Main(string[] args)

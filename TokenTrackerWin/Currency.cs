@@ -37,7 +37,7 @@ internal static class Currency
 
     private static readonly string SettingsPath = Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-        "TokenTracker",
+        "TokenTrackerPersonal",
         "native-settings.json");
 
     /// <summary>Cache the live currency symbol + USD→currency rate so a cold-launched pet

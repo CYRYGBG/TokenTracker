@@ -181,6 +181,11 @@ test("isRunningUnderWsl is false off Linux regardless of env", (t) => {
 });
 
 test("serve-command parsing survives ps output quirks", () => {
+  assert.equal(
+    parseServeScriptPath(`${process.execPath} /opt/app/bin/personal.js serve`),
+    "/opt/app/bin/personal.js",
+  );
+  assert.equal(parseServeScriptPath("/usr/bin/python /tmp/node /opt/app/bin/tracker.js serve"), null);
   // `ps -o command=` joins argv with spaces and drops all quoting, so the
   // script path is only unambiguous relative to the `serve` argument after it.
   assert.equal(
@@ -430,28 +435,25 @@ test("real serve entry exits duplicate cleanly without replacing the first proce
   await waitForLocalAuth(port, CURRENT_PACKAGE_VERSION);
   assert.equal(first.exitCode, null, `first serve exited early: ${firstOutput.stderr}`);
 
-  // Exercise the real serve preflight dispatch, which runs before API routing.
-  for (const [origin, expected] of [["https://untrusted.example.invalid", 403], ["null", 403],
-    [`http://127.0.0.1:${port}`, 204]]) {
-    const response = await fetch(`http://127.0.0.1:${port}/api/auth/refresh`, {
-      method: "OPTIONS", headers: { Origin: origin },
+  // The fork removed the cloud auth surface: those endpoints must not exist,
+  // and local API mutations must still reject foreign origins.
+  for (const path of ["/api/auth/refresh", "/api/auth-bridge/verifier"]) {
+    const response = await fetch(`http://127.0.0.1:${port}${path}`, {
+      headers: { Origin: "https://untrusted.example.invalid" },
     });
-    assert.equal(response.status, expected);
-    assert.equal(response.headers.get("access-control-allow-origin"), null);
-    assert.equal(response.headers.get("set-cookie"), null);
-    if (expected === 403) assert.equal((await response.json()).code, "untrusted_auth_origin");
+    assert.equal(response.status, 404, `${path} must be gone in the fork`);
   }
   const { token: localToken } = await (await fetch(`http://127.0.0.1:${port}/api/local-auth`)).json();
-  const markerUrl = `http://127.0.0.1:${port}/api/auth-bridge/verifier`;
-  const marked = await fetch(markerUrl, { method: "PUT",
-    headers: { "Content-Type": "application/json", "X-TokenTracker-Local-Auth": localToken },
-    body: JSON.stringify({ native: true }) });
-  assert.equal(marked.status, 200);
-  const foreignMarker = await fetch(markerUrl, { headers: { "Sec-Fetch-Site": "cross-site" } });
-  assert.equal(foreignMarker.status, 403);
-  const localMarker = await fetch(markerUrl);
-  assert.equal((await localMarker.json()).native, true);
-  assert.equal((await (await fetch(markerUrl)).json()).native, false);
+  const foreignMutation = await fetch(`http://127.0.0.1:${port}/api/webdav/config`, {
+    method: "PUT",
+    headers: {
+      "Content-Type": "application/json",
+      "X-TokenTracker-Local-Auth": localToken,
+      Origin: "https://untrusted.example.invalid",
+    },
+    body: "{}",
+  });
+  assert.equal(foreignMutation.status, 401, "foreign origins must not reach local mutations");
 
   const second = cp.spawn(process.execPath, args, {
     env,

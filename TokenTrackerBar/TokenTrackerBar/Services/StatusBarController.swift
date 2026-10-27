@@ -41,8 +41,7 @@ final class StatusBarController: NSObject {
     private var animator: MenuBarAnimator?
     private let queueActivityMonitor = QueueActivityMonitor()
     private let accountUploadMonitor = QueueActivityMonitor(
-        queueURL: FileManager.default.homeDirectoryForCurrentUser
-            .appendingPathComponent(".tokentracker/tracker/queue.state.json"),
+        queueURL: Constants.trackerDirectory.appendingPathComponent("queue.state.json"),
         settleDelay: BackgroundRefreshPolicy.defaultAccountUploadVisibilityDelay,
         publishInitialState: true
     )
@@ -1151,12 +1150,6 @@ final class StatusBarController: NSObject {
             islandEnabled: islandEnabled
         )
 
-        // Dynamic Island
-        let islandItem = NSMenuItem(title: Strings.menuDynamicIsland, action: #selector(toggleDynamicIsland), keyEquivalent: "")
-        islandItem.target = self
-        islandItem.state = islandEnabled ? .on : .off
-        menu.addItem(islandItem)
-
         // Menu Bar Icon
         let menuBarIconItem = NSMenuItem(title: Strings.menuMenuBarIcon, action: #selector(toggleMenuBarIcon), keyEquivalent: "")
         menuBarIconItem.target = self
@@ -1190,12 +1183,6 @@ final class StatusBarController: NSObject {
         statsItem.target = self
         statsItem.state = showStats ? .on : .off
         displayMenu.addItem(statsItem)
-
-        let compactItem = NSMenuItem(title: Strings.menuDynamicIslandCompactMode, action: #selector(toggleDynamicIslandCompact), keyEquivalent: "")
-        compactItem.target = self
-        compactItem.state = DynamicIslandCompactPolicy.isEnabled() ? .on : .off
-        compactItem.isEnabled = islandEnabled
-        displayMenu.addItem(compactItem)
 
         let remainingItem = NSMenuItem(title: Strings.menuRingShowsRemaining, action: #selector(selectRingDisplayMode(_:)), keyEquivalent: "")
         remainingItem.target = self
@@ -1240,14 +1227,6 @@ final class StatusBarController: NSObject {
         displayItem.submenu = displayMenu
         menu.addItem(displayItem)
 
-        // Desktop Pet
-        let petItem = NSMenuItem(title: Strings.menuDesktopPet, action: #selector(toggleDesktopPet), keyEquivalent: "")
-        petItem.target = self
-        petItem.state = desktopPetController.isVisible ? .on : .off
-        menu.addItem(petItem)
-
-        menu.addItem(.separator())
-
         // ── Group 3: Preferences & Notifications ──
         let loginItem = NSMenuItem(title: Strings.menuLaunchAtLogin, action: #selector(toggleLaunchAtLogin), keyEquivalent: "")
         loginItem.target = self
@@ -1267,13 +1246,6 @@ final class StatusBarController: NSObject {
         menu.addItem(.separator())
 
         // ── Group 4: System & App Info ──
-        let updateTitle = UpdateChecker.shared.statusText ?? Strings.menuCheckForUpdates
-        let updateItem = NSMenuItem(title: updateTitle, action: #selector(checkForUpdates), keyEquivalent: "u")
-        updateItem.tag = Self.updateMenuItemTag
-        updateItem.target = self
-        updateItem.isEnabled = !UpdateChecker.shared.isBusy
-        menu.addItem(updateItem)
-
         let version = UpdateChecker.shared.currentVersion()
         let aboutItem = NSMenuItem(title: "TokenTracker v\(version)", action: #selector(openAbout), keyEquivalent: "")
         aboutItem.target = self

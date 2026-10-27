@@ -690,6 +690,7 @@ internal sealed class ServerManager : IDisposable
         };
         psi.ArgumentList.Add(entryPath);
         foreach (var a in args) psi.ArgumentList.Add(a);
+        psi.Environment["TOKENTRACKER_PERSONAL"] = "1";
         psi.Environment["NODE_ENV"] = "production";
         psi.Environment["TOKENTRACKER_APP_SHELL"] = "windows";
         // The tray host owns the five-minute background sync timer and receives

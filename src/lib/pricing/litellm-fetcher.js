@@ -24,7 +24,7 @@ async function readJsonAsync(p) {
 }
 
 function isFresh(stat, ttlMs) {
-  if (!stat) return false;
+  if (!stat || ttlMs <= 0) return false;
   return Date.now() - stat.mtimeMs < ttlMs;
 }
 
@@ -129,8 +129,9 @@ async function loadLitellmData({
   if (isFresh(stat, ttlMs)) {
     try {
       const data = await readJsonAsync(cachePath);
+      const fetchedAt=data._meta?.cached_at||null;
       delete data._meta;
-      return { data, source: "disk-cache" };
+      return { data, source: "disk-cache", fetchedAt };
     } catch (e) {
       log("warn", `[pricing] disk cache unreadable: ${e?.message || e}`);
     }
@@ -140,7 +141,7 @@ async function loadLitellmData({
   try {
     const upstream = await fetchImpl({ url, timeoutMs: fetchTimeoutMs });
     const slim = await writeCache(cachePath, upstream);
-    return { data: slim, source: "upstream" };
+    return { data: slim, source: "upstream", fetchedAt:new Date().toISOString() };
   } catch (e) {
     log("warn", `[pricing] upstream fetch failed: ${e?.message || e}`);
   }
@@ -149,9 +150,10 @@ async function loadLitellmData({
   if (stat) {
     try {
       const data = await readJsonAsync(cachePath);
+      const fetchedAt=data._meta?.cached_at||null;
       delete data._meta;
       log("warn", "[pricing] using stale disk cache");
-      return { data, source: "stale-cache" };
+      return { data, source: "stale-cache", fetchedAt };
     } catch (e) {
       log("warn", `[pricing] stale cache unreadable: ${e?.message || e}`);
     }

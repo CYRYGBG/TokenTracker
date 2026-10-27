@@ -1,0 +1,126 @@
+{
+  "checkedAt": "2026-10-27T11:13:38.968Z",
+  "logDir": "<local-log>/tt-fork-verification-D0dWGb",
+  "results": [
+    {
+      "name": "node-tests",
+      "exitCode": 0,
+      "signal": null,
+      "durationMs": 53670,
+      "log": "<local-log>/node-tests.log",
+      "summary": [
+        "✔ the model dictionary is built in first-appearance order and emitted with the rows (0.137125ms)",
+        "  ✔ marks done without a rebuild when the #187 repair rebuilt in the same sync (1.771166ms)",
+        "ℹ tests 3700",
+        "ℹ pass 3683",
+        "ℹ fail 0",
+        "ℹ cancelled 0",
+        "ℹ skipped 17",
+        "ℹ duration_ms 53596.254416"
+      ]
+    },
+    {
+      "name": "dashboard-tests",
+      "exitCode": 0,
+      "signal": null,
+      "durationMs": 46135,
+      "log": "<local-log>/dashboard-tests.log",
+      "summary": [
+        " Test Files  144 passed (144)",
+        "      Tests  1256 passed (1256)",
+        "   Duration  45.44s (transform 1.61s, setup 3.87s, collect 24.21s, tests 21.04s, environment 21.35s, prepare 3.52s)"
+      ]
+    },
+    {
+      "name": "typecheck",
+      "exitCode": 0,
+      "signal": null,
+      "durationMs": 1212,
+      "log": "<local-log>/typecheck.log",
+      "summary": []
+    },
+    {
+      "name": "validate-copy",
+      "exitCode": 0,
+      "signal": null,
+      "durationMs": 231,
+      "log": "<local-log>/validate-copy.log",
+      "summary": []
+    },
+    {
+      "name": "validate-locale",
+      "exitCode": 0,
+      "signal": null,
+      "durationMs": 261,
+      "log": "/tmp/tt-final-validate-locale.log",
+      "summary": [
+        "zh: 2228/2228 copy keys localized (100.0%).",
+        "zh-TW: 2228/2228 copy keys localized (100.0%)."
+      ],
+      "recheckedAt": "2026-10-27T11:13:35.186Z"
+    },
+    {
+      "name": "validate-guardrails",
+      "exitCode": 0,
+      "signal": null,
+      "durationMs": 254,
+      "log": "<local-log>/validate-guardrails.log",
+      "summary": []
+    },
+    {
+      "name": "validate-versions",
+      "exitCode": 0,
+      "signal": null,
+      "durationMs": 159,
+      "log": "<local-log>/validate-versions.log",
+      "summary": []
+    },
+    {
+      "name": "validate-ui-hardcode",
+      "exitCode": 0,
+      "signal": null,
+      "durationMs": 220,
+      "log": "<local-log>/validate-ui-hardcode.log",
+      "summary": []
+    },
+    {
+      "name": "validate-bot-frames",
+      "exitCode": 0,
+      "signal": null,
+      "durationMs": 396,
+      "log": "<local-log>/validate-bot-frames.log",
+      "summary": []
+    },
+    {
+      "name": "dashboard-build",
+      "exitCode": 0,
+      "signal": null,
+      "durationMs": 3778,
+      "log": "/tmp/tt-final-dashboard-build.log",
+      "summary": [
+        "✓ built in 3.27s"
+      ],
+      "recheckedAt": "2026-10-27T11:13:38.967Z"
+    }
+  ],
+  "previousAttempts": [
+    {
+      "name": "validate-locale",
+      "exitCode": 1,
+      "signal": null,
+      "durationMs": 175,
+      "log": "<local-log>/validate-locale.log",
+      "summary": []
+    },
+    {
+      "name": "dashboard-build",
+      "exitCode": 0,
+      "signal": null,
+      "durationMs": 3934,
+      "log": "<local-log>/dashboard-build.log",
+      "summary": [
+        "✓ built in 3.46s"
+      ]
+    }
+  ]
+}

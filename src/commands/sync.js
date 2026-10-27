@@ -4,8 +4,6 @@ const fs = require("node:fs/promises");
 const fssync = require("node:fs");
 const cp = require("node:child_process");
 const readline = require("node:readline");
-const { functionUrlFor, fetchFunctionResponse } = require("../lib/function-url");
-const { cloudUsageResetBlocksUpload, finishCloudDeviceUsageReset } = require("../lib/cloud-usage-reset");
 const { KIMI_MODEL_REPAIR_KEY, repairKimiModelAttribution } = require("../lib/kimi-model-repair");
 const { readSqliteJsonRows } = require("../lib/sqlite-reader");
 
@@ -29,6 +27,7 @@ const {
   listRolloutFilesDeep,
   readCodexRolloutSnapshot,
   codexSessionIdFromPath,
+  drainCodexCollectionGaps,
   filterColdCodexRolloutFiles,
   listClaudeProjectFiles,
   listGeminiSessionFiles,
@@ -129,6 +128,8 @@ const {
   parseZedIncremental,
   resolveLmstudioLogFiles,
   parseLmstudioIncremental,
+  resolveOpenSquillaDbPaths,
+  parseOpenSquillaIncremental,
   resolveUnslothDbPath,
   parseUnslothIncremental,
   resolveAnythingllmDbPath,
@@ -157,24 +158,7 @@ const {
 } = require("../lib/rollout");
 const { computeClaudeGroundTruthBuckets } = require("../lib/claude-categorizer");
 const { createProgress, renderBar, formatNumber, formatBytes } = require("../lib/progress");
-const {
-  DEFAULTS: AUTO_UPLOAD_DEFAULTS,
-  normalizeState: normalizeUploadState,
-  decideAutoUpload,
-  recordUploadFailure,
-  recordUploadSuccess,
-  parseRetryAfterMs,
-} = require("../lib/upload-throttle");
-const { compactPendingQueue, iterateQueueLines, sessionSnapshotMs } = require("../lib/upload-queue");
-const AUTO_UPLOAD_CONFIG = {
-  intervalMs: 15 * 60_000,
-  batchSize: 200,
-  maxBatchesSmall: 5,
-  maxBatchesLarge: 100,
-};
-const UPLOAD_BUDGET_MS = 90_000;
-const { maybeSendHeartbeat } = require("../lib/telemetry");
-const {
+const { compactPendingQueue } = require("../lib/upload-queue");const {
   isCursorInstalled,
   extractCursorSessionToken,
   fetchCursorUsageCsv,
@@ -192,7 +176,6 @@ const {
   openCursorStore,
 } = require("../lib/cursor-store");
 const { resolveTrackerPaths } = require("../lib/tracker-paths");
-const { readCloudSyncEnabled } = require("../lib/cloud-sync-prefs");
 const {
   appendUniqueDirs,
   extraScanRootPaths,
@@ -201,18 +184,6 @@ const {
   resolveScanRoots,
   scanRootDirState,
 } = require("../lib/scan-roots");
-const { resolveRuntimeConfig, isLegacyInsforgeBaseUrl } = require("../lib/runtime-config");
-const { resolveDeviceTokenPresence } = require("../lib/cloud-device-token");
-
-function formatSyncUploadSummaryLine({ runtimeDeviceToken, uploadResult, tokenPresentOnDisk }) {
-  if (runtimeDeviceToken) {
-    return `- Uploaded: ${uploadResult.inserted} inserted, ${uploadResult.skipped} skipped`;
-  }
-  if (tokenPresentOnDisk) {
-    return "- Uploaded: skipped (handled by local server; device token is set)";
-  }
-  return "- Uploaded: skipped (no device token)";
-}
 
 const { extractTokenCount } = require("../lib/codex-rollout-parser");
 const {
@@ -305,7 +276,14 @@ const CODEX_FORK_REPLAY_REPAIR_KEY = "codexForkReplayRepair_2026_07";
 // contributing rollout before committing the rebuild. The new key is required
 // so installs that finalized the original migration on a false negative retry.
 const CODEX_USAGE_LINEAGE_REPAIR_KEY = "codexUsageLineageRepair_2026_07_v2";
-const LEGACY_BASE_URL_MIGRATION_NOTE = "reset_after_legacy_baseurl_migration_2026_07";
+// Fork archive backfill: fresh personal installs collect via lightweight
+// background syncs, which by upstream design only walk the sessions/ tree.
+// Codex moves older rollouts into archived_sessions/ (zstd snapshots), so
+// without one deep pass the archive-era history never lands and totals stay
+// silently low — the exact "only claude/zcode counted" incident. Escalate
+// exactly the first eligible background run; event dedup makes archive
+// re-reads no-ops, so the extra pass cannot double-count.
+const CODEX_ARCHIVE_BACKFILL_KEY = "codexArchiveBackfill_2026_10_fork";
 // Keep the one escalated desktop refresh bounded; explicit full syncs can retry
 // the same migration without this ceiling when the history needs a deeper scan.
 const CODEX_BACKGROUND_LINEAGE_SCAN_MAX_BYTES = 1024 * 1024;
@@ -378,6 +356,7 @@ const AUTO_SYNC_SOURCES = new Set([
   "omp",
   "opencode",
   "openclaw",
+  "opensquilla",
   "pi",
   "qoder",
   "qoder-cn",
@@ -463,7 +442,7 @@ async function acquireSyncLock(
     priorityPollMs = PRIORITY_LOCK_POLL_MS,
   } = {},
 ) {
-  const waitsForPriority = Boolean(opts.waitForLock || opts.drain || opts.publishAccount);
+  const waitsForPriority = Boolean(opts.waitForLock);
   let lock = await openLock(lockPath, {
     quietIfLocked: opts.auto || waitsForPriority,
   });
@@ -566,17 +545,6 @@ async function cmdSync(argv, context = {}) {
   const syncDiagnostics = diagnostics && typeof diagnostics === "object" ? diagnostics : null;
   const home = context.home || os.homedir();
   const trackerDir = context.trackerDataDir || (await resolveTrackerPaths({ home })).trackerDir;
-  // Manual CLI sync is a one-time upload request, without changing the toggle.
-  // Hooks, native publication and detached retries must honor the saved opt-in.
-  const requiresCloudSyncPref = opts.auto || opts.background || opts.fromRetry || opts.fromNotify || opts.fromOpenclaw ||
-    Boolean(process.env.TOKENTRACKER_LOCAL_SYNC_ATTEMPT_ID);
-  let cloudResetRuntime = null;
-  const canUpload = () => !cloudUsageResetBlocksUpload(trackerDir, {
-    ownerId: process.env.TOKENTRACKER_CLOUD_OWNER_ID,
-    baseUrl: cloudResetRuntime?.baseUrl || process.env.TOKENTRACKER_INSFORGE_BASE_URL,
-    deviceId: process.env.TOKENTRACKER_CLOUD_DEVICE_ID,
-  }) &&
-    (!requiresCloudSyncPref || readCloudSyncEnabled(trackerDir));
 
   await ensureDir(trackerDir);
   if (opts.fromOpenclaw) {
@@ -604,68 +572,15 @@ async function cmdSync(argv, context = {}) {
     const queueStatePath = path.join(trackerDir, "queue.state.json");
     const projectQueuePath = path.join(trackerDir, "project.queue.jsonl");
     const projectQueueStatePath = path.join(trackerDir, "project.queue.state.json");
-    const uploadThrottlePath = path.join(trackerDir, "upload.throttle.json");
     const grokSignalPath = path.join(trackerDir, "grok-last-session.json");
     const legacyGrokSignalPath = path.join(trackerDir, "tracker", "grok-last-session.json");
 
-    // Native publication owns backlog and failure-backoff retries on its next
-    // five-minute tick. Remove any legacy detached retry marker immediately so
-    // an already-sleeping retry process observes the missing marker and exits.
-    if (opts.publishAccount || !canUpload()) {
-      await clearAutoRetry(trackerDir);
-    }
+    // The fork has no cloud upload, so any detached retry marker left by a
+    // previous official-version install is meaningless: clear it so an
+    // already-sleeping retry process observes the missing marker and exits.
+    await clearAutoRetry(trackerDir);
 
     const config = await readJson(configPath);
-    let legacyBaseUrlMigration = null;
-    // One-time repair for installs initialized before the 2026-04-19 InsForge
-    // project migration (0.5.67): init preserved any persisted config.baseUrl,
-    // so those installs kept uploading to the retired b46ug8xu project until
-    // its backend went dark on 2026-07-27 — every upload since 503s while the
-    // dashboard shows no error (silent cloud outage). Reset the upload offset
-    // so the whole local queue replays into the current project, clear the 503
-    // backoff, then remove the retired URL as the final commit step. Keeping the
-    // URL until every prerequisite succeeds makes an interrupted migration
-    // retryable on the next sync. Device tokens are opaque random values looked
-    // up by SHA-256 hash in tokentracker_device_tokens (not JWT_SECRET-signed);
-    // the database was restored into the current project, so preserve the old
-    // token unless the local API has already minted a replacement from the
-    // user's current login session and passed it through the environment.
-    // Ingest is a whole-row upsert per bucket key, making replay idempotent.
-    if (config && isLegacyInsforgeBaseUrl(config.baseUrl) &&
-        !Object.hasOwn(process.env, "TOKENTRACKER_LOCAL_SYNC_DEVICE_TOKEN")) {
-      const priorQueueState = (await readJson(queueStatePath)) || {};
-      // Prepare the replay exactly once. The note survives successful batches,
-      // so retryable failures retain both their committed offset and backoff
-      // instead of restarting history and hammering the backend on every hook.
-      if (priorQueueState.note !== LEGACY_BASE_URL_MIGRATION_NOTE) {
-        await writeJson(queueStatePath, {
-          ...priorQueueState,
-          offset: 0,
-          updatedAt: new Date().toISOString(),
-          note: LEGACY_BASE_URL_MIGRATION_NOTE,
-        });
-        try {
-          await fs.unlink(uploadThrottlePath);
-        } catch (error) {
-          if (error?.code !== "ENOENT") throw error;
-        }
-      }
-      const replacementDeviceToken =
-        typeof process.env.TOKENTRACKER_DEVICE_TOKEN === "string"
-          ? process.env.TOKENTRACKER_DEVICE_TOKEN.trim()
-          : "";
-      const previousDeviceToken =
-        typeof config.deviceToken === "string" ? config.deviceToken.trim() : "";
-      // Do not commit either the replacement token or URL removal yet. The
-      // current backend must accept a token first; otherwise a stale environment
-      // token could destroy a valid restored credential and make recovery worse.
-      legacyBaseUrlMigration = {
-        previousDeviceToken,
-        replacementDeviceToken,
-        hadPersistedAnonKey: Object.prototype.hasOwnProperty.call(config, "anonKey"),
-        persistedAnonKey: config.anonKey,
-      };
-    }
     // Scan roots (#657). Every producer — hook-fired sync, native background
     // refresh, CLI — must derive the SAME root list, and the cursor store's
     // codexRoots must come from that list: a rollout under a root the store
@@ -693,8 +608,6 @@ async function cmdSync(argv, context = {}) {
         : {}),
     });
     const cursors = cursorStore.cursors;
-    const uploadThrottle = normalizeUploadState(await readJson(uploadThrottlePath));
-    let uploadThrottleState = uploadThrottle;
     let grokHookSignal = null;
     let grokHookSignalPath = null;
     for (const candidate of [grokSignalPath, legacyGrokSignalPath]) {
@@ -789,6 +702,13 @@ async function cmdSync(argv, context = {}) {
       (cursors.migrations ||= {})[CODEX_USAGE_LINEAGE_REPAIR_KEY] =
         new Date().toISOString();
     }
+    // One-time deep pass for lightweight refreshes so archive-era Codex history
+    // reaches fresh installs without waiting for a manual full sync.
+    const codexArchiveBackfillDue = Boolean(
+      isBackgroundLightweightSync &&
+      sourceAllowed("codex") &&
+      !cursors.migrations?.[CODEX_ARCHIVE_BACKFILL_KEY],
+    );
 
     const sources = [];
     if (sourceAllowed("codex")) {
@@ -821,13 +741,13 @@ async function cmdSync(argv, context = {}) {
       });
       if (codexPaths.native) {
         sources.push({ source: "codex", sessionsDir: path.join(codexPaths.native, "sessions"), inventoryCacheKey: "codexDayInventoryCache" });
-        if (!isBackgroundLightweightSync || backgroundCodexUsageRepair) {
+        if (!isBackgroundLightweightSync || backgroundCodexUsageRepair || codexArchiveBackfillDue) {
           sources.push({ source: "codex", sessionsDir: path.join(codexPaths.native, "archived_sessions"), deep: true });
         }
       }
       if (codexPaths.wsl) {
         sources.push({ source: "codex", sessionsDir: path.join(codexPaths.wsl, "sessions"), inventoryCacheKey: "codexDayInventoryCache" });
-        if (!isBackgroundLightweightSync || backgroundCodexUsageRepair) {
+        if (!isBackgroundLightweightSync || backgroundCodexUsageRepair || codexArchiveBackfillDue) {
           sources.push({ source: "codex", sessionsDir: path.join(codexPaths.wsl, "archived_sessions"), deep: true });
         }
       }
@@ -838,7 +758,7 @@ async function cmdSync(argv, context = {}) {
       for (const extraRoot of extraScanRootPaths(scanRoots.codex)) {
         if (!hasAnyScanChild(extraRoot, ["sessions", "archived_sessions"])) continue;
         sources.push({ source: "codex", sessionsDir: path.join(extraRoot, "sessions"), inventoryCacheKey: "codexDayInventoryCache" });
-        if (!isBackgroundLightweightSync || backgroundCodexUsageRepair) {
+        if (!isBackgroundLightweightSync || backgroundCodexUsageRepair || codexArchiveBackfillDue) {
           sources.push({ source: "codex", sessionsDir: path.join(extraRoot, "archived_sessions"), deep: true });
         }
       }
@@ -1131,6 +1051,15 @@ async function cmdSync(argv, context = {}) {
         deferredSyncs: deferredCodexAuditSyncs,
       });
     }
+    const codexCollectionGaps = drainCodexCollectionGaps();
+    if (codexArchiveBackfillDue && codexParseSucceeded && codexCollectionGaps.length === 0) {
+      // A soft-skipped archive is incomplete coverage. Keep the backfill due
+      // so an ordinary background refresh retries after permissions, writes or
+      // connectivity recover; only a complete pass finalizes the migration.
+      (cursors.migrations ||= {})[CODEX_ARCHIVE_BACKFILL_KEY] =
+        new Date().toISOString();
+    }
+    await flushCodexCollectionGaps(trackerDir, codexCollectionGaps);
 
     let openclawResult = { filesProcessed: 0, eventsAggregated: 0, bucketsQueued: 0 };
     if (sourceAllowed("openclaw") && openclawFiles.length > 0) {
@@ -1946,6 +1875,25 @@ async function cmdSync(argv, context = {}) {
           });
         } catch (err) {
           warnProviderParseFailure("Unsloth", err, opts);
+        }
+      }
+    }
+
+    let opensquillaResult = { recordsProcessed: 0, eventsAggregated: 0, bucketsQueued: 0 };
+    if (sourceAllowed("opensquilla")) {
+      const opensquillaDbPaths = resolveOpenSquillaDbPaths(process.env)
+        .filter((dbPath) => fssync.existsSync(dbPath));
+      if (opensquillaDbPaths.length > 0) {
+        if (progress?.enabled) progress.start("Parsing OpenSquilla " + renderBar(0) + " | buckets 0");
+        try {
+          opensquillaResult = await parseOpenSquillaIncremental({
+            dbPaths: opensquillaDbPaths,
+            cursors,
+            queuePath,
+            onProgress: makeProviderProgress("OpenSquilla"),
+          });
+        } catch (err) {
+          warnProviderParseFailure("OpenSquilla", err, opts);
         }
       }
     }
@@ -3435,6 +3383,7 @@ async function cmdSync(argv, context = {}) {
       copilotResult.recordsProcessed +
       lmstudioResult.recordsProcessed +
       unslothResult.recordsProcessed +
+      opensquillaResult.recordsProcessed +
       anythingllmResult.recordsProcessed +
       devinResult.recordsProcessed +
       kiloResult.recordsProcessed +
@@ -3482,6 +3431,7 @@ async function cmdSync(argv, context = {}) {
       copilotResult.bucketsQueued +
       lmstudioResult.bucketsQueued +
       unslothResult.bucketsQueued +
+      opensquillaResult.bucketsQueued +
       anythingllmResult.bucketsQueued +
       devinResult.bucketsQueued +
       kiloResult.bucketsQueued +
@@ -3548,225 +3498,11 @@ async function cmdSync(argv, context = {}) {
       await fs.unlink(grokHookSignalPath).catch(() => {});
     }
 
+    // Persist metadata even with no dashboard/WebDAV configured. Source logs
+    // may be removed before the next UI request; the sidecar alone is a cache.
+    try { if (!opts.auto) await require('../lib/fork-view').collectSessions(trackerDir, {home}); }
+    catch (error) { process.stderr.write(`Session history warning: ${error.code || 'persist_failed'}\n`); }
     progress?.stop();
-
-    const runtimeConfig = config ? { ...config } : {};
-    if (legacyBaseUrlMigration) {
-      delete runtimeConfig.anonKey;
-    }
-    if (legacyBaseUrlMigration?.replacementDeviceToken) {
-      runtimeConfig.deviceToken = legacyBaseUrlMigration.replacementDeviceToken;
-    }
-    // An authenticated local API supplies this capability for this upload.
-    // Keep a separately configured CLI account from overriding its owner.
-    const resolvedRuntime = resolveRuntimeConfig({
-      cli: {
-        deviceToken: process.env.TOKENTRACKER_LOCAL_SYNC_DEVICE_TOKEN,
-        ...(process.env.TOKENTRACKER_LOCAL_SYNC_DEVICE_TOKEN ? {
-          baseUrl: process.env.TOKENTRACKER_INSFORGE_BASE_URL,
-          anonKey: process.env.TOKENTRACKER_INSFORGE_ANON_KEY,
-        } : {}),
-      },
-      config: runtimeConfig,
-      env: process.env,
-    });
-
-    // Empty is an explicit local-server denial, so it cannot fall back to a
-    // separately configured CLI account when the browser is signed out.
-    const runtime = Object.hasOwn(process.env, "TOKENTRACKER_LOCAL_SYNC_DEVICE_TOKEN")
-      ? { ...resolvedRuntime, deviceToken: resolvedRuntime.configurationError ? null : process.env.TOKENTRACKER_LOCAL_SYNC_DEVICE_TOKEN }
-      : resolvedRuntime;
-    cloudResetRuntime = runtime;
-
-    let uploadResult = { inserted: 0, skipped: 0 };
-    let uploadAttempted = false;
-    let autoUploadDecision = null;
-
-    if (canUpload() && (opts.auto || opts.publishAccount) && runtime.deviceToken && runtime.baseUrl &&
-        (!isBackgroundLightweightSync || opts.publishAccount)) {
-      const uploadStateBefore = (await readJson(queueStatePath)) || { offset: 0 };
-      const queueSizeBefore = await safeStatSize(queuePath);
-      const pendingBytesBefore = Math.max(
-        0,
-        queueSizeBefore - Number(uploadStateBefore.offset || 0),
-      );
-      // Automatic producers honor success and failure deadlines. A verified
-      // manual recheck may probe changed membership; the server decides access.
-      const bypassSuccessInterval = (!opts.auto && opts.drain) || legacyBaseUrlMigration;
-      const lastSuccessMs = Number(uploadThrottleState.lastSuccessMs || 0);
-      const successDeadline = lastSuccessMs > 0
-        ? Math.max(Number(uploadThrottleState.serverNextAllowedAtMs || 0), Math.min(Number(uploadThrottleState.nextAllowedAtMs || 0),
-          lastSuccessMs + AUTO_UPLOAD_CONFIG.intervalMs + AUTO_UPLOAD_DEFAULTS.jitterMsMax))
-        : Number(uploadThrottleState.nextAllowedAtMs || 0);
-      const recheckCloudAccess = opts.drain && process.env.TOKENTRACKER_CLOUD_RECHECK === "1" &&
-        Boolean(process.env.TOKENTRACKER_LOCAL_SYNC_DEVICE_TOKEN?.trim());
-      const storedBackoff = recheckCloudAccess ? 0 : Number(uploadThrottleState.backoffUntilMs || 0);
-      autoUploadDecision = decideAutoUpload({
-        nowMs: Date.now(),
-        pendingBytes: pendingBytesBefore,
-        state: {
-          ...uploadThrottleState,
-          backoffUntilMs: storedBackoff,
-          nextAllowedAtMs: recheckCloudAccess ? 0 : bypassSuccessInterval
-            ? Math.max(storedBackoff, Number(uploadThrottleState.serverNextAllowedAtMs || 0))
-            : successDeadline,
-        },
-        config: AUTO_UPLOAD_CONFIG,
-      });
-      if (opts.drain && autoUploadDecision.reason === "throttled") {
-        throw Object.assign(new Error("Cloud upload is backed off; retry after the current upload cooldown"), {
-          code: "SYNC_UPLOAD_BACKOFF",
-          retryAfterMs: Math.max(0, autoUploadDecision.blockedUntilMs - Date.now()),
-        });
-      }
-    }
-
-    if (canUpload() && runtime.deviceToken && runtime.baseUrl &&
-        (!isBackgroundLightweightSync || opts.publishAccount) &&
-        (!autoUploadDecision || autoUploadDecision.allowed)) {
-      // Decide the window budget from the original backlog. Compact only once
-      // upload is allowed so a cooldown run cannot shrink away that budget.
-      const state = (await readJson(queueStatePath)) || { offset: 0 };
-      await compactPendingQueue({ queuePath, offset: Number(state.offset || 0) });
-      uploadAttempted = true;
-      // Mirror the machine identity into the purge-surviving seed file so a
-      // future `uninstall --purge` + reinstall recovers the same cloud device
-      // instead of double-counting history under a new one (issue #176). This
-      // is the migration path for installs that predate the seed file.
-      try {
-        require("../lib/machine-id").getOrCreateMachineId(queuePath);
-      } catch {
-        // best effort — upload below must not be blocked by identity mirroring
-      }
-      try {
-        let successfulDeviceToken = runtime.deviceToken;
-        const drainWithToken = (deviceToken) =>
-          drainQueueToCloud({
-            baseUrl: runtime.baseUrl,
-            anonKey: runtime.anonKey,
-            deviceToken,
-            queuePath,
-            queueStatePath,
-            maxBatches: opts.drain ? 100 : (autoUploadDecision?.maxBatches || 5),
-            batchSize: autoUploadDecision?.batchSize || 200,
-            maxDurationMs: UPLOAD_BUDGET_MS,
-            canUpload,
-          });
-        try {
-          uploadResult = await drainWithToken(successfulDeviceToken);
-        } catch (error) {
-          const fallbackDeviceToken = legacyBaseUrlMigration?.previousDeviceToken;
-          const replacementDeviceToken = legacyBaseUrlMigration?.replacementDeviceToken;
-          const stateAfterFailure = (await readJson(queueStatePath)) || { offset: 0 };
-          const canFallbackWithoutSplittingHistory =
-            !Object.hasOwn(process.env, "TOKENTRACKER_LOCAL_SYNC_DEVICE_TOKEN") &&
-            (error?.status === 401 || error?.status === 403) &&
-            replacementDeviceToken &&
-            fallbackDeviceToken &&
-            fallbackDeviceToken !== replacementDeviceToken &&
-            Number(stateAfterFailure.offset || 0) === 0;
-          if (!canFallbackWithoutSplittingHistory) throw error;
-          successfulDeviceToken = fallbackDeviceToken;
-          uploadResult = await drainWithToken(successfulDeviceToken);
-        }
-        // A successful ingest response proves which credential belongs to the
-        // current backend. Only now commit the token and remove the retry marker.
-        // Empty queues make no request, so keep the marker until future data can
-        // validate a credential instead of persisting an unverified token.
-        if (legacyBaseUrlMigration && uploadResult.batches > 0) {
-          // device-login does not share the sync lock and may have written a
-          // fresh current-backend config while the scan/upload was running.
-          // Re-read before committing and only remove the anonymous key this
-          // migration observed. A concurrent login may replace the backend URL
-          // while preserving the old key, or another writer may replace the key
-          // while the legacy URL is still present.
-          await updateJsonLocked(configPath, async (latestConfig) => {
-            const hasLegacyBaseUrl = isLegacyInsforgeBaseUrl(latestConfig.baseUrl);
-            const hasUnchangedLegacyAnonKey =
-              legacyBaseUrlMigration.hadPersistedAnonKey &&
-              latestConfig.anonKey === legacyBaseUrlMigration.persistedAnonKey;
-            if (!hasLegacyBaseUrl && !hasUnchangedLegacyAnonKey) return null;
-            if (hasLegacyBaseUrl) {
-              latestConfig.deviceToken = successfulDeviceToken;
-              delete latestConfig.baseUrl;
-            }
-            if (hasUnchangedLegacyAnonKey) {
-              delete latestConfig.anonKey;
-            }
-            return latestConfig;
-          });
-        }
-        // Record success so the exponential backoff step resets — otherwise
-        // a single past failure keeps us pessimistically throttled forever.
-        if (uploadResult.batches > 0) {
-          uploadThrottleState = recordUploadSuccess({
-            nowMs: Date.now(),
-            state: uploadThrottleState,
-            config: AUTO_UPLOAD_CONFIG,
-            cloudAccess: uploadResult.cloudAccess,
-            attemptId: process.env.TOKENTRACKER_LOCAL_SYNC_ATTEMPT_ID,
-          });
-          await writeJson(uploadThrottlePath, uploadThrottleState);
-        }
-      } catch (e) {
-        if (e.uploadResult?.batches > 0) {
-          uploadResult = e.uploadResult;
-          uploadThrottleState = recordUploadSuccess({
-            nowMs: Date.now(), state: uploadThrottleState, config: AUTO_UPLOAD_CONFIG,
-            cloudAccess: uploadResult.cloudAccess,
-            attemptId: process.env.TOKENTRACKER_LOCAL_SYNC_ATTEMPT_ID,
-          });
-        }
-        // Persist a backoff on 429 / 5xx so the next auto-sync waits instead
-        // of retrying immediately and making the rate-limit worse. The
-        // throttle module already parses Retry-After when we surface it on
-        // the error object (drainQueueToCloud stamps err.status + err.retryAfterMs).
-        uploadThrottleState = recordUploadFailure({
-          nowMs: Date.now(),
-          state: uploadThrottleState,
-          error: e,
-          attemptId: process.env.TOKENTRACKER_LOCAL_SYNC_ATTEMPT_ID,
-        });
-        await writeJson(uploadThrottlePath, uploadThrottleState);
-        if (!opts.auto) {
-          process.stderr.write(`Upload error: ${e?.message || e}\n`);
-        }
-        // `sync --drain` is the readiness boundary for first-time cloud view:
-        // callers must not treat a swallowed upload failure as a completed
-        // historical backfill and switch away from the intact local data.
-        if (opts.drain) throw e;
-      }
-    }
-
-    const afterState = (await readJson(queueStatePath)) || { offset: 0 };
-    const queueSize = await safeStatSize(queuePath);
-    // Only the main queue is uploaded by drainQueueToCloud. project.queue.jsonl
-    // is local project-usage state, so counting it here creates false backlog
-    // and can keep auto retry alive even after cloud sync has drained.
-    const pendingBytes = Math.max(0, queueSize - Number(afterState.offset || 0));
-
-    if (pendingBytes === 0 && canUpload() && runtime.deviceToken) {
-      await finishCloudDeviceUsageReset({ trackerDir, ownerId: process.env.TOKENTRACKER_CLOUD_OWNER_ID,
-        baseUrl: runtime.baseUrl, anonKey: runtime.anonKey, deviceToken: runtime.deviceToken,
-        deviceId: process.env.TOKENTRACKER_CLOUD_DEVICE_ID });
-    }
-
-    if (pendingBytes <= 0 || !canUpload()) {
-      await clearAutoRetry(trackerDir);
-    } else if (opts.auto && uploadAttempted && !opts.publishAccount) {
-      const retryAtMs = Number(uploadThrottleState?.nextAllowedAtMs || 0);
-      if (retryAtMs > Date.now()) {
-        await scheduleAutoRetry({
-          trackerDir,
-          retryAtMs,
-          reason: "backlog",
-          pendingBytes,
-          source: autoSourceScope ? `${autoSourceScope}-backlog` : "auto-backlog",
-          syncSource: autoSourceScope,
-          autoRetryNoSpawn: runtime.autoRetryNoSpawn,
-        });
-      }
-    }
 
     if (!opts.auto) {
       const codexRecordOnlyWarning = formatRecordOnlyWarning(countRecordOnlyFiles(cursors));
@@ -3775,14 +3511,6 @@ async function cmdSync(argv, context = {}) {
           "Sync finished:",
           `- Parsed files: ${totalParsed}`,
           `- New 30-min buckets queued: ${totalBuckets}`,
-          formatSyncUploadSummaryLine({
-            runtimeDeviceToken: runtime.deviceToken,
-            uploadResult,
-            tokenPresentOnDisk: resolveDeviceTokenPresence({ trackerDir, config, runtime }).set,
-          }),
-          runtime.deviceToken && pendingBytes > 0 && !opts.drain
-            ? `- Remaining: ${formatBytes(pendingBytes)} pending (run sync again, or use --drain)`
-            : null,
           codexRecordOnlyWarning ? `- Warning: ${codexRecordOnlyWarning}` : null,
           "",
         ]
@@ -3790,13 +3518,6 @@ async function cmdSync(argv, context = {}) {
           .join("\n"),
       );
     }
-
-    // Anonymous daily heartbeat (shared 24h throttle with serve — see
-    // src/lib/telemetry.js). Awaited because hook-spawned sync processes exit
-    // right after this function returns, which would kill an in-flight
-    // request; the throttle makes it a network no-op on all but the first
-    // sync of the day, and maybeSendHeartbeat never throws.
-    await maybeSendHeartbeat({ trackerDir });
   } finally {
     progress?.stop();
     await lock.release();
@@ -3810,10 +3531,8 @@ function parseArgs(argv) {
     fromRetry: false,
     fromOpenclaw: false,
     source: null,
-    drain: false,
     waitForLock: false,
     background: false,
-    publishAccount: false,
     allLocalSources: false,
     repairGrok: false,
   };
@@ -3828,10 +3547,8 @@ function parseArgs(argv) {
       i += 1;
     }
     else if (a.startsWith("--source=")) out.source = normalizeSyncSource(a.slice("--source=".length));
-    else if (a === "--drain") out.drain = true;
     else if (a === "--wait-for-lock") out.waitForLock = true;
     else if (a === "--background" || a === "--lightweight") out.background = true;
-    else if (a === "--publish-account") out.publishAccount = true;
     else if (a === "--all-local-sources") out.allLocalSources = true;
     else if (a === "--repair-grok") out.repairGrok = true;
     else throw new Error(`Unknown option: ${a}`);
@@ -3914,11 +3631,8 @@ function recordCodexColdScanAudit(
 }
 
 module.exports = {
-  formatSyncUploadSummaryLine,
   cmdSync,
   acquireSyncLock,
-  readQueueBatch,
-  drainQueueToCloud,
   migrateCursorUnknownBuckets,
   migrateRolloutCumulativeDeltaBuckets,
   repairCodebuddyLogJsonlOverlap,
@@ -3939,8 +3653,6 @@ module.exports = {
   reincludeClaudeMemObserverFiles,
   repairGrokQueueFromSessionSnapshots,
   applyCloudConversationsBackfill,
-  scheduleAutoRetry,
-  buildAutoRetryScript,
   isCodexColdScanAuditDue,
   recordCodexColdScanAudit,
   CURSOR_UNKNOWN_MIGRATION_KEY,
@@ -4257,143 +3969,9 @@ async function safeStatSize(p) {
   }
 }
 
-function deriveAutoSkipReason({ decision, state }) {
-  if (!decision || decision.reason !== "throttled") return decision?.reason || "unknown";
-  const backoffUntilMs = Number(state?.backoffUntilMs || 0);
-  const nextAllowedAtMs = Number(state?.nextAllowedAtMs || 0);
-  if (backoffUntilMs > 0 && backoffUntilMs >= nextAllowedAtMs) return "backoff";
-  return "throttled";
-}
-
-async function scheduleAutoRetry({
-  trackerDir,
-  retryAtMs,
-  reason,
-  pendingBytes,
-  source,
-  syncSource,
-  autoRetryNoSpawn,
-}) {
-  const retryMs = coerceRetryMs(retryAtMs);
-  if (!retryMs) return { scheduled: false, retryAtMs: 0 };
-
-  const retryPath = path.join(trackerDir, AUTO_RETRY_FILENAME);
-  const nowMs = Date.now();
-  const existing = await readJson(retryPath);
-  const existingMs = coerceRetryMs(existing?.retryAtMs);
-  const normalizedSyncSource = normalizeSyncSource(syncSource);
-  if (existingMs && existingMs >= retryMs - 1000) {
-    const existingSyncSource = normalizeSyncSource(existing?.syncSource);
-    if (existingSyncSource !== normalizedSyncSource) {
-      await writeJson(
-        retryPath,
-        buildAutoRetryPayload({
-          retryMs: existingMs,
-          nowMs,
-          reason,
-          pendingBytes,
-          source,
-          syncSource: normalizedSyncSource,
-        }),
-      );
-    }
-    return { scheduled: false, retryAtMs: existingMs };
-  }
-
-  const payload = buildAutoRetryPayload({
-    retryMs,
-    nowMs,
-    reason,
-    pendingBytes,
-    source,
-    syncSource: normalizedSyncSource,
-  });
-
-  await writeJson(retryPath, payload);
-
-  const delayMs = Math.min(AUTO_RETRY_MAX_DELAY_MS, Math.max(0, retryMs - nowMs));
-  if (delayMs <= 0) return { scheduled: false, retryAtMs: retryMs };
-  if (autoRetryNoSpawn) {
-    return { scheduled: false, retryAtMs: retryMs };
-  }
-
-  spawnAutoRetryProcess({
-    retryPath,
-    trackerBinPath: path.join(trackerDir, "app", "bin", "tracker.js"),
-    fallbackPkg: "tokentracker-cli",
-    delayMs,
-  });
-  return { scheduled: true, retryAtMs: retryMs };
-}
-
-function buildAutoRetryPayload({ retryMs, nowMs, reason, pendingBytes, source, syncSource }) {
-  const payload = {
-    version: 1,
-    retryAtMs: retryMs,
-    retryAt: new Date(retryMs).toISOString(),
-    reason: typeof reason === "string" && reason.length > 0 ? reason : "throttled",
-    pendingBytes: Math.max(0, Number(pendingBytes || 0)),
-    scheduledAt: new Date(nowMs).toISOString(),
-    source: typeof source === "string" ? source : "auto",
-  };
-  if (syncSource) payload.syncSource = syncSource;
-  return payload;
-}
-
 async function clearAutoRetry(trackerDir) {
   const retryPath = path.join(trackerDir, AUTO_RETRY_FILENAME);
   await fs.unlink(retryPath).catch(() => {});
-}
-
-function spawnAutoRetryProcess({ retryPath, trackerBinPath, fallbackPkg, delayMs }) {
-  const script = buildAutoRetryScript({ retryPath, trackerBinPath, fallbackPkg, delayMs });
-  try {
-    const child = cp.spawn(process.execPath, ["-e", script], {
-      detached: true,
-      stdio: "ignore",
-      env: process.env,
-    });
-    child.unref();
-  } catch (_e) {}
-}
-
-function buildAutoRetryScript({ retryPath, trackerBinPath, fallbackPkg, delayMs }) {
-  return (
-    `'use strict';\n` +
-    `const fs = require('node:fs');\n` +
-    `const cp = require('node:child_process');\n` +
-    `const retryPath = ${JSON.stringify(retryPath)};\n` +
-    `const trackerBinPath = ${JSON.stringify(trackerBinPath)};\n` +
-    `const fallbackPkg = ${JSON.stringify(fallbackPkg)};\n` +
-    `const delayMs = ${Math.max(0, Math.floor(delayMs || 0))};\n` +
-    `setTimeout(() => {\n` +
-    `  let payload = null;\n` +
-    `  let retryAtMs = 0;\n` +
-    `  try {\n` +
-    `    const raw = fs.readFileSync(retryPath, 'utf8');\n` +
-    `    payload = JSON.parse(raw);\n` +
-    `    retryAtMs = Number(payload.retryAtMs || 0);\n` +
-    `  } catch (_) {}\n` +
-    `  if (!retryAtMs || Date.now() + 1000 < retryAtMs) process.exit(0);\n` +
-    `  const argv = ['sync', '--auto', '--from-retry'];\n` +
-    `  if (payload && typeof payload.syncSource === 'string' && payload.syncSource.trim()) {\n` +
-    `    argv.push('--source', payload.syncSource.trim());\n` +
-    `  }\n` +
-    `  const cmd = fs.existsSync(trackerBinPath)\n` +
-    `    ? [process.execPath, trackerBinPath, ...argv]\n` +
-    `    : ['npx', '--yes', fallbackPkg, ...argv];\n` +
-    `  try {\n` +
-    `    const child = cp.spawn(cmd[0], cmd.slice(1), { detached: true, stdio: 'ignore', env: process.env });\n` +
-    `    child.unref();\n` +
-    `  } catch (_) {}\n` +
-    `}, delayMs);\n`
-  );
-}
-
-function coerceRetryMs(v) {
-  const n = Number(v);
-  if (!Number.isFinite(n) || n <= 0) return 0;
-  return Math.floor(n);
 }
 
 async function writeOpenclawSignal(trackerDir) {
@@ -4406,220 +3984,6 @@ async function writeOpenclawSignal(trackerDir) {
 }
 
 const AUTO_RETRY_FILENAME = "auto.retry.json";
-const AUTO_RETRY_MAX_DELAY_MS = 2 * 60 * 60 * 1000;
-
-const INGEST_SLUG = "tokentracker-ingest";
-const MAX_INGEST_BUCKETS = 500;
-
-async function drainQueueToCloud({ baseUrl, anonKey, deviceToken, queuePath, queueStatePath, maxBatches = 5, batchSize = 200, maxDurationMs = UPLOAD_BUDGET_MS, canUpload = () => true }) {
-  const state = (await readJson(queueStatePath)) || { offset: 0 };
-  let offset = Number(state.offset || 0);
-  let inserted = 0;
-  let skipped = 0;
-  let batches = 0;
-  let cloudAccess = null;
-  const uploadId = crypto.randomUUID();
-  const deadline = Date.now() + maxDurationMs;
-  let batchBudget = Math.min(maxBatches, 100);
-  let requestSignal = null;
-  const resultSoFar = () => ({ inserted, skipped, batches, ...(cloudAccess?.next_allowed_at ? { cloudAccess } : {}) });
-
-  const queueSize = await safeStatSize(queuePath);
-  const limit = Math.min(Math.max(1, Math.floor(Number(batchSize || 200))), MAX_INGEST_BUCKETS);
-
-  try {
-    for (let batch = 0; batch < batchBudget; batch++) {
-      if (Date.now() >= deadline) break;
-      if (offset >= queueSize) break;
-      const result = await readQueueBatch(queuePath, offset, limit);
-      // A states-only tail (e.g. a retry batch whose bucket rows already
-      // uploaded) is still a meaningful upload: it advances the canonical
-      // session corrections cloud-side.
-      if (result.buckets.length === 0 && result.sessionStates.length === 0) {
-        // Complete ignored control/malformed rows need no cloud request, but
-        // must not leave a permanent pending tail. Incomplete bytes stay put.
-        if (result.nextOffset > offset) {
-          offset = result.nextOffset;
-          state.offset = offset;
-          state.updatedAt = new Date().toISOString();
-          await writeJson(queueStatePath, state);
-        }
-        break;
-      }
-
-      const root = baseUrl.replace(/\/$/, "");
-      const headers = {
-        "Content-Type": "application/json",
-        Accept: "application/json",
-        Authorization: `Bearer ${deviceToken}`,
-      };
-      if (anonKey) headers.apikey = anonKey;
-      // Re-read after parsing/each batch so switching off stops an active drain.
-      if (!canUpload()) break;
-      const remainingMs = deadline - Date.now();
-      if (remainingMs <= 0) break;
-      requestSignal = AbortSignal.timeout(Math.max(1, Math.ceil(remainingMs)));
-      const res = await fetchFunctionResponse(functionUrlFor(root, INGEST_SLUG), {
-        method: "POST",
-        headers,
-        signal: requestSignal,
-        body: JSON.stringify({
-          upload_id: uploadId,
-          hourly: result.buckets,
-          ...(result.sessionStates.length > 0
-            ? { account_session_states: result.sessionStates }
-            : {}),
-        }),
-      });
-
-      const rawText = await res.text();
-      let data = {};
-      try { data = JSON.parse(rawText); } catch { data = {}; }
-      if (!res.ok) {
-        const err = new Error(`HTTP ${res.status}: ${rawText.substring(0, 500)}`);
-        err.status = res.status;
-        err.code = res.status === 401 ? "CLOUD_DEVICE_TOKEN_REJECTED"
-          : typeof data?.code === "string" ? data.code
-            : res.status === 403 ? "CLOUD_UPLOAD_FORBIDDEN" : "CLOUD_UPLOAD_FAILED";
-        const retryAfter = res.headers?.get?.("Retry-After") ?? null;
-        const retryAfterMs = parseRetryAfterMs(retryAfter);
-        if (retryAfterMs !== null) err.retryAfterMs = retryAfterMs;
-        throw err;
-      }
-
-      cloudAccess = data;
-      if (data.upload_scope === "community") batchBudget = Math.min(batchBudget, 10);
-      inserted += Number(data?.inserted || 0);
-      skipped += Number(data?.skipped || 0);
-      batches += 1;
-
-      offset = result.nextOffset;
-      state.offset = offset;
-      state.updatedAt = new Date().toISOString();
-      await writeJson(queueStatePath, state);
-    }
-  } catch (error) {
-    // A bounded drain can finish partially without discarding successful
-    // offsets or the server cooldown. Other failures retain their retry path.
-    const requestTimedOut = requestSignal?.aborted && requestSignal.reason?.name === "TimeoutError" &&
-      (error === requestSignal.reason || error.name === "TimeoutError" || error.name === "AbortError");
-    if (!requestTimedOut || batches === 0) {
-      error.uploadResult = resultSoFar();
-      throw error;
-    }
-  }
-  return resultSoFar();
-}
-
-async function readQueueBatch(queuePath, startOffset, maxBuckets) {
-  const st = await fs.stat(queuePath).catch(() => null);
-  if (!st || !st.isFile()) return { buckets: [], sessionStates: [], nextOffset: startOffset };
-  if (startOffset >= st.size) return { buckets: [], sessionStates: [], nextOffset: startOffset };
-
-  const handle = await fs.open(queuePath, "r");
-
-  const bucketMap = new Map();
-  // Account session states (kind: "account_session_state") are queue
-  // control records, not usage rows: collect them separately so they ride
-  // the same upload (after the bucket rows in file order) without entering
-  // the bucket stream. Keyed by (source, session_id), use the strictly newer
-  // snapshot_verified_at and retain the first row on ties, matching account
-  // truth even after a clock rollback. Only one observation per session may
-  // reach the ingest batch (duplicates would affect one ON CONFLICT row twice).
-  // snapshot_verified_at rides along verbatim from the ORIGINAL fetch, so a
-  // transport retry never fakes logical freshness.
-  //
-  // Batching: session-state records count toward the SAME per-batch record
-  // cap (maxBuckets) as bucket rows. The ingest edge rejects a request with
-  // more than 500 states (HTTP 400); before they counted, a states-heavy
-  // queue (a fresh device's first 30-day TRAE sync appends one record per
-  // observed session) was read in ONE uncapped batch - the 400 left the
-  // queue offset untouched and every retry re-read the identical oversized
-  // request, a permanent upload failure. With the default batchSize of 200
-  // (and the MAX_INGEST_BUCKETS=500 clamp above), every request stays under
-  // the edge cap while batching follows the existing design.
-  const sessionStateMap = new Map();
-  const sessionStateStamps = new Map();
-  let offset = startOffset;
-  let linesRead = 0;
-  try {
-    for await (const record of iterateQueueLines(handle, startOffset, st.size)) {
-      // A producer may still be writing the last row; retry it once complete.
-      if (!record.complete) break;
-      const line = record.bytes.toString("utf8");
-      offset += record.bytes.length;
-      if (!line.trim()) continue;
-      let bucket;
-      try {
-        bucket = JSON.parse(line);
-      } catch (_e) {
-        continue;
-      }
-      if (bucket?.kind === "account_session_state") {
-        if (typeof bucket.source === "string" && typeof bucket.session_id === "string" && bucket.session_id.trim()) {
-          const ssSource = bucket.source.trim().toLowerCase();
-          const stateKey = ssSource + "|" + bucket.session_id.trim();
-          const sessionState = {
-            source: ssSource,
-            session_id: bucket.session_id.trim(),
-            model: typeof bucket.model === "string" ? bucket.model : "",
-            bucket_start: typeof bucket.bucket_start === "string" ? bucket.bucket_start : "",
-            input_tokens: Number(bucket.input_tokens) || 0,
-            output_tokens: Number(bucket.output_tokens) || 0,
-            cached_input_tokens: Number(bucket.cached_input_tokens) || 0,
-            cache_creation_input_tokens: Number(bucket.cache_creation_input_tokens) || 0,
-            reasoning_output_tokens: Number(bucket.reasoning_output_tokens) || 0,
-            total_tokens: Number(bucket.total_tokens) || 0,
-            ...(typeof bucket.snapshot_verified_at === "string" && bucket.snapshot_verified_at
-              ? { snapshot_verified_at: bucket.snapshot_verified_at }
-              : {}),
-          };
-          const priorState = sessionStateMap.get(stateKey);
-          const verifiedMs = sessionSnapshotMs(bucket);
-          const priorVerifiedMs = sessionStateStamps.get(stateKey) ?? null;
-          if (!priorState || (verifiedMs !== null && (priorVerifiedMs === null || verifiedMs > priorVerifiedMs))) {
-            sessionStateMap.set(stateKey, sessionState);
-            sessionStateStamps.set(stateKey, verifiedMs);
-          }
-          // Counted like a bucket row: the record rides THIS batch and its
-          // bytes are covered by nextOffset, so the next batch resumes right
-          // after it.
-          linesRead += 1;
-          if (linesRead >= maxBuckets) break;
-        }
-        continue;
-      }
-      // Pre-release watermark records from this feature branch's dev queues
-      // are obsolete control records: drop them instead of letting them enter
-      // the bucket stream (they carry no hour_start and would be skipped
-      // downstream anyway, but be explicit).
-      if (bucket?.kind === "account_sync_watermark") continue;
-      const hourStart = typeof bucket?.hour_start === "string" ? bucket.hour_start : null;
-      if (!hourStart) continue;
-      const source = (typeof bucket?.source === "string" ? bucket.source.trim().toLowerCase() : "") || "codex";
-      const model = (typeof bucket?.model === "string" ? bucket.model.trim() : "") || "unknown";
-      bucket.source = source;
-      bucket.model = model;
-      // Apply the same legacy-row corrections every local reader applies
-      // (local-api readQueueData / project queue / wrapped aggregator). Without
-      // this the cloud permanently kept the RAW legacy values — e.g. old Codex
-      // rows whose input_tokens still include cached tokens (6-7x inflated) —
-      // while the local dashboard showed corrected numbers.
-      bucket = require("../lib/local-api").normalizeQueueRow(bucket);
-      bucketMap.set(`${source}|${model}|${hourStart}`, bucket);
-      linesRead += 1;
-      if (linesRead >= maxBuckets) break;
-    }
-
-  } finally {
-    await handle.close();
-  }
-  return {
-    buckets: Array.from(bucketMap.values()),
-    sessionStates: Array.from(sessionStateMap.values()),
-    nextOffset: offset,
-  };
-}
 
 function normalizeGrokRepairSource(value) {
   return typeof value === "string" ? value.trim().toLowerCase() : "";
@@ -6239,6 +5603,41 @@ async function repairWorkbuddyContextUsage({
 // contributed is gone from disk (genuinely deleted — Codex-Manager log rotation
 // or user cleanup) the migration is skipped entirely — the forward dedup fix
 // still prevents new double-counting; only this historical correction is deferred.
+// Persist the codex snapshot reader's collection gaps (unreadable, truncated,
+// oversized, invalid-UTF-8 archives) under the tracker directory so silent
+// soft-skips stay diagnosable when totals later "look wrong". Best-effort:
+// a ledger write failure must never fail the sync.
+async function flushCodexCollectionGaps(trackerDir, gaps) {
+  if (!Array.isArray(gaps) || gaps.length === 0) return;
+  const gapsPath = path.join(trackerDir, "collection-gaps.json");
+  let existing = {};
+  try {
+    existing = JSON.parse(await fs.readFile(gapsPath, "utf8")) || {};
+  } catch (error) {
+    if (error.code !== "ENOENT") return; // Preserve unreadable diagnostic history.
+    existing = {};
+  }
+  const now = new Date().toISOString();
+  for (const gap of gaps) {
+    const key = `${gap.reason}|${gap.path}`;
+    const previous = existing[key];
+    existing[key] = {
+      reason: gap.reason,
+      path: gap.path,
+      detail: gap.detail ?? previous?.detail ?? null,
+      count: (previous?.count || 0) + (gap.count || 1),
+      firstSeenAt: previous?.firstSeenAt || now,
+      lastSeenAt: now,
+    };
+  }
+  const keys = Object.keys(existing);
+  const maxEntries = 500;
+  if (keys.length > maxEntries) {
+    for (const key of keys.slice(0, keys.length - maxEntries)) delete existing[key];
+  }
+  await require("../lib/fork-store").write(gapsPath, existing).catch(() => {});
+}
+
 async function repairCodexRescanInflation({
   cursors,
   queuePath,
@@ -7760,12 +7159,12 @@ async function relabelClaudeMemQueueRows(queuePath, queueStatePath = null) {
   }
   if (!raw || !raw.includes('"claude-mem"')) return 0;
 
-  // The cloud-upload cursor (queue.state.json `offset`) is a byte position in
-  // the pre-rewrite file. Relabeling shrinks rewritten lines ("claude-mem" →
-  // "claude"), so the old offset would land mid-line in the new file and the
-  // next drainQueueToCloud batch would skip part of a row (or a whole row).
-  // Track the old→new byte mapping while rewriting and remap the offset to
-  // the equivalent line boundary (same pattern as project-usage-purge.js).
+  // A queue.state.json `offset` (a legacy cloud-upload cursor kept by earlier
+  // official-version installs) is a byte position in the pre-rewrite file.
+  // Relabeling shrinks rewritten lines ("claude-mem" → "claude"), so the old
+  // offset would land mid-line in the new file. Track the old→new byte
+  // mapping while rewriting and remap the offset to the equivalent line
+  // boundary (same pattern as project-usage-purge.js).
   let previousOffset = 0;
   if (typeof queueStatePath === "string" && queueStatePath) {
     try {

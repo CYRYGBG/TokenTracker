@@ -5,28 +5,19 @@ const { spawn } = require("node:child_process");
 const crypto = require("node:crypto");
 const { setImmediate: yieldToRequests } = require("node:timers/promises");
 const { createAsyncQueueReader } = require("./async-queue-reader");
-const { DEFAULT_BASE_URL, resolveRuntimeConfig, assertInsforgeRuntime, normalizeInstanceBaseUrl, clearDeviceIdentity, resetInstanceState } = require("./runtime-config");
+// This fork removed the InsForge cloud (login / sync / leaderboard / billing)
+// from the runtime path: local-api only serves local statistics endpoints.
+const { resolveRuntimeConfig } = require("./runtime-config");
 const {
   filterRowsByUsageScope,
   getSourceScope,
   listExcludedSources,
   normalizeUsageScope,
 } = require("./source-metadata");
-const { accountSlugFor, fetchAccountUsage, mintAccessToken, invalidateCloudAccountPayloadCache, getCloudAccountSessionGeneration } = require("./cloud-account");
-const { resetCloudDeviceUsage, readCloudUsageReset } = require("./cloud-usage-reset");
 const { getOrCreateMachineId, computeStableMachineId } = require("./machine-id");
-const { functionUrlFor, fetchFunctionResponse } = require("./function-url");
-const { createCloudDeviceTokenStore } = require("./cloud-device-token");
-const { parseBearerToken } = require("./bearer-token");
-const { writeJsonAtomicSync } = require("./atomic-json");
 const { createLocalUsageTransfer, MAX_BYTES: LOCAL_USAGE_MAX_BYTES } = require("./local-usage-transfer");
 
 const SYNC_TIMEOUT_MS = 120_000;
-// A failed account-view request should not stall every dashboard refresh
-// while an expired session or unreachable backend keeps timing out. The first
-// request still falls back normally; subsequent fan-out requests reuse that
-// decision for a short cooldown and return local data immediately.
-const ACCOUNT_VIEW_FAILURE_BACKOFF_MS = 2 * 60_000;
 const TRACKER_BIN = path.resolve(__dirname, "../../bin/tracker.js");
 const MAX_DEVICE_NAME_LENGTH = 128;
 
@@ -41,13 +32,6 @@ function getSystemDeviceName() {
     return null;
   }
 }
-
-// Avatar proxy (see /api/avatar-proxy below). In-memory LRU; survives the
-// CLI server lifetime, which is good enough — the dashboard reloads cheaply.
-const AVATAR_PROXY_TTL_MS = 60 * 60 * 1000; // 1h
-const AVATAR_PROXY_MAX_BYTES = 512 * 1024; // 512 KiB per image
-const AVATAR_PROXY_MAX_ENTRIES = 64;
-const avatarProxyCache = new Map();
 
 // ---------------------------------------------------------------------------
 // Per-model pricing — delegated to src/lib/pricing/
@@ -84,7 +68,7 @@ const {
 
 function resolveQueuePath() {
   const home = os.homedir();
-  return path.join(home, ".tokentracker", "tracker", "queue.jsonl");
+  return path.join(home, (process.env.TOKENTRACKER_PERSONAL === "1" ? ".tokentracker-personal" : ".tokentracker"), "tracker", "queue.jsonl");
 }
 
 // Pseudo-project written by the pre-fix claude-mem observer attribution;
@@ -135,7 +119,7 @@ async function readProjectUsageContext(qp, url) {
     return (!from || day >= from) && (!to || day <= to);
   };
   const projectQueuePath = path.join(path.dirname(qp), "project.queue.jsonl");
-  const projectRows = (await readProjectQueueData(projectQueuePath)).filter(
+  const projectRows = (await require("./fork-view").projects(path.dirname(qp), url)).filter(
     (row) => row.project_key !== CLAUDE_MEM_OBSERVER_PROJECT_KEY,
   );
   return { from, to, timeZoneContext, hasRange, dayInRange, projectRows };
@@ -639,29 +623,6 @@ function trimOutput(value, max = 4000) {
   return t.length <= max ? t : t.slice(t.length - max);
 }
 
-function normalizeRemoteHttpBaseUrl(value) {
-  if (typeof value !== "string") return null;
-  const trimmed = value.trim();
-  if (!trimmed) return null;
-  try {
-    const url = new URL(trimmed);
-    if (url.protocol !== "http:" && url.protocol !== "https:") return null;
-    url.username = "";
-    url.password = "";
-    url.hash = "";
-    return url.toString().replace(/\/$/, "");
-  } catch (_e) {
-    return null;
-  }
-}
-
-function resolveAllowedInsforgeBaseUrl(value, runtime = resolveRuntimeConfig()) {
-  const requested = normalizeRemoteHttpBaseUrl(value);
-  if (!requested) return null;
-
-  return requested === normalizeRemoteHttpBaseUrl(runtime.baseUrl) ? requested : null;
-}
-
 function parseCookieHeader(value) {
   const out = new Map();
   if (typeof value !== "string" || !value.trim()) return out;
@@ -730,6 +691,9 @@ function readBodyLimited(req, maxBytes) {
   });
 }
 
+// Spawn one local `tracker sync` scan. Cloud-only flags (device tokens,
+// backend env, publish-account/drain upload modes) were removed with the
+// InsForge cloud; this only drives the local source scan.
 function runSyncCommand(extraEnv = {}, opts = {}) {
   return new Promise((resolve, reject) => {
     const args = opts.trackerDataDir
@@ -737,24 +701,12 @@ function runSyncCommand(extraEnv = {}, opts = {}) {
       : [TRACKER_BIN, "sync"];
     if (opts.auto === true) args.push("--auto");
     if (opts.background === true) args.push("--background");
-    if (opts.publishAccount === true) args.push("--publish-account");
     if (opts.allLocalSources === true) args.push("--all-local-sources");
-    if (opts.drain === true) args.push("--drain");
     if (opts.waitForLock === true) args.push("--wait-for-lock");
-    if (opts.signal?.aborted) { reject(Object.assign(new Error("Account session changed"), { code: "auth_session_changed", status: 409 })); return; }
     const child = spawn(process.execPath, args, {
-      env: {
-        ...process.env, ...extraEnv,
-        ...(extraEnv.TOKENTRACKER_DEVICE_TOKEN ? {
-          TOKENTRACKER_INSFORGE_BASE_URL: extraEnv.TOKENTRACKER_INSFORGE_BASE_URL,
-          TOKENTRACKER_INSFORGE_ANON_KEY: extraEnv.TOKENTRACKER_INSFORGE_ANON_KEY || "",
-        } : {}),
-        TOKENTRACKER_LOCAL_SYNC_DEVICE_TOKEN: extraEnv.TOKENTRACKER_DEVICE_TOKEN || "",
-      },
+      env: { ...process.env, ...extraEnv },
       stdio: ["ignore", "pipe", "pipe"],
     });
-    const cancel = () => child.kill("SIGTERM");
-    opts.signal?.addEventListener("abort", cancel, { once: true });
     let stdout = "";
     let stderr = "";
     let settled = false;
@@ -762,7 +714,6 @@ function runSyncCommand(extraEnv = {}, opts = {}) {
       if (settled) return;
       settled = true;
       clearTimeout(tid);
-      opts.signal?.removeEventListener("abort", cancel);
       fn(v);
     };
     let timedOut = false;
@@ -781,7 +732,6 @@ function runSyncCommand(extraEnv = {}, opts = {}) {
     });
     child.on("close", (code) => {
       if (timedOut) { finish(reject, Object.assign(new Error("Sync timed out"), { code: "SYNC_TIMEOUT", stdout: trimOutput(stdout), stderr: trimOutput(stderr) })); return; }
-      if (opts.signal?.aborted) { finish(reject, Object.assign(new Error("Account session changed"), { code: "auth_session_changed", status: 409 })); return; }
       const r = { code: code ?? 1, stdout: trimOutput(stdout), stderr: trimOutput(stderr) };
       if (code === 0) {
         finish(resolve, r);
@@ -903,11 +853,18 @@ function scanClaudeProjects(projectMap) {
 // ---------------------------------------------------------------------------
 
 function json(res, data, status) {
+  if (res.forkMeta) {
+    const local = res.forkMeta.device === 'local' || res.forkMeta.device === res.forkMeta.machine_id;
+    res.setHeader('X-TokenTracker-Account-View',local?'0':'1');
+    res.setHeader('X-TokenTracker-Account-Fallback',local?'fork-local':'fork-webdav');
+    res.setHeader('X-TokenTracker-Sync-Partial',res.forkMeta.partial?'1':'0');
+  }
+  if (res.forkMeta && data && typeof data === "object" && !Array.isArray(data)) data = {...data,...res.forkMeta};
   // Usage and cost payloads change on every sync, and cost is re-priced on
   // every read (pricing is applied per request, never stored in the queue) —
   // so a cached response can pin stale costs on screen indefinitely. WebView2
   // caches responses that carry no freshness directive, and the dashboard's
-  // local fetch path omits `cache: "no-store"` (only the cloud path sets it).
+  // local fetch path omits `cache: "no-store"`.
   // Endpoints that care already set this header by hand; do it once here so
   // every JSON response is covered.
   res.writeHead(status || 200, {
@@ -995,7 +952,7 @@ function buildProxyHeaders(headers) {
 // Main handler factory
 // ---------------------------------------------------------------------------
 
-function createLocalApiHandler({ queuePath, serverVersion = null, trackerDataDir: isolatedTrackerDataDir = null, syncContext = null }) {
+function createLocalApiHandler({ queuePath, serverVersion = null, trackerDataDir: isolatedTrackerDataDir = null, syncContext = null, credentialPlatform = process.platform }) {
   const qp = queuePath || resolveQueuePath();
   const localUsage = createLocalUsageTransfer({ queuePath: qp, normalizeRow: normalizeQueueRow,
     identity: () => ({ id: getOrCreateMachineId(qp), name: getSystemDeviceName(), platform: process.platform }) });
@@ -1005,78 +962,26 @@ function createLocalApiHandler({ queuePath, serverVersion = null, trackerDataDir
     const selected = url.searchParams.get("device_id") || "";
     // Only offline IDs select a snapshot; other IDs retain the local fallback.
     const device = selected.startsWith("local:") ? selected : "";
-    const allRows = url.pathname.startsWith("/functions/tokentracker-usage-") ? await localUsage.view(ownRows, device) : ownRows;
+    const view = require('./fork-view');
+    const requested = await view.scope(trackerDataDir,url);
+    const remotes = await view.remote(trackerDataDir);
+    let allRows = device ? await localUsage.view(ownRows, device) :
+      process.env.TOKENTRACKER_PERSONAL === "1" || remotes.length || !['all','local',getOrCreateMachineId(qp)].includes(requested) ? await view.buckets(trackerDataDir,url) :
+      requested === 'all' ? await localUsage.view(ownRows, '') : ownRows;
+    if (process.env.TOKENTRACKER_PERSONAL === "1") allRows = await require("./fork-costs").capture(trackerDataDir,allRows);
     return { scope, allRows, rows: filterRowsByUsageScope(allRows, scope), excludedSources: listExcludedSources(allRows, scope) };
   }
   const normalizedServerVersion = typeof serverVersion === "string" ? serverVersion.trim() : "";
 
-  // Server-side cookie relay: captures auth cookies from InsForge cloud responses
-  // so that both browser and WKWebView share the same login session via the proxy.
-  // Persisted to disk so cookies survive server restarts.
-  const csrfRelayCookieName = "insforge_csrf_token";
-  let relayCookies = new Map();
   const localAuthToken = crypto.randomBytes(24).toString("hex");
   const trackerDataDir = isolatedTrackerDataDir || path.dirname(qp);
-  const cookiePath = path.join(trackerDataDir, "relay-cookies.json");
-  const localSyncDeviceTokenStore = createCloudDeviceTokenStore(path.join(trackerDataDir, "cloud-device-token.json"));
-  const localSyncDeviceTokenCache = new Map();
-  const localSyncDeviceTokenInflight = new Map();
-  let localSyncDeviceTokenUserId = "";
-  let localCloudSession = null;
-  let localCloudGeneration = 0;
-  const activeCloudSyncs = new Set();
-  const localSyncDeviceMetadata = new Map();
-  function invalidateLocalCloudSession() {
-    localCloudGeneration += 1;
-    localCloudSession = null;
-    for (const controller of activeCloudSyncs) controller.abort();
-  }
-  function clearLocalSyncDeviceTokenCache() {
-    invalidateLocalCloudSession();
-    localSyncDeviceMetadata.clear();
-    localSyncDeviceTokenCache.clear();
-    localSyncDeviceTokenInflight.clear();
-    localSyncDeviceTokenStore.clear();
-    localSyncDeviceTokenUserId = "";
-  }
-  function invalidateLocalSyncDeviceToken(token) {
-    if (!token) return;
-    for (const [key, value] of localSyncDeviceTokenCache) {
-      if (value === token) localSyncDeviceTokenCache.delete(key);
-    }
-    localSyncDeviceTokenStore.invalidate(token);
-  }
-  function currentCloudUploadFailure(syncStartedAt, { backoff = false, deviceToken, attemptId } = {}) {
-    try {
-      const state = JSON.parse(fs.readFileSync(path.join(path.dirname(qp), "upload.throttle.json"), "utf8"));
-      if (attemptId && state.lastErrorAttemptId === attemptId &&
-          Date.parse(state.lastErrorAt || "") >= syncStartedAt && Number(state.lastErrorStatus) > 0) {
-        if (state.lastErrorCode === "CLOUD_DEVICE_TOKEN_REJECTED") invalidateLocalSyncDeviceToken(deviceToken);
-        return { code: state.lastErrorCode || "CLOUD_UPLOAD_FAILED", status: Number(state.lastErrorStatus), retryAfterMs: Math.max(0, Math.max(Number(state.backoffUntilMs || 0), Number(state.nextAllowedAtMs || 0)) - Date.now()), nextAllowedAt: state.nextAllowedAtMs ? new Date(state.nextAllowedAtMs).toISOString() : null };
-      }
-      if (backoff && Math.max(Number(state.backoffUntilMs || 0), Number(state.nextAllowedAtMs || 0)) > syncStartedAt) {
-        return { code: "SYNC_UPLOAD_BACKOFF", status: 429, retryAfterMs: Math.max(0, Math.max(Number(state.backoffUntilMs || 0), Number(state.nextAllowedAtMs || 0)) - Date.now()), nextAllowedAt: state.nextAllowedAtMs ? new Date(state.nextAllowedAtMs).toISOString() : null };
-      }
-    } catch { /* no upload failure was recorded */ }
-    return null;
-  }
-  // A dashboard refresh fans out to several account-view endpoints. Keep the
-  // circuit-breaker state per session instead of one global slot (a successful
-  // request for one account must not clear another account's failure), and
-  // suppress the duplicate fan-out while the first cloud probe is pending.
-  const accountViewFailures = new Map();
-  const accountViewInFlight = new Map();
-  let accountUploadState = readAccountUploadState();
   const runtimeConfigPath = path.join(path.dirname(qp), "config.json");
-  const instancePath = path.join(trackerDataDir, "runtime-instance.json");
-  const issuedAccessTokenInstances = new Map();
-  let instanceFingerprint = "";
-  try { instanceFingerprint = JSON.parse(fs.readFileSync(instancePath, "utf8")).fingerprint || ""; } catch { /* first start */ }
 
-  function fingerprintFor(runtime) {
-    return crypto.createHash("sha256").update(`${runtime.baseUrl}\0${runtime.anonKey || ""}`).digest("hex");
-  }
-
+  // Local-only runtime view: config.json next to the queue still carries the
+  // local fields (debug, httpTimeoutMs, proxy, telemetry, machineId, ...).
+  // The InsForge backend fields and their instance-fingerprint / relay-cookie
+  // reset logic were removed together with the cloud; only a malformed local
+  // config surfaces as configurationError.
   function getRuntime() {
     let config = {};
     let invalid = false;
@@ -1085,548 +990,8 @@ function createLocalApiHandler({ queuePath, serverVersion = null, trackerDataDir
     if (!config || typeof config !== "object" || Array.isArray(config)) { config = {}; invalid = true; }
     const runtime = resolveRuntimeConfig({ config: config || {}, env: process.env });
     if (invalid) runtime.configurationError = "invalid_local_config";
-    if (runtime.configurationError || (!fs.existsSync(runtimeConfigPath) && !fs.existsSync(qp))) return runtime;
-    const fingerprint = fingerprintFor(runtime);
-    if (fingerprint !== instanceFingerprint) {
-      if (instanceFingerprint || runtime.baseUrl !== DEFAULT_BASE_URL) {
-        clearRelayCookies("backend instance changed");
-        _nativeAuthPending = false; _nativeAuthExpiry = 0;
-        resetInstanceState(path.dirname(qp));
-        if (trackerDataDir !== path.dirname(qp)) resetInstanceState(trackerDataDir);
-        accountViewFailures.clear(); accountViewInFlight.clear();
-        if (["deviceToken", "deviceId", "user_id"].some(key => config?.[key]) &&
-            normalizeInstanceBaseUrl(config.deviceTokenBaseUrl) !== runtime.baseUrl) {
-          config = clearDeviceIdentity(config);
-          writeJsonAtomicSync(runtimeConfigPath, config);
-          runtime.deviceToken = null;
-        }
-      }
-      fs.mkdirSync(trackerDataDir, { recursive: true });
-      fs.writeFileSync(instancePath, JSON.stringify({ fingerprint }), { mode: 0o600 });
-      instanceFingerprint = fingerprint;
-    }
     return runtime;
   }
-
-  function readAccountUploadState() {
-    try {
-      const state = JSON.parse(fs.readFileSync(path.join(path.dirname(qp), "queue.state.json"), "utf8"));
-      return JSON.stringify([Number(state.offset) || 0, state.updatedAt || ""]);
-    } catch {
-      return "";
-    }
-  }
-
-  function invalidateAfterAccountUpload() {
-    const state = readAccountUploadState();
-    if (state !== accountUploadState) {
-      accountUploadState = state;
-      invalidateCloudAccountPayloadCache();
-    }
-  }
-
-  function accountViewFailureUntil(failureKey) {
-    const until = accountViewFailures.get(failureKey) || 0;
-    if (until > Date.now()) return until;
-    if (until) accountViewFailures.delete(failureKey);
-    return 0;
-  }
-
-  function rememberAccountViewFailure(failureKey) {
-    accountViewFailures.set(failureKey, Date.now() + ACCOUNT_VIEW_FAILURE_BACKOFF_MS);
-    // Refresh-token rotation or account switching can produce many keys over a
-    // long-lived tray session. Bound the map without affecting the active key.
-    while (accountViewFailures.size > 16) {
-      const oldest = accountViewFailures.keys().next().value;
-      if (!oldest || oldest === failureKey) break;
-      accountViewFailures.delete(oldest);
-    }
-  }
-
-  // Load persisted cookies on startup
-  try {
-    if (!fs.existsSync(trackerDataDir)) fs.mkdirSync(trackerDataDir, { recursive: true });
-    if (fs.existsSync(cookiePath)) {
-      const content = fs.readFileSync(cookiePath, "utf8");
-      const saved = JSON.parse(content);
-      if (saved && typeof saved === "object") {
-        let count = 0;
-        for (const [k, v] of Object.entries(saved)) {
-          relayCookies.set(k, v);
-          count++;
-        }
-        if (count > 0) console.log(`[LocalAPI] Loaded ${count} relay cookies from ${cookiePath}`);
-      }
-    }
-  } catch (e) {
-    console.error("[LocalAPI] Failed to load relay cookies:", e.message);
-  }
-
-  function persistRelayCookies() {
-    try {
-      // Sticky semantics: never replace an existing on-disk session with an empty cookie map.
-      if (relayCookies.size === 0) return;
-
-      const json = JSON.stringify(Object.fromEntries(relayCookies));
-      fs.writeFileSync(cookiePath, json, { encoding: "utf8", mode: 0o600 });
-    } catch (e) {
-      console.error("[LocalAPI] Failed to persist relay cookies:", e.message);
-    }
-  }
-
-  function clearRelayCookies(reason) {
-    clearLocalSyncDeviceTokenCache();
-    invalidateCloudAccountPayloadCache({ sessionChanged: true });
-    if (relayCookies.size === 0) return;
-    relayCookies.clear();
-    try {
-      if (fs.existsSync(cookiePath)) fs.unlinkSync(cookiePath);
-    } catch (e) {
-      console.error("[LocalAPI] Failed to clear relay cookies:", e.message);
-      return;
-    }
-    if (reason) console.warn(`[LocalAPI] Cleared relay cookies: ${reason}`);
-  }
-
-  function captureSetCookies(headerValue) {
-    if (!headerValue) return;
-    const parts = headerValue.split(/,(?=\s*\w+=)/);
-    let changed = false;
-    for (const raw of parts) {
-      const eqIdx = raw.indexOf("=");
-      if (eqIdx < 1) continue;
-      const name = raw.substring(0, eqIdx).trim();
-      if (!name) continue;
-
-      // Basic sticky logic: if it's a deletion cookie (Max-Age=0 or past date),
-      // we only remove it if we have it.
-      const lower = raw.toLowerCase();
-      const isDeletion = lower.includes("max-age=0") || lower.includes("expires=thu, 01 jan 1970");
-      
-      if (isDeletion) {
-        if (relayCookies.has(name)) {
-          if (name === "insforge_refresh_token") invalidateCloudAccountPayloadCache({ sessionChanged: true });
-          relayCookies.delete(name);
-          changed = true;
-          console.log(`[LocalAPI] Cookie deleted: ${name}`);
-        }
-      } else {
-        const oldVal = relayCookies.get(name);
-        if (oldVal !== raw.trim()) {
-          if (name === "insforge_refresh_token") invalidateCloudAccountPayloadCache({ sessionChanged: true });
-          relayCookies.set(name, raw.trim());
-          changed = true;
-          console.log(`[LocalAPI] Cookie captured: ${name}`);
-        }
-      }
-    }
-    if (changed) persistRelayCookies();
-  }
-
-  function getRelayCookieValue(name, { decode = false } = {}) {
-    const raw = relayCookies.get(name);
-    if (!raw || typeof raw !== "string") return "";
-    const pair = raw.split(";")[0] || "";
-    const eqIdx = pair.indexOf("=");
-    if (eqIdx < 1) return "";
-    const value = pair.substring(eqIdx + 1).trim();
-    if (!decode) return value;
-    try {
-      return decodeURIComponent(value);
-    } catch {
-      return value;
-    }
-  }
-
-  function captureAuthTokensFromBody(bodyBuffer, contentType, { newLogin = false, sourceFingerprint } = {}) {
-    if (!bodyBuffer || !String(contentType || "").toLowerCase().includes("application/json")) return;
-    let parsed = null;
-    try {
-      parsed = JSON.parse(bodyBuffer.toString("utf8"));
-    } catch {
-      return;
-    }
-    if (sourceFingerprint && typeof parsed?.accessToken === "string" && parsed.accessToken.length <= 8192) {
-      const hash = crypto.createHash("sha256").update(parsed.accessToken).digest("hex");
-      if (!issuedAccessTokenInstances.has(hash)) issuedAccessTokenInstances.set(hash, sourceFingerprint);
-      while (issuedAccessTokenInstances.size > 64) issuedAccessTokenInstances.delete(issuedAccessTokenInstances.keys().next().value);
-    }
-    let changed = false;
-    const token = typeof parsed?.csrfToken === "string" ? parsed.csrfToken.trim() : "";
-    if (token) {
-      const cookie = `${csrfRelayCookieName}=${encodeURIComponent(token)}; Path=/; SameSite=Lax`;
-      if (relayCookies.get(csrfRelayCookieName) !== cookie) {
-        relayCookies.set(csrfRelayCookieName, cookie);
-        changed = true;
-      }
-    }
-    const refreshToken = typeof parsed?.refreshToken === "string" ? parsed.refreshToken.trim() : "";
-    if (refreshToken) {
-      if (newLogin) clearLocalSyncDeviceTokenCache();
-      const cookie = `insforge_refresh_token=${encodeURIComponent(refreshToken)}; Path=/; HttpOnly; SameSite=Lax`;
-      if (relayCookies.get("insforge_refresh_token") !== cookie) {
-        invalidateCloudAccountPayloadCache({ sessionChanged: true });
-        relayCookies.set("insforge_refresh_token", cookie);
-        changed = true;
-      }
-    }
-    if (changed) persistRelayCookies();
-  }
-
-  // --- Account (cross-device) view for the native popover ---------------
-  // The popover follows the dashboard: it shows aggregated cross-device data
-  // only when the user is signed in (a relayed refresh token exists) AND cloud
-  // sync is on. Cloud sync is a dashboard (WebView) preference persisted in
-  // localStorage; the dashboard mirrors it here via POST
-  // /functions/tokentracker-cloud-sync-pref so the auth-unaware popover can key
-  // off the same flag. Defaults OFF, exactly like the dashboard toggle;
-  // existing saved choices are preserved.
-  const cloudSyncPrefPath = path.join(trackerDataDir, "cloud-sync-pref.json");
-  let cloudSyncPrefCache;
-  let cloudSyncPrefGeneration = 0;
-  function getCloudSyncPref() {
-    if (cloudSyncPrefCache === undefined) {
-      cloudSyncPrefCache = require("./cloud-sync-prefs").readCloudSyncEnabled(trackerDataDir);
-    }
-    return cloudSyncPrefCache;
-  }
-  function setCloudSyncPref(enabled, changedAtMs = Date.now()) {
-    // Multiple dashboard windows can deliver mirrors out of order. Keep the
-    // newest saved choice; old files without an ordering marker remain valid.
-    try {
-      const saved = JSON.parse(fs.readFileSync(cloudSyncPrefPath, "utf8"));
-      if (Number(saved?.changedAtMs || 0) > changedAtMs ||
-          (changedAtMs > 0 && saved?.changedAtMs === changedAtMs && saved?.enabled === false && enabled)) return;
-    } catch { /* first choice or an unreadable preference */ }
-    if (getCloudSyncPref() !== Boolean(enabled)) {
-      cloudSyncPrefGeneration += 1;
-      clearLocalSyncDeviceTokenCache();
-      invalidateCloudAccountPayloadCache();
-    }
-    cloudSyncPrefCache = Boolean(enabled);
-    try {
-      if (!fs.existsSync(trackerDataDir)) fs.mkdirSync(trackerDataDir, { recursive: true });
-      fs.writeFileSync(
-        cloudSyncPrefPath,
-        JSON.stringify({ enabled: cloudSyncPrefCache, changedAtMs, updatedAt: new Date().toISOString() }),
-        { encoding: "utf8", mode: 0o600 },
-      );
-    } catch (e) {
-      console.error("[LocalAPI] Failed to persist cloud sync pref:", e.message);
-    }
-  }
-
-  function getRefreshTokenForCloud() {
-    return getRelayCookieValue("insforge_refresh_token", { decode: true });
-  }
-  function setRelayRefreshToken(token) {
-    if (!token || typeof token !== "string") return;
-    const cookie = `insforge_refresh_token=${encodeURIComponent(token)}; Path=/; HttpOnly; SameSite=Lax`;
-    if (relayCookies.get("insforge_refresh_token") !== cookie) {
-      relayCookies.set("insforge_refresh_token", cookie);
-      persistRelayCookies();
-    }
-  }
-  function setRelayCsrfToken(token) {
-    if (!token || typeof token !== "string") return;
-    const cookie = `${csrfRelayCookieName}=${encodeURIComponent(token)}; Path=/; SameSite=Lax`;
-    if (relayCookies.get(csrfRelayCookieName) !== cookie) {
-      relayCookies.set(csrfRelayCookieName, cookie);
-      persistRelayCookies();
-    }
-  }
-
-  function localSyncDeviceTokenCacheKey(userId, machineId, baseUrl) {
-    return `${baseUrl}\0${userId}\0${machineId}`;
-  }
-
-  async function issueDeviceTokenForLocalSync(queuePathForMachineId, options = {}) {
-    if (!getCloudSyncPref()) return null;
-    const refreshToken = getRefreshTokenForCloud();
-    if (!options.accessToken && !refreshToken) return null;
-    const machineId = getOrCreateMachineId(queuePathForMachineId);
-    if (!machineId) return null;
-    const runtime = assertInsforgeRuntime(getRuntime());
-    const baseUrl = normalizeRemoteHttpBaseUrl(options.baseUrl) ||
-      normalizeRemoteHttpBaseUrl(runtime.baseUrl);
-    const sessionAtStart = getCloudAccountSessionGeneration();
-    const cloudPrefAtStart = cloudSyncPrefGeneration;
-    const generationAtStart = localCloudGeneration;
-    const minted = options.accessToken ? { accessToken: options.accessToken } : await mintAccessToken({
-      baseUrl, anonKey: runtime.anonKey, refreshToken, timeoutMs: runtime.httpTimeoutMs, throwOnFailure: true,
-    }).catch((error) => {
-      if (error.status === 401 && sessionAtStart === getCloudAccountSessionGeneration()) clearLocalSyncDeviceTokenCache();
-      throw error;
-    });
-    if (!minted?.accessToken || sessionAtStart !== getCloudAccountSessionGeneration()) return null;
-    const rotatedRefreshToken =
-      typeof minted.refreshToken === "string" && minted.refreshToken.trim()
-        ? minted.refreshToken.trim()
-        : "";
-    if (rotatedRefreshToken) setRelayRefreshToken(rotatedRefreshToken);
-    if (minted.csrfToken) setRelayCsrfToken(minted.csrfToken);
-    if (!getCloudSyncPref() || cloudPrefAtStart !== cloudSyncPrefGeneration) return null;
-    // Refresh validates native ownership. A browser JWT must additionally pass
-    // token issuance upstream before the mirror receives an upload binding.
-    let userId = "";
-    try {
-      const payload = JSON.parse(Buffer.from(minted.accessToken.split(".")[1], "base64url").toString("utf8"));
-      userId = typeof payload.sub === "string" ? payload.sub : "";
-    } catch { /* legacy opaque access tokens retain their isolated refresh key */ }
-    if (options.expectedOwnerId && userId !== options.expectedOwnerId) {
-      throw Object.assign(new Error("Account owner mismatch"), { status: 409, code: "auth_owner_mismatch" });
-    }
-    if (userId && localSyncDeviceTokenUserId && userId !== localSyncDeviceTokenUserId) {
-      clearLocalSyncDeviceTokenCache();
-    }
-    if (userId) localSyncDeviceTokenUserId = userId;
-    const identity = userId || `refresh:${rotatedRefreshToken || refreshToken}`;
-    const cacheKey = localSyncDeviceTokenCacheKey(identity, machineId, baseUrl);
-    const binding = { userId, baseUrl, machineId };
-    const cachedToken = !options.accessToken && (localSyncDeviceTokenCache.get(cacheKey) ||
-      (userId ? localSyncDeviceTokenStore.get(binding) : null));
-    if (cachedToken) {
-      localSyncDeviceTokenCache.set(cacheKey, cachedToken);
-      if (userId) localSyncDeviceTokenStore.set(binding, cachedToken);
-      return options.returnSession ? localSyncDeviceMetadata.get(cachedToken) || null : cachedToken;
-    }
-    const inflightToken = localSyncDeviceTokenInflight.get(cacheKey);
-    if (inflightToken?.sessionGeneration === sessionAtStart && inflightToken.generation === generationAtStart) {
-      const token = await inflightToken.promise;
-      return options.returnSession ? localSyncDeviceMetadata.get(token) || null : token;
-    }
-
-    const issuePromise = (async () => {
-      const root = String(baseUrl || DEFAULT_BASE_URL).replace(/\/$/, "");
-      const headers = {
-        "Content-Type": "application/json",
-        Accept: "application/json",
-        Authorization: `Bearer ${minted.accessToken}`,
-      };
-      if (runtime.anonKey) headers.apikey = runtime.anonKey;
-
-      let timeoutId;
-      const controller = typeof AbortController !== "undefined" ? new AbortController() : null;
-      if (controller && runtime.httpTimeoutMs > 0) {
-        timeoutId = setTimeout(() => controller.abort(), runtime.httpTimeoutMs);
-      }
-
-      const dashboardPlatform =
-        process.platform === "darwin" ? "MacIntel" :
-          process.platform === "win32" ? "Win32" :
-            process.platform === "linux" ? "Linux x86_64" :
-              "web";
-
-      const res = await fetchFunctionResponse(functionUrlFor(root, "tokentracker-device-token-issue"), {
-        method: "POST",
-        headers,
-        signal: controller ? controller.signal : undefined,
-        body: JSON.stringify({
-          // 必须和 dashboard/src/lib/cloud-sync.ts 使用同一个设备身份。
-          // 旧云端设备按 (platform, device_name) 认领；如果这里发明
-          // local-sync 身份，会多出一个 active device，账户视图会把历史求和两次。
-          device_name: getSystemDeviceName() || `Token Tracker (dashboard) #${machineId.slice(0, 8)}`,
-          platform: dashboardPlatform,
-          machine_id: machineId,
-        }),
-      }).finally(() => {
-        if (timeoutId) clearTimeout(timeoutId);
-      });
-      getRuntime();
-      if (sessionAtStart !== getCloudAccountSessionGeneration() || !getCloudSyncPref() || cloudPrefAtStart !== cloudSyncPrefGeneration || generationAtStart !== localCloudGeneration) return null;
-      if (!res.ok) {
-        if (res.status === 401 && sessionAtStart === getCloudAccountSessionGeneration()) {
-          localSyncDeviceTokenCache.delete(cacheKey);
-          localSyncDeviceTokenStore.clear(binding);
-        }
-        const denied = await res.json().catch(() => ({}));
-        if (typeof denied?.code === "string" && denied.code.startsWith("cloud_")) {
-          throw Object.assign(new Error(denied.code), { code: denied.code, status: res.status,
-            recoveryUrl: denied.recovery_url });
-        }
-        return null;
-      }
-      const data = await res.json().catch(() => null);
-      const token = typeof data?.token === "string" ? data.token.trim() : "";
-      if (sessionAtStart !== getCloudAccountSessionGeneration() || !getCloudSyncPref() || cloudPrefAtStart !== cloudSyncPrefGeneration || generationAtStart !== localCloudGeneration) return null;
-      if (token) {
-        localSyncDeviceMetadata.set(token, { token, deviceId: data.device_id, issuedAt: data.created_at || new Date().toISOString() });
-        localSyncDeviceTokenCache.set(cacheKey, token);
-        if (userId) localSyncDeviceTokenStore.set(binding, token);
-      }
-      return token || null;
-    })();
-    localSyncDeviceTokenInflight.set(cacheKey, { promise: issuePromise, sessionGeneration: sessionAtStart, generation: generationAtStart });
-    try {
-      const token = await issuePromise;
-      return options.returnSession ? localSyncDeviceMetadata.get(token) || null : token;
-    } finally {
-      if (localSyncDeviceTokenInflight.get(cacheKey)?.promise === issuePromise) localSyncDeviceTokenInflight.delete(cacheKey);
-    }
-  }
-
-  // Why a *classified* fallback: the native popover keeps the last successful
-  // account (cross-device) snapshot on screen when a cloud read fails
-  // transiently, but must switch to this-machine data the moment the user signs
-  // out or turns cloud sync off. Both used to look identical from the outside
-  // (HTTP 200 + local payload + `X-TokenTracker-Account-View: 0`), so a single
-  // timed-out read silently shrank Activity to one device until the next
-  // manual sync. See ACCOUNT_FALLBACK_* below for the vocabulary.
-  const ACCOUNT_FALLBACK_CLOUD_SYNC_OFF = "cloud-sync-off";
-  const ACCOUNT_FALLBACK_SIGNED_OUT = "signed-out";
-
-  // Every transient reason is prefixed "transient-"; clients only need the
-  // prefix, so new reasons can be added without a client change.
-  function classifyAccountFallback(err) {
-    if (!err) return "transient-error";
-    if (err.name === "AbortError" || err.name === "TimeoutError" || err.code === "auth_timeout") {
-      return "transient-timeout";
-    }
-    if (typeof err.code === "string" && err.code.startsWith("cloud_")) return err.code.replaceAll("_", "-");
-    if (err.code === "auth_rejected" || err.code === "auth_invalid" || err.status === 401 || err.status === 403) {
-      return "transient-auth";
-    }
-    if (err.code === "auth_network") return "transient-network";
-    if (Number.isFinite(err.status) && err.status > 0) return "transient-upstream";
-    return "transient-network";
-  }
-
-  // Returns "served" when the cross-device aggregate was written to `res`,
-  // otherwise a fallback reason (see above) telling the caller — and, through
-  // the `X-TokenTracker-Account-Fallback` header, the popover — why the local
-  // single-machine data is being served instead.
-  async function tryServeAccountView(usageSlug, url, res) {
-    if (!getCloudSyncPref()) return ACCOUNT_FALLBACK_CLOUD_SYNC_OFF;
-    const refreshToken = getRefreshTokenForCloud();
-    if (!refreshToken) return ACCOUNT_FALLBACK_SIGNED_OUT;
-    invalidateAfterAccountUpload();
-    const runtime = getRuntime();
-    if (runtime.configurationError) return ACCOUNT_FALLBACK_SIGNED_OUT;
-    const failureKey = `${runtime.baseUrl}\0${refreshToken}`;
-    const sessionAtStart = getCloudAccountSessionGeneration();
-    const cloudPrefAtStart = cloudSyncPrefGeneration;
-    const params = new URLSearchParams(url.searchParams);
-    params.sort();
-    const requestKey = `${failureKey}\0${sessionAtStart}\0${cloudPrefAtStart}\0${accountUploadState}\0${usageSlug}\0${params}`;
-    if (url.searchParams.get("refresh") !== "1" && accountViewFailureUntil(failureKey) > Date.now()) {
-      return "transient-backoff";
-    }
-    const envTimeout = process.env.TOKENTRACKER_HTTP_TIMEOUT_MS
-      ? parseInt(process.env.TOKENTRACKER_HTTP_TIMEOUT_MS, 10)
-      : 0;
-    const timeoutMs = envTimeout > 0 ? envTimeout : 4000;
-    try {
-      // An identical overlapping read shares the entire probe, including its
-      // token mint. A healthy pending read must not look like a cloud outage
-      // and trigger the native client's account recovery loop.
-      let pending = accountViewInFlight.get(requestKey);
-      if (!pending) {
-        pending = fetchAccountUsage({
-          usageSlug,
-          searchParams: url.searchParams,
-          baseUrl: runtime.baseUrl || DEFAULT_BASE_URL,
-          anonKey: runtime.anonKey,
-          refreshToken,
-          timeoutMs,
-          onSessionRefreshed: (session) => {
-            getRuntime();
-            if (sessionAtStart !== getCloudAccountSessionGeneration()) {
-              throw Object.assign(new Error("Account session changed"), { code: "auth_session_changed" });
-            }
-            if (session.refreshToken) setRelayRefreshToken(session.refreshToken);
-            if (session.csrfToken) setRelayCsrfToken(session.csrfToken);
-          },
-        });
-        accountViewInFlight.set(requestKey, pending);
-        const cleanup = () => {
-          if (accountViewInFlight.get(requestKey) === pending) accountViewInFlight.delete(requestKey);
-        };
-        pending.then(cleanup, cleanup);
-      }
-      const out = await pending;
-      getRuntime();
-      // `null` here means the slug has no cloud equivalent, or the session
-      // vanished mid-request — a routing/session fact, not an outage.
-      if (!out) return ACCOUNT_FALLBACK_SIGNED_OUT;
-      if (sessionAtStart !== getCloudAccountSessionGeneration()) {
-        throw Object.assign(new Error("Account session changed"), { code: "auth_session_changed" });
-      }
-      if (out.data == null) {
-        rememberAccountViewFailure(failureKey);
-        return "transient-upstream";
-      }
-      if (!getCloudSyncPref()) return ACCOUNT_FALLBACK_CLOUD_SYNC_OFF;
-      if (cloudPrefAtStart !== cloudSyncPrefGeneration) {
-        json(res, { error: "Cloud sync preference changed", code: "CLOUD_SYNC_CHANGED" }, 409);
-        return "served";
-      }
-      accountViewFailures.delete(failureKey);
-      res.writeHead(200, {
-        "Content-Type": "application/json",
-        "Cache-Control": "no-store",
-        "X-TokenTracker-Account-View": "1",
-      });
-      res.end(JSON.stringify(out.data));
-      return "served";
-    } catch (e) {
-      const currentSession = getCloudAccountSessionGeneration();
-      if (e.code === "auth_session_changed" ||
-          (sessionAtStart !== currentSession && e.invalidatedSessionGeneration !== currentSession)) {
-        json(res, { error: "Account session changed", code: "auth_session_changed" }, 409);
-        return "served";
-      }
-      if (!getCloudSyncPref()) return ACCOUNT_FALLBACK_CLOUD_SYNC_OFF;
-      if (cloudPrefAtStart !== cloudSyncPrefGeneration) {
-        json(res, { error: "Cloud sync preference changed", code: "CLOUD_SYNC_CHANGED" }, 409);
-        return "served";
-      }
-      // Signed in + cloud sync on, but the cloud read failed (offline, token
-      // rejected, edge error, or timeout). Serve local data rather than
-      // erroring, but say so: this is a *temporary* downgrade and the client
-      // must not treat it as the user's real data scope.
-      const reason = classifyAccountFallback(e);
-      if (getRuntime().debug) {
-        console.warn(`[LocalAPI] account view fallback (${reason}) for ${usageSlug}:`, e?.message || e);
-      }
-      rememberAccountViewFailure(failureKey);
-      return reason;
-    }
-  }
-
-  function normalizeCookieHeader(value) {
-    if (Array.isArray(value)) return value.filter(Boolean).join("; ");
-    return typeof value === "string" ? value : "";
-  }
-
-  function buildRelayCookieHeader(clientCookieHeader, { relayPrecedenceNames = [] } = {}) {
-    const normalizedClientCookieHeader = normalizeCookieHeader(clientCookieHeader);
-    if (relayCookies.size === 0) return normalizedClientCookieHeader;
-    const relayPrecedence = new Set(relayPrecedenceNames);
-    const clientPairs = new Map();
-    if (normalizedClientCookieHeader) {
-      for (const part of normalizedClientCookieHeader.split(";")) {
-        const eqIdx = part.indexOf("=");
-        if (eqIdx < 1) continue;
-        const n = part.substring(0, eqIdx).trim();
-        if (n) clientPairs.set(n, part.trim());
-      }
-    }
-    // Merge relay cookies. Normal requests keep client precedence; refresh
-    // recovery can opt relay cookies into precedence over stale WebView cookies.
-    for (const [name, raw] of relayCookies) {
-      if (clientPairs.has(name) && !relayPrecedence.has(name)) continue;
-      const scIdx = raw.indexOf(";");
-      const pair = scIdx > 0 ? raw.substring(0, scIdx).trim() : raw;
-      clientPairs.set(name, pair);
-    }
-    return [...clientPairs.values()].join("; ");
-  }
-
-  // Ephemeral auth bridge: WebView sets a "native" flag before opening system browser
-  // for OAuth. The callback page (in browser) checks this flag to decide whether to
-  // relay the code back to the app or handle it as a normal web flow.
-  let _nativeAuthPending = false;
-  let _nativeAuthExpiry = 0;
 
   function isAuthorizedLocalMutation(req) {
     const headerToken = req?.headers?.["x-tokentracker-local-auth"];
@@ -1638,8 +1003,199 @@ function createLocalApiHandler({ queuePath, serverVersion = null, trackerDataDir
     return hasAllowedLoopbackOrigin(req?.headers || {});
   }
 
+  // --- WebDAV fork sync (docs/fork/SYNC_DESIGN.md) --------------------------
+  const webdavConfigPath = path.join(trackerDataDir, "webdav", "config.json");
+  function readWebdavConfigSync() {
+    try {
+      const parsed = JSON.parse(fs.readFileSync(webdavConfigPath, "utf8"));
+      return parsed && typeof parsed === "object" ? parsed : null;
+    } catch { return null; }
+  }
+  async function writeWebdavConfig(next) {
+    fs.mkdirSync(path.dirname(webdavConfigPath), { recursive: true });
+    fs.writeFileSync(webdavConfigPath, JSON.stringify(next, null, 2), { encoding: "utf8", mode: 0o600 });
+  }
+  let webdavSchedulerInstance = null;
+  function getWebdavScheduler() {
+    if (!webdavSchedulerInstance) {
+      const { createWebdavScheduler } = require("./webdav/scheduler");
+      const { loadWebdavPassword } = require("./webdav/credential-store");
+      webdavSchedulerInstance = createWebdavScheduler({
+        trackerDir: trackerDataDir,
+        loadPassword: async ({ username, url }) => loadWebdavPassword({ username, url, trackerDir: trackerDataDir, platform: credentialPlatform }),
+        getConfig: async () => readWebdavConfigSync(),
+        machineIdProvider: async () => getOrCreateMachineId(qp),
+      });
+    }
+    return webdavSchedulerInstance;
+  }
+  async function webdavStatusSummary() {
+    const scheduler = getWebdavScheduler();
+    void scheduler; // scheduler instance created lazily; summary reads files only
+    const config = readWebdavConfigSync();
+    const { loadWebdavPassword } = require("./webdav/credential-store");
+    const credentialPresent = Boolean(
+      config?.username && await loadWebdavPassword({ username: config.username, url:config.url, trackerDir: trackerDataDir, platform: credentialPlatform }),
+    );
+    return {
+      config: config ? {
+        url: config.url || null,
+        username: config.username || null,
+        directory: config.directory || "tokentracker-fork",
+        device_name: config.device_name || null,
+        enabled: config.enabled !== false,
+        sync_titles: config.sync_titles !== false,
+        interval_minutes: Number(config.interval_minutes) || 5,
+      } : null,
+      credential_present: credentialPresent,
+      machine_id: getOrCreateMachineId(qp),
+    };
+  }
+
   return async function handleLocalApi(req, res, url) {
     const p = url.pathname;
+    if (p.startsWith('/proxy/ipcheck') || /^\/(api\/pets|functions\/tokentracker-(?:pets|skills|achievements|quality-per-dollar))/.test(p)) { json(res,{error:'Not Found'},404); return true; }
+    if (p.startsWith('/api/fork/')) {
+      if (!isAuthorizedLocalMutation(req)) {json(res,{code:'unauthorized'},401);return true;}
+      try {
+        const view = require('./fork-view');
+        const durable = require('./fork-store');
+        if(p==='/api/fork/view') {
+          if(req.method==='PUT') {
+            const body=JSON.parse((await readBodyLimited(req,4096)).toString());
+            const known=await view.devices(trackerDataDir);
+            if(!['all','local',...known.map(d=>d.id)].includes(body.device))throw new Error('unknown device');
+            await durable.write(path.join(trackerDataDir,'fork-view.json'),{device:body.device});
+          } else if(req.method!=='GET'){json(res,{code:'method_not_allowed'},405);return true;}
+          const state=await durable.read(path.join(trackerDataDir,'webdav','state.json'),{});
+          json(res,{device:await view.scope(trackerDataDir),devices:await view.devices(trackerDataDir),partial:Boolean(state.last_failure||state.partial),last_failure:state.last_failure||null});
+        } else if(p==='/api/fork/prefs') {
+          if(req.method==='POST') {
+            const body=JSON.parse((await readBodyLimited(req,16384)).toString());
+            const before=await view.preferences(trackerDataDir);
+            await require('./fork-prefs').append(trackerDataDir,getOrCreateMachineId(qp),body,before.events);
+          } else if(req.method!=='GET'){json(res,{code:'method_not_allowed'},405);return true;}
+          const pref=await view.preferences(trackerDataDir);
+          require('./pricing').setCustomPrices(pref.prices);
+          json(res,pref);
+        } else if(p==='/api/fork/reestimate' && req.method==='POST') {
+          require('./pricing').setCustomPrices((await view.preferences(trackerDataDir)).prices);
+          const rows = await view.buckets(trackerDataDir,url);
+          await require('./fork-costs').capture(trackerDataDir,rows,{reestimate:true});
+          json(res,{ok:true,rows:rows.length});
+        } else if(p==='/api/fork/backup') {
+          const backup=require('./fork-backup');
+          if(req.method==='GET')json(res,await backup.exportBackup(trackerDataDir,{home:syncContext?.home}));
+          else if(req.method==='POST') {
+            const body=JSON.parse((await readBodyLimited(req,64*1024*1024)).toString());
+            json(res,await backup.restoreBackup(trackerDataDir,body));
+          } else json(res,{code:'method_not_allowed'},405);
+        } else if(p==='/api/fork/pricing') {
+          const pricing=require('./pricing');
+          pricing.setCustomPrices((await view.preferences(trackerDataDir)).prices);
+          if(req.method==='POST')await pricing.reloadPricing({cachePath:path.join(trackerDataDir,'pricing-cache.json')});
+          else if(req.method!=='GET'){json(res,{code:'method_not_allowed'},405);return true;}
+          const model=url.searchParams.get('model');
+          json(res,{...pricing.getPricingStatus(),...(model?{model:pricing.getModelPricingInfo(model,{source:url.searchParams.get('source')})}:{})});
+        } else {json(res,{error:'Not Found'},404);}
+      } catch(e){json(res,{code:'fork_request_failed',error:e.message},400);}
+      return true;
+    }
+    if(p.startsWith('/functions/tokentracker-usage-') || p.includes('project-usage') || p.includes('session')) {
+      const view=require('./fork-view');
+      require('./pricing').setCustomPrices((await view.preferences(trackerDataDir)).prices);
+      const state=await require('./fork-store').read(path.join(trackerDataDir,'webdav','state.json'),{});
+      res.forkMeta={machine_id:getOrCreateMachineId(qp),device:await view.scope(trackerDataDir,url),partial:Boolean(state.last_failure||state.partial),failed_devices:Object.entries(state.imported||{}).filter(([,v])=>!v.ok).map(([k])=>k)};
+    }
+    if (p === "/api/webdav/config") {
+      if (!isAuthorizedLocalMutation(req)) { json(res, { code: "unauthorized" }, 401); return true; }
+      try {
+        if (req.method === "GET") {
+          json(res, await webdavStatusSummary());
+        } else if (req.method === "PUT") {
+          const body = JSON.parse((await readBodyLimited(req, 64 * 1024)).toString("utf8"));
+          const current = readWebdavConfigSync() || {};
+          const next = {
+            ...current,
+            url: typeof body.url === "string" ? body.url.trim().replace(/\/+$/, "") : current.url || "",
+            username: typeof body.username === "string" ? body.username.trim() : current.username || "",
+            directory: typeof body.directory === "string" && body.directory.trim()
+              ? body.directory.trim() : current.directory || "tokentracker-fork",
+            device_name: typeof body.device_name === "string" ? body.device_name.trim() : current.device_name || null,
+            sync_titles: typeof body.sync_titles === "boolean" ? body.sync_titles : current.sync_titles !== false,
+            enabled: typeof body.enabled === "boolean" ? body.enabled : current.enabled !== false,
+            interval_minutes: Number(body.interval_minutes) > 0 ? Number(body.interval_minutes) : current.interval_minutes || 5,
+          };
+          if (!require("./webdav/scheduler").normalizeConfig(next)) throw new Error("Invalid WebDAV configuration (HTTPS required)");
+          if (typeof body.password === "string" && body.password.length > 0) {
+            const { saveWebdavPassword, clearWebdavPassword } = require("./webdav/credential-store");
+            if (body.password === "__clear__") {
+              await clearWebdavPassword({ username: next.username, url:next.url, trackerDir: trackerDataDir, platform: credentialPlatform });
+            } else {
+              await saveWebdavPassword({ username: next.username, url:next.url, password: body.password, trackerDir: trackerDataDir, platform: credentialPlatform });
+            }
+          }
+          if (!require('./webdav/scheduler').normalizeConfig(next)) throw new Error('Invalid WebDAV configuration (HTTPS required)');
+          await writeWebdavConfig(next);
+          await getWebdavScheduler().resetRetry();
+          json(res, await webdavStatusSummary());
+        } else json(res, { code: "method_not_allowed" }, 405);
+      } catch (error) {
+        json(res, { code: "webdav_config_failed", error: String(error?.message || error) }, 400);
+      }
+      return true;
+    }
+    if (p === "/api/webdav/test") {
+      if (!isAuthorizedLocalMutation(req)) { json(res, { code: "unauthorized" }, 401); return true; }
+      if (String(req.method).toUpperCase() !== "POST") { json(res, { code: "method_not_allowed" }, 405); return true; }
+      try {
+        const { WebDavClient } = require("./webdav/client");
+        const { loadWebdavPassword } = require("./webdav/credential-store");
+        const config = readWebdavConfigSync();
+        if (!config?.url || !config?.username) { json(res, { ok: false, code: "not_configured" }, 400); return true; }
+        const password = await loadWebdavPassword({ username: config.username, url:config.url, trackerDir: trackerDataDir, platform: credentialPlatform });
+        if (!password) { json(res, { ok: false, code: "missing_credential" }, 400); return true; }
+        const client = new WebDavClient({ baseUrl: config.url, username: config.username, password });
+        const directory = (typeof config.directory === "string" && config.directory.trim()) || "tokentracker-fork";
+        const ensured = await client.ensureCollection(`/${directory}/devices`);
+        if (!ensured.ok) { json(res, { ok: false, code: "webdav_http", status: ensured.status }, 502); return true; }
+        const capabilities = await client.probeCapabilities("/");
+        json(res, { ok: true, dav_class: capabilities.davClass, allowed: capabilities.allowed });
+      } catch (error) {
+        json(res, { ok: false, code: error.code || "webdav_error", error: String(error?.message || error) }, 502);
+      }
+      return true;
+    }
+    if (p === "/api/webdav/sync-now") {
+      if (!isAuthorizedLocalMutation(req)) { json(res, { code: "unauthorized" }, 401); return true; }
+      if (String(req.method).toUpperCase() !== "POST") { json(res, { code: "method_not_allowed" }, 405); return true; }
+      try {
+        const result = await getWebdavScheduler().syncNow();
+        json(res, result);
+      } catch (error) {
+        json(res, { ok: false, code: error.code || "webdav_error", error: String(error?.message || error) }, 500);
+      }
+      return true;
+    }
+    if (p === "/api/webdav/status") {
+      if (!isAuthorizedLocalMutation(req)) { json(res, { code: "unauthorized" }, 401); return true; }
+      try {
+        const scheduler = getWebdavScheduler();
+        const state = await scheduler.readState();
+        json(res, { ...(await webdavStatusSummary()), sync: {
+          last_success_at: state.last_success_at || null,
+          last_failure: state.last_failure || null,
+          backoff_until_ms: state.backoff_until_ms || 0,
+          paused_auth: Boolean(state.paused_auth),
+          docs: state.docs || {},
+          imported: state.imported || {},
+          notes: state.notes || [],
+        } });
+      } catch (error) {
+        json(res, { code: "webdav_status_failed", error: String(error?.message || error) }, 500);
+      }
+      return true;
+    }
     if (p === "/api/local-usage") {
       if (!isAuthorizedLocalMutation(req)) { json(res, { code: "unauthorized" }, 401); return true; }
       try {
@@ -1666,40 +1222,11 @@ function createLocalApiHandler({ queuePath, serverVersion = null, trackerDataDir
       try { await localUsage.view([], url.searchParams.get("device_id")); }
       catch (error) { json(res, { code: error.code || "transfer_failed" }, error.status || 500); return true; }
     }
-    // Session recovery and the one-time native callback marker belong to local
-    // clients. Reject foreign requests before consuming either, including preflights.
-    const nativeMarkerRead = p === "/api/auth-bridge/verifier" && String(req.method).toUpperCase() === "GET";
-    if (p.startsWith("/api/auth/") || nativeMarkerRead) {
-      if (!hasAllowedLoopbackOrigin(req.headers || {}) || req.headers?.["sec-fetch-site"] === "cross-site") {
-        json(res, { code: "untrusted_auth_origin", error: "Authentication requests must come from the local dashboard." }, 403);
-        return true;
-      }
-      if (String(req.method).toUpperCase() === "OPTIONS") {
-        res.writeHead(204, {
-          "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-          "Access-Control-Allow-Headers": "Content-Type, Authorization",
-        });
-        res.end();
-        return true;
-      }
-    }
-    const selectedRuntime = getRuntime();
-    const callerInstance = req.headers?.["x-tokentracker-instance"];
-    if (callerInstance && normalizeInstanceBaseUrl(callerInstance) !== selectedRuntime.baseUrl) {
-      json(res, { code: "instance_changed", error: "The configured backend instance changed. Reload and sign in again." }, 409);
-      return true;
-    }
-    const bearer = parseBearerToken(req.headers?.authorization);
-    const issuedFor = bearer && issuedAccessTokenInstances.get(crypto.createHash("sha256").update(bearer).digest("hex"));
-    if (issuedFor && issuedFor !== fingerprintFor(selectedRuntime)) {
-      json(res, { code: "instance_changed", error: "This session belongs to another backend instance. Sign in again." }, 409);
-      return true;
-    }
     if (p === "/api/runtime-config.js") {
       if (String(req.method).toUpperCase() !== "GET") { json(res, { error: "Method Not Allowed" }, 405); return true; }
-      const descriptor = { baseUrl: normalizeInstanceBaseUrl(selectedRuntime.baseUrl) || "",
-        anonKey: selectedRuntime.configurationError ? null : selectedRuntime.anonKey,
-        dashboardUrl: normalizeInstanceBaseUrl(selectedRuntime.dashboardUrl) || "", configurationError: selectedRuntime.configurationError };
+      // Cloud descriptor is permanently empty in this fork: the local
+      // dashboard still loads this script, but there is no backend to point at.
+      const descriptor = { baseUrl: null, anonKey: null, dashboardUrl: null, configurationError: null };
       const value = JSON.stringify(descriptor).replace(/</g, "\\u003c").replace(/\u2028/g, "\\u2028").replace(/\u2029/g, "\\u2029");
       res.writeHead(200, { "Content-Type": "application/javascript; charset=utf-8", "Cache-Control": "no-store", "X-Content-Type-Options": "nosniff" });
       res.end(`window.__TOKENTRACKER_RUNTIME_CONFIG__=${value};`);
@@ -1791,198 +1318,6 @@ function createLocalApiHandler({ queuePath, serverVersion = null, trackerDataDir
       return true;
     }
 
-    // --- Auth bridge: native OAuth flag (WebView ↔ system browser) ---
-    if (p === "/api/auth-bridge/verifier") {
-      const method = String(req.method || "GET").toUpperCase();
-      if (method === "PUT" || method === "POST") {
-        if (!isAuthorizedLocalMutation(req)) {
-          json(res, { error: "Unauthorized" }, 401);
-          return true;
-        }
-        const body = await readJsonBody(req);
-        _nativeAuthPending = Boolean(body?.native);
-        _nativeAuthExpiry = Date.now() + 5 * 60 * 1000; // 5 min TTL
-        json(res, { ok: true });
-        return true;
-      }
-      if (method === "GET") {
-        const isNative = _nativeAuthPending && Date.now() < _nativeAuthExpiry;
-        _nativeAuthPending = false; // one-time read
-        _nativeAuthExpiry = 0;
-        json(res, { native: isNative });
-        return true;
-      }
-      json(res, { error: "Method Not Allowed" }, 405);
-      return true;
-    }
-
-    // --- auth proxy: forward /api/auth/* to InsForge cloud ---
-    if (p.startsWith("/api/auth/")) {
-      if (String(req.method).toUpperCase() === "POST" && /^\/api\/auth\/(?:logout|sessions|sign-in|oauth\/exchange)$/.test(p)) {
-        clearLocalSyncDeviceTokenCache();
-        invalidateCloudAccountPayloadCache({ sessionChanged: true });
-      }
-      const authSessionAtStart = getCloudAccountSessionGeneration();
-      const runtime = getRuntime();
-      try { assertInsforgeRuntime(runtime); } catch (error) { json(res, { code: error.code, error: error.message }, 503); return true; }
-      const insforgeBase = runtime.baseUrl || DEFAULT_BASE_URL;
-      if (req.headers.apikey && req.headers.apikey !== runtime.anonKey) {
-        json(res, { code: "instance_changed", error: "The public client key belongs to another backend instance." }, 409);
-        return true;
-      }
-      try {
-        const targetUrl = `${insforgeBase.replace(/\/$/, "")}${p}${url.search || ""}`;
-        const proxyHeaders = buildProxyHeaders(req.headers);
-        // Browser cookies survive changes to the loopback server's backend.
-        // Only this instance's captured cookies can be relayed, including when
-        // switching from a custom instance back to the official service.
-        const hadBrowserCookies = Boolean(normalizeCookieHeader(proxyHeaders.cookie).trim());
-        proxyHeaders.cookie = hadBrowserCookies ? buildRelayCookieHeader("") : "";
-        if (proxyHeaders["x-csrf-token"] !== getRelayCookieValue(csrfRelayCookieName)) delete proxyHeaders["x-csrf-token"];
-        if (insforgeBase !== DEFAULT_BASE_URL && proxyHeaders.authorization && !callerInstance) {
-          json(res, { code: "instance_changed", error: "Reload the local dashboard before using a custom backend session." }, 409);
-          return true;
-        }
-        proxyHeaders.apikey = runtime.anonKey;
-        const hasClientCookie = normalizeCookieHeader(proxyHeaders["cookie"]).trim().length > 0;
-        const hasCsrfHeader = typeof proxyHeaders["x-csrf-token"] === "string" && proxyHeaders["x-csrf-token"].trim().length > 0;
-        const relayCsrfToken = getRelayCookieValue(csrfRelayCookieName);
-        const relayRefreshToken = getRelayCookieValue("insforge_refresh_token", { decode: true });
-        // A cookie-less client (fresh WebView after an app update/restart) has no
-        // browser session to pair a CSRF token with — the persisted refresh token
-        // replayed through the mobile flow is the only viable recovery. The relay
-        // csrf token must NOT force the cookie/csrf path here: background mobile
-        // rotations (cloud-account.js) can leave it stale, and a stale csrf turns
-        // recovery into 403 Invalid CSRF and signs the user out.
-        const shouldUseRelayRefreshFallback =
-          p === "/api/auth/refresh" && !hasClientCookie && relayRefreshToken;
-        if (p === "/api/auth/refresh" && relayCsrfToken && !shouldUseRelayRefreshFallback) {
-          proxyHeaders["x-csrf-token"] = relayCsrfToken;
-        }
-        const hasEffectiveCsrfHeader =
-          hasCsrfHeader ||
-          (typeof proxyHeaders["x-csrf-token"] === "string" && proxyHeaders["x-csrf-token"].trim().length > 0);
-        let shouldInjectRelayCookies =
-          p !== "/api/auth/refresh" || hasClientCookie || hasEffectiveCsrfHeader;
-        if (shouldUseRelayRefreshFallback) {
-          shouldInjectRelayCookies = false;
-        }
-
-        // Inject relay cookies so WebView benefits from browser's login session.
-        // Refresh requests need either a browser cookie or an explicit CSRF token;
-        // otherwise replaying a stale persisted refresh cookie just manufactures
-        // Invalid CSRF errors on startup.
-        const originalCookieHeader = normalizeCookieHeader(proxyHeaders["cookie"]);
-        const mergedCookie = shouldInjectRelayCookies
-          ? buildRelayCookieHeader(originalCookieHeader, {
-              relayPrecedenceNames: p === "/api/auth/refresh"
-                ? [csrfRelayCookieName, "insforge_refresh_token"]
-                : [],
-            })
-          : originalCookieHeader;
-        const injectedRelayCookies =
-          shouldInjectRelayCookies && relayCookies.size > 0 && mergedCookie !== originalCookieHeader;
-        if (mergedCookie) proxyHeaders["cookie"] = mergedCookie;
-        else delete proxyHeaders["cookie"];
-
-        const bodyChunks = [];
-        for await (const chunk of req) bodyChunks.push(chunk);
-        let proxyBody = bodyChunks.length > 0 ? Buffer.concat(bodyChunks) : undefined;
-        let effectiveTargetUrl = targetUrl;
-        if (shouldUseRelayRefreshFallback) {
-          effectiveTargetUrl = `${insforgeBase.replace(/\/$/, "")}/api/auth/refresh?client_type=mobile`;
-          proxyHeaders["content-type"] = "application/json";
-          delete proxyHeaders["content-length"];
-          proxyBody = Buffer.from(JSON.stringify({ refresh_token: relayRefreshToken }), "utf8");
-        }
-        let proxyRes = await fetch(effectiveTargetUrl, {
-          method: req.method || "GET",
-          headers: proxyHeaders,
-          body: proxyBody,
-          credentials: "include",
-          redirect: "manual",
-        });
-        let resBody = Buffer.from(await proxyRes.arrayBuffer());
-
-        // Stale-CSRF rescue: 403 Invalid CSRF on refresh does NOT mean the
-        // session is dead — background mobile rotations (cloud-account.js) can
-        // desync the relayed csrf from a still-valid refresh token. Replay the
-        // persisted refresh token through the csrf-free mobile flow before
-        // letting the client sign out.
-        const isStaleCsrf403 =
-          p === "/api/auth/refresh"
-          && proxyRes.status === 403
-          && /invalid csrf token/i.test(resBody.toString("utf8"));
-        if (isStaleCsrf403 && relayRefreshToken && !shouldUseRelayRefreshFallback) {
-          const rescueHeaders = { ...proxyHeaders, "content-type": "application/json" };
-          delete rescueHeaders["cookie"];
-          delete rescueHeaders["x-csrf-token"];
-          delete rescueHeaders["content-length"];
-          const rescueRes = await fetch(
-            `${insforgeBase.replace(/\/$/, "")}/api/auth/refresh?client_type=mobile`,
-            {
-              method: "POST",
-              headers: rescueHeaders,
-              body: JSON.stringify({ refresh_token: relayRefreshToken }),
-              credentials: "include",
-              redirect: "manual",
-            },
-          );
-          if (rescueRes.ok) {
-            proxyRes = rescueRes;
-            resBody = Buffer.from(await rescueRes.arrayBuffer());
-          }
-        }
-
-        const latestRuntime = getRuntime();
-        if (latestRuntime.configurationError || latestRuntime.baseUrl !== runtime.baseUrl || latestRuntime.anonKey !== runtime.anonKey) {
-          json(res, { code: "instance_changed", error: "The configured backend changed during authentication. Reload and sign in again." }, 409);
-          return true;
-        }
-        // Error responses must not mutate relay state: a 403's deletion
-        // set-cookie (insforge_refresh_token=; Expires=1970) would otherwise
-        // destroy a still-valid persisted session.
-        if ((p === "/api/auth/refresh" || p === "/api/auth/logout") &&
-            authSessionAtStart !== getCloudAccountSessionGeneration()) {
-          json(res, { error: "Account session changed", code: "auth_session_changed" }, 409);
-          return true;
-        }
-        const allowRelayCapture = proxyRes.status < 400;
-        const responseHeaders = [...proxyRes.headers.entries()]
-          .filter(([k]) => !["transfer-encoding", "connection"].includes(k.toLowerCase()))
-          .map(([k, v]) => {
-            if (k.toLowerCase() === "set-cookie") {
-              const rewritten = v.replace(/;\s*[Dd]omain=[^;]*/g, "; Domain=localhost");
-              if (allowRelayCapture) captureSetCookies(rewritten);
-              return [k, rewritten];
-            }
-            return [k, v];
-          });
-        res.writeHead(proxyRes.status, Object.fromEntries(responseHeaders));
-        if (proxyRes.status >= 200 && proxyRes.status < 300) {
-          if (p === "/api/auth/logout") {
-            clearRelayCookies("sign out");
-          } else {
-            captureAuthTokensFromBody(resBody, proxyRes.headers.get("content-type"), {
-              newLogin: p !== "/api/auth/refresh", sourceFingerprint: fingerprintFor(runtime),
-            });
-          }
-        }
-        if (
-          isStaleCsrf403
-          && proxyRes.status === 403
-          && injectedRelayCookies
-          && !hasClientCookie
-        ) {
-          clearRelayCookies("stale refresh cookie without local CSRF context");
-        }
-        res.end(resBody);
-      } catch (e) {
-        json(res, { error: `Auth proxy error: ${e?.message || e}` }, 502);
-      }
-      return true;
-    }
-
     // --- ip-check proxy: reverse-proxy ip.net.coffee (issue #81) ---
     // Lock-down: GET/HEAD only, restricted path prefixes, do not forward
     // browser credentials or fingerprintable headers. Without these limits
@@ -2016,7 +1351,7 @@ function createLocalApiHandler({ queuePath, serverVersion = null, trackerDataDir
         // identity. Only what the upstream needs to negotiate content. Do not
         // set `host` explicitly: undici derives it from the URL, and some
         // versions reject a manual host header on fetch() (same forbidden-
-        // header family that broke /api/auth/* in 5/13).
+        // header family that has broken proxied POSTs in the past).
         const proxyHeaders = {
           accept: req.headers["accept"] || "*/*",
           "accept-language": req.headers["accept-language"] || "en",
@@ -2055,175 +1390,11 @@ function createLocalApiHandler({ queuePath, serverVersion = null, trackerDataDir
       return true;
     }
 
-    // --- avatar proxy: fetch third-party avatars server-side ---
-    // Why: WKWebView in TokenTrackerBar fails to load some users' Google /
-    // GitHub avatars directly (network-stack / proxy / TLS quirks vary by
-    // environment), even when the same URL renders fine in Safari. Proxying
-    // through Node's fetch — which honors system proxy + cookies-of-none —
-    // produces a same-origin <img> the WKWebView always accepts.
-    // Lock-down: GET only; host allowlist of well-known avatar CDNs (no open
-    // proxy); strip cookies/auth; small in-memory cache.
-    if (p === "/api/avatar-proxy") {
-      const method = String(req.method || "GET").toUpperCase();
-      if (method !== "GET" && method !== "HEAD") {
-        json(res, { error: "Method Not Allowed" }, 405);
-        return true;
-      }
-      const target = url.searchParams.get("url");
-      if (!target) {
-        json(res, { error: "Missing url" }, 400);
-        return true;
-      }
-      let parsed;
-      try {
-        parsed = new URL(target);
-      } catch {
-        json(res, { error: "Invalid url" }, 400);
-        return true;
-      }
-      if (parsed.protocol !== "https:" && parsed.protocol !== "http:") {
-        json(res, { error: "Only http(s) allowed" }, 400);
-        return true;
-      }
-      const AVATAR_HOST_ALLOWLIST = [
-        "lh3.googleusercontent.com",
-        "lh4.googleusercontent.com",
-        "lh5.googleusercontent.com",
-        "lh6.googleusercontent.com",
-        "avatars.githubusercontent.com",
-        "secure.gravatar.com",
-        "www.gravatar.com",
-        "gravatar.com",
-        "cdn.discordapp.com",
-        "pbs.twimg.com",
-        "abs.twimg.com",
-        "api.dicebear.com",
-      ];
-      const hostOk = AVATAR_HOST_ALLOWLIST.some(
-        (h) => parsed.hostname === h || parsed.hostname.endsWith(`.${h}`),
-      );
-      if (!hostOk) {
-        json(res, { error: "Host not allowed" }, 403);
-        return true;
-      }
-
-      const cacheKey = parsed.toString();
-      const now = Date.now();
-      const cached = avatarProxyCache.get(cacheKey);
-      if (cached && now - cached.fetchedAt < AVATAR_PROXY_TTL_MS) {
-        res.writeHead(200, {
-          "Content-Type": cached.contentType,
-          "Cache-Control": "public, max-age=3600",
-          "X-Avatar-Cache": "HIT",
-        });
-        res.end(method === "HEAD" ? undefined : cached.body);
-        return true;
-      }
-
-      try {
-        const upstream = await fetch(cacheKey, {
-          method,
-          redirect: "follow",
-          headers: {
-            accept: req.headers["accept"] || "image/*",
-            "accept-language": req.headers["accept-language"] || "en",
-            "user-agent": "TokenTracker/AvatarProxy (https://www.tokentracker.cc)",
-          },
-        });
-        if (!upstream.ok) {
-          json(res, { error: `Upstream ${upstream.status}` }, upstream.status);
-          return true;
-        }
-        const contentType = upstream.headers.get("content-type") || "image/png";
-        if (!contentType.toLowerCase().startsWith("image/")) {
-          json(res, { error: "Not an image" }, 415);
-          return true;
-        }
-        const body = Buffer.from(await upstream.arrayBuffer());
-        if (body.length <= AVATAR_PROXY_MAX_BYTES) {
-          // Simple LRU: drop oldest if over capacity.
-          if (avatarProxyCache.size >= AVATAR_PROXY_MAX_ENTRIES) {
-            const oldestKey = avatarProxyCache.keys().next().value;
-            if (oldestKey) avatarProxyCache.delete(oldestKey);
-          }
-          avatarProxyCache.set(cacheKey, { body, contentType, fetchedAt: now });
-        }
-        res.writeHead(200, {
-          "Content-Type": contentType,
-          "Cache-Control": "public, max-age=3600",
-          "X-Avatar-Cache": "MISS",
-        });
-        res.end(method === "HEAD" ? undefined : body);
-      } catch (e) {
-        json(res, { error: `Avatar proxy error: ${e?.message || e}` }, 502);
-      }
-      return true;
-    }
-
-    // The browser supplies its current JWT only to prove ownership upstream.
-    // Uploads use this server-held binding, never a caller's opaque device token.
-    if (p === "/functions/tokentracker-cloud-session") {
-      if (String(req.method).toUpperCase() !== "POST") { json(res, { error: "Method Not Allowed" }, 405); return true; }
-      if (!isAuthorizedLocalMutation(req)) { json(res, { error: "Unauthorized" }, 401); return true; }
-      try {
-        const body = await readJsonBody(req);
-        assertInsforgeRuntime(getRuntime());
-        if (body.clear === true) {
-          if (body.session_id && body.session_id === localCloudSession?.id) clearLocalSyncDeviceTokenCache();
-          json(res, { ok: true }); return true;
-        }
-        if (!getCloudSyncPref()) { json(res, { code: "CLOUD_SYNC_DISABLED" }, 409); return true; }
-        const accessToken = String(req.headers.authorization || "").replace(/^Bearer /i, "").trim();
-        const ownerId = typeof body.expectedOwnerId === "string" ? body.expectedOwnerId.trim() : "";
-        if (!accessToken || !ownerId) { json(res, { code: "auth_required" }, 401); return true; }
-        const baseUrl = resolveAllowedInsforgeBaseUrl(body.insforgeBaseUrl || getRuntime().baseUrl, getRuntime());
-        if (!baseUrl) { json(res, { error: "Unsupported insforgeBaseUrl override" }, 400); return true; }
-        clearLocalSyncDeviceTokenCache();
-        const generation = localCloudGeneration;
-        await Promise.all([...activeCloudSyncs].map(controller => controller.done).filter(Boolean));
-        const issued = await issueDeviceTokenForLocalSync(qp, { baseUrl, accessToken, expectedOwnerId: ownerId, returnSession: true });
-        if (generation !== localCloudGeneration) { json(res, { code: "auth_session_changed" }, 409); return true; }
-        if (!issued?.token || !issued.deviceId) { json(res, { code: "auth_rejected" }, 401); return true; }
-        localCloudSession = { id: crypto.randomUUID(), ownerId, baseUrl, generation, token: issued.token };
-        json(res, { session_id: localCloudSession.id, device_id: issued.deviceId, created_at: issued.issuedAt });
-      } catch (error) { json(res, { error: error.message, code: error.code || null, recovery_url: error.recoveryUrl || null }, error.status || 502); }
-      return true;
-    }
-
-    if (p === "/functions/tokentracker-cloud-usage-reset") {
-      if (!isAuthorizedLocalMutation(req) || req.headers["sec-fetch-site"] === "cross-site") { json(res, { error: "Unauthorized" }, 401); return true; }
-      try {
-        if (String(req.method).toUpperCase() === "GET") {
-          json(res, { pending: Boolean(readCloudUsageReset(trackerDataDir)) }); return true;
-        }
-        if (String(req.method).toUpperCase() !== "POST") { json(res, { error: "Method Not Allowed" }, 405); return true; }
-        const body = await readJsonBody(req);
-        const session = localCloudSession;
-        if (!getCloudSyncPref() || !session || body.cloudSessionId !== session.id || body.expectedOwnerId !== session.ownerId) {
-          json(res, { code: "auth_session_changed" }, 409); return true;
-        }
-        const metadata = localSyncDeviceMetadata.get(session.token);
-        const accessToken = String(req.headers.authorization || "").replace(/^Bearer /i, "").trim();
-        const runtime = assertInsforgeRuntime(getRuntime());
-        let claims;
-        try { claims = JSON.parse(Buffer.from(accessToken.split(".")[1], "base64url").toString("utf8")); } catch { /* rejected below */ }
-        if (claims?.sub !== session.ownerId || !Number.isFinite(claims?.exp) || claims.exp * 1000 <= Date.now()) {
-          json(res, { code: "auth_required" }, 401); return true;
-        }
-        const isCurrent = () => getCloudSyncPref() && localCloudSession === session && session.generation === localCloudGeneration &&
-          claims.exp * 1000 > Date.now() && getRuntime().baseUrl === session.baseUrl;
-        const result = await resetCloudDeviceUsage({ trackerDir: trackerDataDir, ownerId: session.ownerId,
-          deviceId: metadata?.deviceId, baseUrl: session.baseUrl, anonKey: runtime.anonKey, accessToken, isCurrent });
-        if (!isCurrent()) { json(res, { code: "auth_session_changed" }, 409); return true; }
-        clearLocalSyncDeviceTokenCache();
-        invalidateAfterAccountUpload();
-        invalidateCloudAccountPayloadCache();
-        json(res, { ...result, pending: true });
-      } catch (error) { json(res, { error: error.code || "cloud_usage_reset_failed", code: error.code || null }, error.status || 502); }
-      return true;
-    }
-
-    // --- local-sync (POST) ---
+    // --- local-sync (POST, local-only) ---
+    // Dashboard "Sync Now" / background-refresh trigger. This fork removed the
+    // cloud upload path, so the endpoint only kicks a LOCAL `tracker sync
+    // --auto` scan and acknowledges immediately: fire-and-forget, no tokens,
+    // no backend calls.
     if (p === "/functions/tokentracker-local-sync") {
       if (String(req.method || "GET").toUpperCase() !== "POST") {
         json(res, { ok: false, error: "Method Not Allowed" }, 405);
@@ -2233,168 +1404,31 @@ function createLocalApiHandler({ queuePath, serverVersion = null, trackerDataDir
         json(res, { ok: false, error: "Unauthorized" }, 401);
         return true;
       }
+      let body = {};
       try {
-        let body = {};
-        try {
-          body = await readJsonBody(req);
-        } catch {
-          body = {};
-        }
-        const currentRuntime = getRuntime();
-        if (body.drain === true || body.cloudSessionId || body.insforgeBaseUrl || body.expectedOwnerId) assertInsforgeRuntime(currentRuntime);
-        const extraEnv = { TOKENTRACKER_CLOUD_RECHECK: "0", TOKENTRACKER_INSFORGE_BASE_URL: currentRuntime.baseUrl, TOKENTRACKER_INSFORGE_ANON_KEY: currentRuntime.anonKey || "" };
-        const drain = body.drain === true;
-        // A user action after membership/resume may probe the server again.
-        // The server still enforces membership, paused slots and its deadline.
-        if (drain && body.recheckCloudAccess === true && body.auto !== true) {
-          extraEnv.TOKENTRACKER_CLOUD_RECHECK = "1";
-        }
-        // Native Sync Now combines an incremental background scan with a full
-        // cloud drain. A plain {drain:true} request remains an exhaustive sync.
-        const auto = body.auto === true;
-        const background =
-          auto && (body.background === true || body.lightweight === true);
-        // The local server is the trust boundary for cloud-sync preferences.
-        // A persisted device token must not let a native background request
-        // upload after the user has explicitly disabled cloud sync.
-        const publishAccount =
-          background && body.publishAccount === true && getCloudSyncPref();
-        const allLocalSources = background && body.allLocalSources === true;
-        if (background && body.nativeOnlyWsl === true) {
-          extraEnv.TOKENTRACKER_WSL_MODE = "native-only";
-        }
-        if (body.deviceToken != null && !background) {
-          json(res, { ok: false, error: "Use the current cloud session", code: getCloudSyncPref() ? "auth_session_required" : "CLOUD_SYNC_DISABLED" }, 409);
-          return true;
-        }
-        const browserSession = body.cloudSessionId ? localCloudSession : null;
-        if (body.cloudSessionId === "" || (body.expectedOwnerId && !body.cloudSessionId)) { json(res, { ok: false, code: "auth_session_required" }, 409); return true; }
-        if (body.cloudSessionId && (!browserSession || body.cloudSessionId !== browserSession.id ||
-            body.expectedOwnerId !== browserSession.ownerId || browserSession.generation !== localCloudGeneration || !getCloudSyncPref())) {
-          json(res, { ok: false, code: "auth_session_changed" }, 409); return true;
-        }
-        if (browserSession) extraEnv.TOKENTRACKER_DEVICE_TOKEN = browserSession.token;
-        let localSyncBaseUrl = null;
-        if (body.insforgeBaseUrl != null) {
-          const allowedBaseUrl = resolveAllowedInsforgeBaseUrl(body.insforgeBaseUrl, getRuntime());
-          if (!allowedBaseUrl) {
-            json(res, { ok: false, error: "Unsupported insforgeBaseUrl override" }, 400);
-            return true;
-          }
-          extraEnv.TOKENTRACKER_INSFORGE_BASE_URL = allowedBaseUrl;
-          localSyncBaseUrl = allowedBaseUrl;
-        }
-        if (browserSession) {
-          extraEnv.TOKENTRACKER_INSFORGE_BASE_URL = browserSession.baseUrl;
-          localSyncBaseUrl = browserSession.baseUrl;
-        }
-        const uploadGeneration = localCloudGeneration;
-        if ((!background || publishAccount) &&
-            !extraEnv.TOKENTRACKER_DEVICE_TOKEN &&
-            getCloudSyncPref() &&
-            getRefreshTokenForCloud()) {
-          let issuedToken = null;
-          const issuerSessionAtStart = getCloudAccountSessionGeneration();
-          const issuerCloudPrefAtStart = cloudSyncPrefGeneration;
-          try {
-            issuedToken = await issueDeviceTokenForLocalSync(qp, { baseUrl: localSyncBaseUrl, expectedOwnerId: localCloudSession?.ownerId });
-          } catch (e) {
-            if (e?.code?.startsWith("cloud_") || e?.code === "auth_owner_mismatch") throw e;
-            if (getRuntime().debug) {
-              console.warn("[LocalAPI] local sync device token issue failed:", e?.message || e);
-            }
-          }
-          if (issuerSessionAtStart !== getCloudAccountSessionGeneration()) {
-            json(res, { ok: false, error: "Account session changed", code: "auth_session_changed" }, 409);
-            return true;
-          }
-          if (!getCloudSyncPref() || issuerCloudPrefAtStart !== cloudSyncPrefGeneration) {
-            json(res, { ok: false, error: "Cloud sync preference changed", code: "CLOUD_SYNC_CHANGED" }, 409);
-            return true;
-          }
-          if (!issuedToken) {
-            if (drain) {
-              json(res, { ok: false, error: "Unable to issue cloud device token for local sync" }, 502);
-              return true;
-            }
-          } else {
-            extraEnv.TOKENTRACKER_DEVICE_TOKEN = issuedToken;
-          }
-        }
-        if (extraEnv.TOKENTRACKER_DEVICE_TOKEN && uploadGeneration !== localCloudGeneration) {
-          json(res, { ok: false, code: "auth_session_changed" }, 409); return true;
-        }
-        if (extraEnv.TOKENTRACKER_DEVICE_TOKEN) {
-          const metadata = localSyncDeviceMetadata.get(extraEnv.TOKENTRACKER_DEVICE_TOKEN);
-          if (metadata?.deviceId) extraEnv.TOKENTRACKER_CLOUD_DEVICE_ID = metadata.deviceId;
-        }
-        await Promise.all([...activeCloudSyncs].filter(controller => controller.signal.aborted).map(controller => controller.done).filter(Boolean));
-        if (extraEnv.TOKENTRACKER_DEVICE_TOKEN && uploadGeneration !== localCloudGeneration) throw Object.assign(new Error("Account session changed"), { code: "auth_session_changed", status: 409 });
-        if (extraEnv.TOKENTRACKER_DEVICE_TOKEN && localSyncDeviceTokenUserId) {
-          const uploadBaseUrl = localSyncBaseUrl || getRuntime().baseUrl;
-          const reset = readCloudUsageReset(trackerDataDir);
-          if (reset && (reset.ownerId !== localSyncDeviceTokenUserId || reset.baseUrl.replace(/\/$/, "") !== uploadBaseUrl.replace(/\/$/, "") ||
-              (extraEnv.TOKENTRACKER_CLOUD_DEVICE_ID && reset.deviceId !== extraEnv.TOKENTRACKER_CLOUD_DEVICE_ID))) {
-            json(res, { ok: false, code: "cloud_usage_reset_owner_changed" }, 409); return true;
-          }
-          const binding = JSON.stringify({ ownerId: localSyncDeviceTokenUserId, baseUrl: uploadBaseUrl });
-          const ownerPath = path.join(path.dirname(qp), "cloud-upload-owner.json");
-          let previous = "";
-          try { previous = fs.readFileSync(ownerPath, "utf8"); } catch { /* an unbound legacy cursor cannot prove its previous owner */ }
-          if (previous !== binding) {
-            fs.writeFileSync(path.join(path.dirname(qp), "queue.state.json"), JSON.stringify({ offset: 0, updatedAt: new Date().toISOString() }), { mode: 0o600 });
-            try { fs.unlinkSync(path.join(path.dirname(qp), "upload.throttle.json")); } catch { /* no cooldown yet */ }
-          }
-          fs.writeFileSync(ownerPath, binding, { mode: 0o600 });
-        }
-        const controller = new AbortController();
-        if (extraEnv.TOKENTRACKER_DEVICE_TOKEN) activeCloudSyncs.add(controller);
-        const syncStartedAt = Date.now();
-        if (localSyncDeviceTokenUserId) extraEnv.TOKENTRACKER_CLOUD_OWNER_ID = localSyncDeviceTokenUserId;
-        extraEnv.TOKENTRACKER_LOCAL_SYNC_ATTEMPT_ID = crypto.randomUUID();
-        const syncPromise = runSyncCommand(extraEnv, {
-          signal: controller.signal,
+        body = await readJsonBody(req);
+      } catch {
+        body = {};
+      }
+      // Keep the strict-boolean contract the dashboard relies on: background /
+      // lightweight scans are explicit opt-ins, never truthy-string hints.
+      const auto = body.auto === true;
+      const background =
+        auto && (body.background === true || body.lightweight === true);
+      const allLocalSources = background && body.allLocalSources === true;
+      runSyncCommand(
+        {},
+        {
           trackerDataDir: isolatedTrackerDataDir,
           syncContext,
-          drain,
-          auto,
+          auto: true,
           background,
-          publishAccount,
           allLocalSources,
-          waitForLock:
-            !drain && !background && Boolean(extraEnv.TOKENTRACKER_DEVICE_TOKEN),
-        });
-        controller.done = syncPromise.catch(() => {});
-        const result = await syncPromise.catch((error) => {
-          if (uploadGeneration !== localCloudGeneration) throw Object.assign(new Error("Account session changed"), { code: "auth_session_changed", status: 409 });
-          const failure = currentCloudUploadFailure(syncStartedAt, { backoff: auto && drain, deviceToken: extraEnv.TOKENTRACKER_DEVICE_TOKEN, attemptId: extraEnv.TOKENTRACKER_LOCAL_SYNC_ATTEMPT_ID });
-          if (failure) Object.assign(error, failure);
-          throw error;
-        }).finally(() => activeCloudSyncs.delete(controller));
-        if (extraEnv.TOKENTRACKER_DEVICE_TOKEN && uploadGeneration !== localCloudGeneration) throw Object.assign(new Error("Account session changed"), { code: "auth_session_changed", status: 409 });
-        const failure = currentCloudUploadFailure(syncStartedAt, { deviceToken: extraEnv.TOKENTRACKER_DEVICE_TOKEN, attemptId: extraEnv.TOKENTRACKER_LOCAL_SYNC_ATTEMPT_ID });
-        if (failure) throw Object.assign(new Error("Cloud upload failed"), failure);
-        invalidateAfterAccountUpload();
-        if (drain) invalidateCloudAccountPayloadCache();
-        try {
-          const { resetUsageLimitsCache } = require("./usage-limits");
-          resetUsageLimitsCache();
-        } catch (_e) {
-          // ignore if module load fails
-        }
-        let cloudAccess = { uploaded: false, pending: true };
-        try {
-          const state = JSON.parse(fs.readFileSync(path.join(path.dirname(qp), "upload.throttle.json"), "utf8"));
-          if (state.nextAllowedAtMs) cloudAccess.next_allowed_at = new Date(state.nextAllowedAtMs).toISOString();
-          cloudAccess.uploaded = state.lastSuccessAttemptId === extraEnv.TOKENTRACKER_LOCAL_SYNC_ATTEMPT_ID &&
-            Number(state.lastSuccessMs || 0) >= syncStartedAt;
-          const queueState = JSON.parse(fs.readFileSync(path.join(path.dirname(qp), "queue.state.json"), "utf8"));
-          cloudAccess.pending = fs.statSync(qp).size > Number(queueState.offset || 0);
-        } catch { /* no upload has been attempted yet */ }
-        json(res, { ok: true, ...result, ...cloudAccess });
-      } catch (e) {
-        json(res, { ok: false, error: e?.message, code: e?.code ?? null, recovery_url: e?.recoveryUrl ?? null, next_allowed_at: e?.nextAllowedAt ?? null, retry_after_seconds: e?.retryAfterMs ? Math.ceil(e.retryAfterMs / 1000) : null, stdout: e?.stdout || "", stderr: e?.stderr || "" }, e?.status || 500);
-      }
+        },
+      ).catch((e) => {
+        console.warn("[LocalAPI] local sync failed:", e?.message || e);
+      });
+      json(res, { ok: true, local_only: true });
       return true;
     }
 
@@ -2407,23 +1441,6 @@ function createLocalApiHandler({ queuePath, serverVersion = null, trackerDataDir
       const summary = aggregateWrapped(rows, year ? { year } : {});
       json(res, { scope, excluded_sources: excludedSources, ...summary });
       return true;
-    }
-
-    // --- account (cross-device) view proxy for the native popover ---
-    // When ?account=1 and the user is signed in with cloud sync on, serve the
-    // same cross-device aggregate the dashboard shows; otherwise tag the
-    // response (X-TokenTracker-Account-View: 0 plus an
-    // X-TokenTracker-Account-Fallback reason) so the popover knows it got local
-    // single-machine data and whether that is permanent (signed out / cloud
-    // sync off) or transient, and fall through to the local handler below.
-    if (url.searchParams.get("account") === "1") {
-      const usageSlug = p.startsWith("/functions/") ? p.slice("/functions/".length) : "";
-      if (accountSlugFor(usageSlug)) {
-        const result = await tryServeAccountView(usageSlug, url, res);
-        if (result === "served") return true;
-        res.setHeader("X-TokenTracker-Account-View", "0");
-        res.setHeader("X-TokenTracker-Account-Fallback", result);
-      }
     }
 
     // --- usage-summary ---
@@ -2545,7 +1562,7 @@ function createLocalApiHandler({ queuePath, serverVersion = null, trackerDataDir
       const refresh = ["1", "true"].includes(url.searchParams.get("refresh"));
       try {
         const { buildSessionAnalytics, summarizeSessions, sessionsToCsv } = require("./session-analytics");
-        const sessions = await buildSessionAnalytics({ force: refresh });
+        const sessions = await require("./fork-view").sessions(trackerDataDir, url, {home: syncContext?.home});
         const wantsCsv = url.searchParams.get("format") === "csv";
         const includeSessions = wantsCsv || ["1", "true"].includes(url.searchParams.get("include_sessions"));
         const result = summarizeSessions(sessions, { from, to, includeSessions, ...getTimeZoneContext(url) });
@@ -2582,8 +1599,17 @@ function createLocalApiHandler({ queuePath, serverVersion = null, trackerDataDir
       res.setHeader("X-Content-Type-Options", "nosniff");
       try {
         const { buildSessionAnalytics, listSessionsForBrowser } = require("./session-analytics");
-        const sessions = await buildSessionAnalytics({ force: refresh });
+        const sessions = await require("./fork-view").sessions(trackerDataDir, url, {home: syncContext?.home});
         const result = listSessionsForBrowser(sessions, { from, to, limit, ...getTimeZoneContext(url) });
+        const prefs = await require('./fork-view').preferences(trackerDataDir);
+        const includeHidden = ['1','true'].includes(url.searchParams.get('include_hidden'));
+        const hidden = new Set(prefs.hidden);
+        result.sessions = result.sessions.map(row=> {
+          const origin = sessions.find(s=>s.session_hash===row.session_hash);
+          const remote=origin?.remote;
+          return {...row,device:origin?.device,device_name:origin?.device_name,hidden:hidden.has(row.session_hash),remote:Boolean(remote),...(remote||origin?.restored?{resume_command:null,project_ref:null}:{})};
+        }).filter(row=>includeHidden||!row.hidden);
+        result.returned_count=result.sessions.length;
         json(res, { from, to, ...result });
       } catch (error) {
         // Node fs errors embed the absolute path ("EACCES ... open '/Users/…'").
@@ -2993,144 +2019,6 @@ function createLocalApiHandler({ queuePath, serverVersion = null, trackerDataDir
       return true;
     }
 
-    // --- user-status (stub) ---
-    if (p === "/functions/tokentracker-user-status") {
-      json(res, {
-        user_id: "local-user", email: "local@localhost", name: "Local User", is_public: false,
-        created_at: new Date().toISOString(),
-        pro: { active: true, sources: ["local"], expires_at: null, partial: false, as_of: new Date().toISOString() },
-        // Cross-device popover state: whether account aggregation can be served
-        // (signed in) and whether the dashboard's cloud-sync toggle is on.
-        account: {
-          available: Boolean(getRefreshTokenForCloud()),
-          cloud_sync_enabled: getCloudSyncPref(),
-          account_view: Boolean(getRefreshTokenForCloud()) && getCloudSyncPref(),
-        },
-      });
-      return true;
-    }
-
-    // --- provider API keys saved from the Limits panel ---
-    // The key lives in a 0600 file next to the queue, never in the launch
-    // environment: a global `launchctl setenv` reaches every launchd app on
-    // macOS, which is exactly the cross-app leak in #837. GET only reports
-    // whether a key exists and where it came from; it never echoes the secret.
-    if (p === "/functions/tokentracker-provider-key") {
-      const {
-        envNameForProvider,
-        isProviderId,
-        normalizeApiKey,
-        readStoredApiKey,
-        writeStoredApiKey,
-      } = require("./provider-api-key-store");
-      const method = String(req.method || "GET").toUpperCase();
-      if (method === "GET") {
-        const provider = String(url.searchParams.get("provider") || "").trim();
-        if (!isProviderId(provider)) {
-          json(res, { error: "Unknown provider" }, 400);
-          return true;
-        }
-        const envName = envNameForProvider(provider);
-        const envValue = envName ? process.env[envName] : "";
-        const hasEnvKey = typeof envValue === "string" && Boolean(envValue.trim());
-        const hasStoredKey = Boolean(readStoredApiKey({ provider, trackerDir: trackerDataDir }));
-        json(res, {
-          provider,
-          configured: hasEnvKey || hasStoredKey,
-          source: hasEnvKey ? "env" : hasStoredKey ? "stored" : "none",
-        });
-        return true;
-      }
-      if (method === "POST" || method === "PUT") {
-        if (!isAuthorizedLocalMutation(req)) {
-          json(res, { ok: false, error: "Unauthorized" }, 401);
-          return true;
-        }
-        let body;
-        try {
-          body = await readJsonBody(req);
-        } catch {
-          json(res, { ok: false, error: "Invalid JSON body" }, 400);
-          return true;
-        }
-        const provider = typeof body?.provider === "string" ? body.provider.trim() : "";
-        if (!isProviderId(provider)) {
-          json(res, { ok: false, error: "Unknown provider" }, 400);
-          return true;
-        }
-        if (!normalizeApiKey(body?.apiKey)) {
-          json(res, { ok: false, error: "Invalid API key" }, 400);
-          return true;
-        }
-        try {
-          await writeStoredApiKey({ provider, trackerDir: trackerDataDir, apiKey: body.apiKey });
-        } catch {
-          json(res, { ok: false, error: "Could not save the API key" }, 500);
-          return true;
-        }
-        // The in-memory aggregate would otherwise keep serving the previous
-        // credential's row (or "not configured") until its TTL expires.
-        try {
-          const { resetUsageLimitsCache, resolveOpencodeGoLimitsCachePath } = require("./usage-limits");
-          resetUsageLimitsCache({ invalidateInFlight: true });
-          if (provider === "opencode-go") {
-            // The disk snapshot is the stale-bars fallback; it must not
-            // outlive the key that produced it.
-            await fs.promises.unlink(resolveOpencodeGoLimitsCachePath({ trackerDir: trackerDataDir }));
-          }
-        } catch {
-          /* cache invalidation is best effort; the stored key is authoritative */
-        }
-        json(res, { ok: true, configured: true, source: "stored" });
-        return true;
-      }
-      json(res, { error: "Method Not Allowed" }, 405);
-      return true;
-    }
-
-    // --- cloud-sync preference mirror ---
-    // The dashboard's Settings → Account → Cloud sync toggle (a WebView
-    // localStorage flag) is mirrored here so the auth-unaware native popover can
-    // gate its account (cross-device) view on the same preference.
-    if (p === "/functions/tokentracker-cloud-sync-pref") {
-      const method = String(req.method || "GET").toUpperCase();
-      if (method === "GET") {
-        json(res, {
-          enabled: getCloudSyncPref(),
-          account_available: Boolean(getRefreshTokenForCloud()),
-        });
-        return true;
-      }
-      if (method === "POST" || method === "PUT") {
-        if (!isAuthorizedLocalMutation(req)) {
-          json(res, { ok: false, error: "Unauthorized" }, 401);
-          return true;
-        }
-        let body = {};
-        try {
-          body = await readJsonBody(req);
-        } catch {
-          body = {};
-        }
-        // Reject malformed payloads rather than silently coercing them to a
-        // persisted `false` — this file is the shared cloud-sync preference, so
-        // a bad write would desync the popover from the dashboard.
-        if (typeof body?.enabled !== "boolean") {
-          json(res, { ok: false, error: "enabled must be a boolean" }, 400);
-          return true;
-        }
-        if (body.changedAtMs != null && (!Number.isSafeInteger(body.changedAtMs) || body.changedAtMs < 0)) {
-          json(res, { ok: false, error: "changedAtMs must be a nonnegative safe integer" }, 400);
-          return true;
-        }
-        setCloudSyncPref(body.enabled, body.changedAtMs ?? Date.now());
-        json(res, { ok: true, enabled: getCloudSyncPref() });
-        return true;
-      }
-      json(res, { error: "Method Not Allowed" }, 405);
-      return true;
-    }
-
     // --- outbound proxy preference (manual / system / off) ---
     // Persisted on config.json next to the queue. GET is unauthenticated so the
     // settings page can probe availability; POST requires local-auth.
@@ -3268,27 +2156,9 @@ function createLocalApiHandler({ queuePath, serverVersion = null, trackerDataDir
       return true;
     }
 
-    // --- telemetry preference (anonymous analytics opt-out mirror) ---
-    // The dashboard's analytics init on localhost / native-app surfaces asks
-    // this before sending anything, so TOKENTRACKER_NO_TELEMETRY /
-    // DO_NOT_TRACK / config.json `"telemetry": false` turn off dashboard
-    // analytics together with the daily heartbeat (src/lib/telemetry.js).
-    if (p === "/functions/tokentracker-telemetry-pref") {
-      const { isTelemetryDisabled } = require("./telemetry");
-      let config = {};
-      try {
-        config = JSON.parse(fs.readFileSync(path.join(path.dirname(qp), "config.json"), "utf8")) || {};
-      } catch {
-        config = {};
-      }
-      json(res, { disabled: isTelemetryDisabled({ env: process.env, config }) });
-      return true;
-    }
-
-    // --- machine-id (stable per-machine device identity for cloud sync) ---
-    // The dashboard reads this before issuing a cloud device token so the
-    // device_name keys on the MACHINE, not the browser — see
-    // getOrCreateMachineId above and dashboard/src/lib/cloud-sync.ts.
+    // --- machine-id (stable per-machine device identity) ---
+    // Local usage transfer between machines keys a device on the MACHINE, not
+    // the browser — see getOrCreateMachineId above.
     if (p === "/functions/tokentracker-machine-id") {
       json(res, {
         machineId: getOrCreateMachineId(qp),
@@ -3411,7 +2281,7 @@ function createLocalApiHandler({ queuePath, serverVersion = null, trackerDataDir
             json(res, {
               ok: true,
               subscription: await manager.createSubscription({
-                trackerDir,
+                trackerDir: trackerDataDir,
                 fields: body.subscription || body,
               }),
             });
@@ -3421,7 +2291,7 @@ function createLocalApiHandler({ queuePath, serverVersion = null, trackerDataDir
             json(res, {
               ok: true,
               subscription: await manager.updateSubscription({
-                trackerDir,
+                trackerDir: trackerDataDir,
                 id: body.id,
                 fields: body.subscription || body,
               }),
@@ -3678,7 +2548,6 @@ function createLocalApiHandler({ queuePath, serverVersion = null, trackerDataDir
 
 module.exports = {
   createLocalApiHandler,
-  resolveAllowedInsforgeBaseUrl,
   resolveQueuePath,
   // Exported for cross-consumer tests (pricing + native contract lock).
   MODEL_PRICING,
@@ -3688,8 +2557,9 @@ module.exports = {
   // Shared legacy-row correction so every queue reader (main queue, project
   // queue, wrapped aggregator) reports the same numbers for the same data.
   normalizeQueueRow,
-  // Machine-stable identity (config.json machineId) — shared with
-  // `tracker device-login`; the hostname is only a human-readable label.
+  // Machine-stable identity (config.json machineId) — used by local usage
+  // transfer and the machine-id endpoint; the hostname is only a
+  // human-readable label.
   getOrCreateMachineId,
   computeStableMachineId,
   getSystemDeviceName,

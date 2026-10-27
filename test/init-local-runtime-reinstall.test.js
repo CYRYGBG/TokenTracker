@@ -55,7 +55,7 @@ test("init first sync keeps local data and credentials without uploading when no
       delete env.TOKENTRACKER_SKIP_FIRST_SYNC;
       delete env.TOKENTRACKER_LOCAL_SYNC_ATTEMPT_ID;
       const result = await new Promise((resolve, reject) => {
-        const child = spawn(process.execPath, [path.join(repoRoot, "bin", "tracker.js"), "init", "--yes", "--no-auth", "--no-open", "--base-url", `http://127.0.0.1:${server.address().port}`], { cwd: repoRoot, env });
+        const child = spawn(process.execPath, [path.join(repoRoot, "bin", "tracker.js"), "init", "--yes", "--no-open"], { cwd: repoRoot, env });
         let output = "";
         child.stdout.on("data", (chunk) => { output += chunk; });
         child.stderr.on("data", (chunk) => { output += chunk; });
@@ -89,7 +89,7 @@ test("init can rerun from installed local runtime without self-deleting app sour
     await fs.writeFile(path.join(env.CODEX_HOME, "config.toml"), "# empty\n", "utf8");
 
     const firstInit = runTracker(
-      ["init", "--yes", "--no-auth", "--no-open", "--base-url", "https://example.invalid", "--anon-key", publicAnon],
+      ["init", "--yes", "--no-open"],
       env,
     );
     assert.equal(
@@ -103,7 +103,7 @@ test("init can rerun from installed local runtime without self-deleting app sour
 
     const secondInit = runLocalTracker(
       trackerBinPath,
-      ["init", "--yes", "--no-auth", "--no-open", "--base-url", "https://example.invalid", "--anon-key", publicAnon],
+      ["init", "--yes", "--no-open"],
       env,
     );
     assert.equal(

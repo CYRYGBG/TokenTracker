@@ -17,7 +17,7 @@ const TARGET_ROUTES = Object.freeze({
 
 const DEFAULT_RESOURCE_LOADERS = Object.freeze({
   limits: () => import("../pages/LimitsPage.jsx"),
-  leaderboard: () => import("../pages/LeaderboardPage.jsx"),
+  leaderboard: () => Promise.resolve(null),
 });
 
 const LEADERBOARD_DEFAULT_PERIOD = "total";

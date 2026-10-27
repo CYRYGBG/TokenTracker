@@ -13,7 +13,7 @@ const { argv, debug } = stripDebugFlag(process.argv.slice(2));
 if (debug) process.env.TOKENTRACKER_DEBUG = '1';
 
 const persistedProxy = readPersistedProxyConfig();
-const relaunch = relaunchWithProxyEnvIfNeeded({
+const relaunch = process.env.TOKENTRACKER_PERSONAL === "1" ? null : relaunchWithProxyEnvIfNeeded({
   argv,
   originalArgv: process.argv.slice(1),
   proxyConfig: persistedProxy,
@@ -40,12 +40,6 @@ if (applyResult && applyResult.unprotected === true) {
 }
 
 run(argv).catch((err) => {
-  try {
-    const { captureException } = require('../src/lib/sentry');
-    captureException(err, { tags: { surface: 'cli-unhandled' } });
-  } catch {
-    /* ignore */
-  }
   console.error(err?.stack || String(err));
   if (debug) {
     if (typeof err?.status === 'number') {

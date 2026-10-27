@@ -487,11 +487,14 @@ test("local queue readers never surface session-state control records as usage r
     /kind === "account_session_state"/,
     "readQueueData must skip account_session_state records",
   );
-  const sync = readRepoFile("src/commands/sync.js");
+  // The fork's WebDAV exporter is the new carrier for account session states:
+  // it must collect them separately from bucket rows so the importer can
+  // apply LWW + aggregate instead of double counting.
+  const exporter = readRepoFile("src/lib/sync-store/exporter.js");
   assert.match(
-    sync,
+    exporter,
     /kind === "account_session_state"/,
-    "the upload path collects account_session_state records separately from bucket rows",
+    "the fork export path collects account_session_state records separately from bucket rows",
   );
-  assert.match(sync, /account_session_states/, "the upload body carries account_session_states");
+  assert.match(exporter, /sessionStates/, "the export view carries session states alongside buckets");
 });

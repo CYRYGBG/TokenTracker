@@ -24,8 +24,8 @@ const VERSION_FILES = [
     label: 'TokenTrackerBar/project.yml',
     read(content) {
       const matches = [...content.matchAll(/^\s*MARKETING_VERSION:\s*["']([^"']+)["']\s*$/gm)];
-      if (matches.length !== 2) throw new Error('Expected exactly two MARKETING_VERSION entries in TokenTrackerBar/project.yml');
-      if (matches[0][1] !== matches[1][1]) throw new Error('MARKETING_VERSION entries in TokenTrackerBar/project.yml must match');
+      if (matches.length < 1) throw new Error('Expected at least one MARKETING_VERSION entry in TokenTrackerBar/project.yml');
+      if (matches.some(match => match[1] !== matches[0][1])) throw new Error('MARKETING_VERSION entries in TokenTrackerBar/project.yml must match');
       return matches[0][1];
     },
     write(content, version) {
@@ -34,7 +34,7 @@ const VERSION_FILES = [
         count += 1;
         return `${start}${version}${end}`;
       });
-      if (count !== 2) throw new Error('Expected exactly two MARKETING_VERSION entries in TokenTrackerBar/project.yml');
+      if (count < 1) throw new Error('Expected at least one MARKETING_VERSION entry in TokenTrackerBar/project.yml');
       return updated;
     },
   },

@@ -26,6 +26,7 @@ import {
   toFiniteNumber,
 } from "../lib/format";
 import { shouldShowInstallCard } from "../lib/install-status";
+import { isLocalDashboardHost } from "../lib/host-mode";
 import { getMockNow, isMockEnabled } from "../lib/mock-data";
 import { publishUsageLimitsPreloadState } from "../lib/dashboard-preload.js";
 import { startLocalUsageAutoRefresh } from "../lib/local-usage-auto-refresh";
@@ -1321,7 +1322,7 @@ export function DashboardPage({
   const hasActiveDeviceToken = Boolean(
     userStatus?.install?.has_active_device_token ?? userStatus?.install?.hasActiveDeviceToken,
   );
-  const shouldShowInstall = shouldShowInstallCard({
+  const shouldShowInstall = !isLocalDashboardHost() && shouldShowInstallCard({
     publicMode,
     screenshotMode,
     forceInstall,

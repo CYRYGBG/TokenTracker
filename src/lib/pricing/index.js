@@ -53,6 +53,8 @@ function loadSeedSync() {
 }
 
 const seedRaw = loadSeedSync();
+let customPrices = [];
+let customPricesKey = "[]";
 
 const state = {
   loaded: false,
@@ -67,7 +69,7 @@ const state = {
 };
 
 function defaultCachePath() {
-  return path.join(os.homedir(), ".tokentracker", "cache", "pricing.json");
+  return path.join(os.homedir(), (process.env.TOKENTRACKER_PERSONAL === "1" ? ".tokentracker-personal" : ".tokentracker"), "cache", "pricing.json");
 }
 
 async function ensurePricingLoaded(opts = {}) {
@@ -77,10 +79,13 @@ async function ensurePricingLoaded(opts = {}) {
   state.loadingPromise = (async () => {
     try {
       const cachePath = opts.cachePath || defaultCachePath();
-      const { data, source } = await loadLitellmData({ ...opts, cachePath });
+      const { data, source, fetchedAt } = await loadLitellmData({ ...opts, cachePath });
       state.litellmRawMap = data || {};
       state.litellmPerMillionMap = buildLitellmPerMillionMap(state.litellmRawMap);
       state.source = source;
+      state.updatedAt = fetchedAt || null;
+      state.loadedAt = new Date().toISOString();
+      state.version = require('node:crypto').createHash('sha256').update(JSON.stringify(state.litellmRawMap)).digest('hex').slice(0,16);
       state.loaded = true;
       state.revision += 1;
       state.negativeCache.clear();
@@ -92,6 +97,19 @@ async function ensurePricingLoaded(opts = {}) {
 
   return state.loadingPromise;
 }
+
+async function reloadPricing(opts = {}) {
+  if (state.loadingPromise) await state.loadingPromise;
+  state.loaded = false;
+  return ensurePricingLoaded({...opts,ttlMs:0});
+}
+function setCustomPrices(prices) {
+  const key = JSON.stringify(prices);
+  if (key === customPricesKey) return;
+  customPricesKey = key; customPrices = prices; state.revision++; state.negativeCache.clear();
+}
+function customPrice(model, source) { return customPrices.find(r=>r.model===model && r.source===source); }
+function getPricingStatus() { return {source:state.source,version:state.version||'bundled-seed',updated_at:state.updatedAt||null,revision:state.revision,history_policy:'Saved ledger estimates retain their first observed price basis. Explicit re-estimation is available. Session analysis uses current rates. Provider-reported amounts and expenses are preserved.',custom_prices:customPrices}; }
 
 // For tests: drop loaded state so a fresh call can re-load. Seeds with the
 // bundled snapshot so getModelPricing() still works without ensurePricingLoaded.
@@ -117,6 +135,8 @@ function getModelPricing(model, opts = {}) {
   } else if (typeof opts.source === "string") {
     lookupSource = opts.source.toLowerCase();
   }
+  const custom = customPrice(model, lookupSource);
+  if (custom) return {input:custom.input,output:custom.output,cache_read:custom.cache_read,cache_write:custom.cache_write};
   const cacheKey = lookupSource ? `${lookupSource}\0${model}` : model;
   if (state.negativeCache.has(cacheKey)) return ZERO_PRICING;
 
@@ -158,6 +178,8 @@ function computeModelPricingInfo(model, opts, sourceKey) {
   if (LOCAL_INFERENCE_SOURCES.has(sourceKey) || PI_SUBSCRIPTION_SOURCES.has(sourceKey)) {
     return { status: "free", source: LOCAL_INFERENCE_SOURCES.has(sourceKey) ? "local_inference" : "subscription", ...ZERO_PRICING };
   }
+  const custom = customPrice(model, sourceKey);
+  if (custom) return {status:[custom.input,custom.output,custom.cache_read,custom.cache_write].some(v=>v>0)?"priced":"free",source:"custom",...getModelPricing(model,opts)};
   const result = lookupPricing(model, {
     curated: curatedOverrides,
     litellm: state.litellmPerMillionMap,
@@ -225,6 +247,7 @@ function getRowPricing(row) {
 // computeRowCost in src/lib/local-api.js. Moved here so vite mock + local
 // server share one source of truth.
 function computeRowCost(row) {
+  if (Number.isFinite(row?.fork_estimated_cost_usd) && row.fork_estimated_cost_usd >= 0) return row.fork_estimated_cost_usd;
   if (LOCAL_INFERENCE_SOURCES.has(String(row?.source || "").toLowerCase())) return 0;
   // Pi can route a turn through a subscription-backed Copilot provider. Pi's
   // usage record reports a zero marginal cost for those turns; do not
@@ -267,7 +290,8 @@ function computeRowCost(row) {
   const model = String(row?.model || "").toLowerCase();
   const usesOpenAILongContextTier =
     model === "gpt-5.6" || model.includes("gpt-5.6-sol") || model.includes("gpt-6-astra") ||
-    model.includes("gpt-6-sol") || model.includes("gpt-6.1-sol");
+    model.includes("gpt-6-sol") || model.includes("gpt-6.1-sol") ||
+    model.includes("gpt-6.1-terra");
   // Only models whose curated entry carries an explicit Fast/priority rate get
   // the tier premium. The other OpenAI tiers have no published priority price,
   // and inventing one is worse than reporting Standard.
@@ -375,6 +399,7 @@ function computeRowCost(row) {
 const MODEL_PRICING = curatedOverrides.exact;
 
 module.exports = {
+  reloadPricing, setCustomPrices, getPricingStatus,
   ensurePricingLoaded,
   getPricingRevision,
   getModelPricing,

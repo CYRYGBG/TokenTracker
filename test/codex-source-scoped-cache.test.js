@@ -7,7 +7,6 @@ const { test } = require("node:test");
 const {
   cmdSync,
   isCodexColdScanAuditDue,
-  scheduleAutoRetry,
 } = require("../src/commands/sync");
 const { listRolloutFiles } = require("../src/lib/rollout");
 
@@ -270,64 +269,6 @@ test("OpenClaw auto sync does not enumerate Codex sessions", async () => {
   });
 });
 
-test("auto retry refreshes stale source scope without rescheduling later retry", async () => {
-  const tmp = await fs.mkdtemp(path.join(os.tmpdir(), "tokentracker-auto-retry-"));
-  try {
-    const trackerDir = path.join(tmp, "tracker");
-    const retryPath = path.join(trackerDir, "auto.retry.json");
-    await fs.mkdir(trackerDir, { recursive: true });
-
-    const laterRetryAtMs = Date.now() + 60_000;
-    await fs.writeFile(
-      retryPath,
-      JSON.stringify({
-        version: 1,
-        retryAtMs: laterRetryAtMs,
-        retryAt: new Date(laterRetryAtMs).toISOString(),
-        reason: "backlog",
-        pendingBytes: 5,
-        scheduledAt: new Date().toISOString(),
-        source: "auto-backlog",
-      }),
-      "utf8",
-    );
-
-    const scoped = await scheduleAutoRetry({
-      trackerDir,
-      retryAtMs: Date.now() + 30_000,
-      reason: "backlog",
-      pendingBytes: 11,
-      source: "gemini-backlog",
-      syncSource: "gemini",
-      autoRetryNoSpawn: true,
-    });
-
-    assert.equal(scoped.scheduled, false);
-    assert.equal(scoped.retryAtMs, laterRetryAtMs);
-    const scopedPayload = JSON.parse(await fs.readFile(retryPath, "utf8"));
-    assert.equal(scopedPayload.retryAtMs, laterRetryAtMs);
-    assert.equal(scopedPayload.syncSource, "gemini");
-
-    const full = await scheduleAutoRetry({
-      trackerDir,
-      retryAtMs: Date.now() + 30_000,
-      reason: "backlog",
-      pendingBytes: 13,
-      source: "auto-backlog",
-      syncSource: null,
-      autoRetryNoSpawn: true,
-    });
-
-    assert.equal(full.scheduled, false);
-    assert.equal(full.retryAtMs, laterRetryAtMs);
-    const fullPayload = JSON.parse(await fs.readFile(retryPath, "utf8"));
-    assert.equal(fullPayload.retryAtMs, laterRetryAtMs);
-    assert.equal(Object.hasOwn(fullPayload, "syncSource"), false);
-  } finally {
-    await fs.rm(tmp, { recursive: true, force: true });
-  }
-});
-
 test("non-Grok notify auto sync leaves pending Grok hook signal untouched", async () => {
   await withTempSyncEnv(async (home) => {
     const trackerDir = path.join(home, ".tokentracker", "tracker");
@@ -561,7 +502,7 @@ test("full sync discovers live and archived Codex roots concurrently", async () 
   });
 });
 
-test("background auto sync stays bounded and skips deep Codex archives", async () => {
+test("first background sync backfills Codex archives once, then stays bounded", async () => {
   await withTempSyncEnv(async (home) => {
     const codexHome = process.env.CODEX_HOME;
     await writeCodexRollout(
@@ -578,16 +519,33 @@ test("background auto sync stays bounded and skips deep Codex archives", async (
     );
 
     const archiveRoot = path.join(codexHome, "archived_sessions");
+    const queuePath = path.join(home, ".tokentracker", "tracker", "queue.jsonl");
+    const cursorsPath = path.join(home, ".tokentracker", "tracker", "cursors.json");
+
+    // Fork archive backfill: the FIRST background sync pays one deep pass so
+    // archive-era history reaches fresh installs without a manual full sync
+    // (the "only claude/zcode counted" incident). Event dedup keeps archive
+    // re-reads no-ops.
+    await cmdSync(["--auto", "--background"]);
+    const afterBackfill = await fs.readFile(queuePath, "utf8");
+    // Live rollout (31) and nested archive (47) share the 2026-06-30 hour and
+    // fold into one 78 bucket row — the archive history is present.
+    assert.match(afterBackfill, /"total_tokens":78/);
+    const cursors = JSON.parse(await fs.readFile(cursorsPath, "utf8"));
+    assert.match(
+      String(cursors.migrations?.codexArchiveBackfill_2026_10_fork || ""),
+      /^\d{4}-\d{2}-\d{2}T/,
+      "completed backfill must be recorded as a final migration timestamp",
+    );
+
     const { count } = await countReaddir(
       () => cmdSync(["--auto", "--background"]),
       (target) => target.startsWith(archiveRoot),
     );
 
-    assert.equal(count, 0, "background auto sync must not enumerate archived Codex sessions");
-    const queue = await fs.readFile(path.join(home, ".tokentracker", "tracker", "queue.jsonl"), "utf8");
-    assert.match(queue, /"source":"codex"/);
-    assert.match(queue, /"total_tokens":31/);
-    assert.doesNotMatch(queue, /"total_tokens":47/);
+    assert.equal(count, 0, "background auto sync after backfill must not enumerate archived Codex sessions");
+    const queue = await fs.readFile(queuePath, "utf8");
+    assert.equal(queue, afterBackfill, "idle background sync must leave the backfilled queue stable");
   });
 });
 
@@ -669,10 +627,12 @@ test("lightweight flag is an alias for bounded background sync", async () => {
 
     await cmdSync(["--auto", "--lightweight"]);
 
+    // The lightweight alias still performs the one-time fork archive backfill
+    // on a fresh install, so the archived rollout counts here too: both files
+    // share the 2026-06-30 hour, folding into one 36+58=94 bucket row.
     const queue = await fs.readFile(path.join(home, ".tokentracker", "tracker", "queue.jsonl"), "utf8");
     assert.match(queue, /"source":"codex"/);
-    assert.match(queue, /"total_tokens":36/);
-    assert.doesNotMatch(queue, /"total_tokens":58/);
+    assert.match(queue, /"total_tokens":94/);
   });
 });
 
@@ -720,7 +680,9 @@ test("second unchanged background sync does not deep-read archive descendants or
     );
     assert.equal(after, before, "idle background sync must leave Codex queue output stable");
     assert.match(after, /"total_tokens":17/);
-    assert.match(after, /"total_tokens":41/);
+    // The first sync's archive backfill folds the nested archive (67) into the
+    // same hourly bucket as the live rollout (41) — one row, 108 total.
+    assert.match(after, /"total_tokens":108/);
     assert.doesNotMatch(after, /"total_tokens":67/);
   });
 });

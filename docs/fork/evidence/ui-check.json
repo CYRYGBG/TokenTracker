@@ -1,0 +1,23 @@
+{
+  "date": "2026-10-27",
+  "browserVersion": "147.0.7727.15",
+  "productionAssets": true,
+  "realLocalApi": true,
+  "isolatedHome": true,
+  "webdav": "local protocol fixture",
+  "flows": [
+    "save settings",
+    "test connection",
+    "sync now",
+    "save and edit expense, reload through API",
+    "download backup and restore missing statistics",
+    "dashboard route",
+    "sessions route",
+    "remote WebDAV session visible with device and detail modal",
+    "hide, show hidden, unhide through API",
+    "local, remote device and all scopes"
+  ],
+  "pageErrors": [],
+  "externalRequests": [],
+  "serverErrors": ""
+}

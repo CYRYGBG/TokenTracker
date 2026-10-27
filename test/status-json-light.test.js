@@ -30,8 +30,6 @@ test("status --json emits a JSON object with required summary fields", () => {
   assert.ok("version" in parsed, "missing top-level key: version");
   for (const key of [
     "generated_at",
-    "base_url",
-    "device_token_set",
     "queue",
     "hooks",
     "providers",
@@ -40,7 +38,7 @@ test("status --json emits a JSON object with required summary fields", () => {
   ]) {
     assert.ok(key in parsed, `missing top-level key: ${key}`);
   }
-  assert.ok("pending_bytes" in parsed.queue);
+  assert.ok("size_bytes" in parsed.queue);
   assert.ok("claude" in parsed.hooks);
   assert.ok("openclaw_session_plugin_conversation_access" in parsed.hooks);
   assert.ok(parsed.providers.cline, "missing Cline provider summary");
@@ -48,7 +46,6 @@ test("status --json emits a JSON object with required summary fields", () => {
   if (parsed.providers.cline.installed) assert.equal(typeof parsed.providers.cline.files, "number");
   assert.ok("app_db_has_file" in parsed.copilot);
   assert.ok("app_db_path" in parsed.copilot);
-  assert.equal(typeof parsed.device_token_set, "boolean");
 });
 
 test("status --light renders an ASCII table with key columns", () => {
@@ -79,7 +76,7 @@ test("status default (no flag) still prints the human-readable list", () => {
   assert.equal(res.status, 0);
   assert.match(res.stdout, /^TokenTracker v/);
   assert.match(res.stdout, /Status:/);
-  assert.match(res.stdout, /^- Queue: \d+ bytes pending/m);
+  assert.match(res.stdout, /^- Queue: \d+ bytes/m);
 });
 
 test("status --bogus rejects unknown flag", () => {

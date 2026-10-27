@@ -13,7 +13,7 @@ const MAX_STATE_BYTES = 64 * 1024 * 1024;
 const MAX_DEVICES = 32;
 const TOKEN_FIELDS = ["input_tokens", "output_tokens", "cached_input_tokens", "cache_creation_input_tokens",
   "reasoning_output_tokens", "total_tokens", "billable_total_tokens", "conversation_count",
-  ...["long_context_", "priority_", "priority_long_context_"].flatMap((prefix) =>
+  ...["long_context_", "priority_", "priority_long_context_", "ultrafast_", "ultrafast_long_context_"].flatMap((prefix) =>
     ["input_tokens", "output_tokens", "cached_input_tokens", "cache_creation_input_tokens", "reasoning_output_tokens"].map((field) => prefix + field))];
 const ROW_FIELDS = new Set(["source", "model", "hour_start", "total_cost_usd", ...TOKEN_FIELDS]);
 const validId = (id) => typeof id === "string" && /^[A-Za-z0-9_-]{8,128}$/.test(id);
@@ -219,6 +219,7 @@ function createLocalUsageTransfer({ queuePath, normalizeRow, identity }) {
         await write(value);
       });
     },
+    async readImportedDevices() { return imported(await state()).map(entry=>entry.snapshot); },
     async hasImports() { return imported(await state()).length > 0; },
     async view(rows, device = "") {
       const value = await state();

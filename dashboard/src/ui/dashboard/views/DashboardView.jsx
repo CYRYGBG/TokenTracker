@@ -20,7 +20,7 @@ import { UsageOverview } from "../components/UsageOverview.jsx";
 import { TrendMonitor } from "../components/TrendMonitor.jsx";
 import { SortableCard } from "../components/SortableCard.jsx";
 import { FadeIn } from "../../foundation/FadeIn.jsx";
-import { QualityPerDollarCard } from "../components/QualityPerDollarCard.jsx";
+
 import { SessionInsightsCard } from "../components/SessionInsightsCard.jsx";
 import { LoginCard } from "../../../components/LoginCard.jsx";
 import { DashboardSkeleton } from "../../../components/DashboardSkeleton.jsx";
@@ -209,7 +209,7 @@ export function DashboardView(props) {
     activityHeatmap: Boolean(activityHeatmapBlock),
     deviceUsage: Boolean(deviceUsageBlock),
     trendMonitor: !screenshotMode,
-    qualityPerDollar: !screenshotMode,
+    qualityPerDollar: false,
     sessionInsights: isLocalMode && !screenshotMode,
   };
   const visibleLeftOrder = (leftCardOrder || []).filter(
@@ -289,15 +289,8 @@ export function DashboardView(props) {
           </FadeIn>
         );
       }
-      case "qualityPerDollar": {
-        return (
-          <QualityPerDollarCard
-            from={usageFrom}
-            to={usageTo}
-            deviceId={selectedDevice}
-          />
-        );
-      }
+      case "qualityPerDollar": return null;
+
       case "sessionInsights": {
         return <SessionInsightsCard from={usageFrom} to={usageTo} />;
       }

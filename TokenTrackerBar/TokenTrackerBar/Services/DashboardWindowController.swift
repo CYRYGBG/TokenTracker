@@ -97,7 +97,7 @@ final class DashboardWindowController: NSObject, NSWindowDelegate, WKNavigationD
             guard let script = try? profile.transportScript() else { fatalError("Native QA transport unavailable") }
             contentController.addUserScript(WKUserScript(source: script, injectionTime: .atDocumentStart, forMainFrameOnly: true))
         }
-        contentController.add(self, name: "nativeOAuth")
+
         contentController.add(self, name: "nativeBridge")
         // Earliest paint: transparent root so NSVisualEffectView is visible (index.html also sets native-app via nativeBridge).
         let transparencyBootstrap = """
@@ -556,7 +556,7 @@ final class DashboardWindowController: NSObject, NSWindowDelegate, WKNavigationD
 
     private func handleScriptMessage(name: String, body: Any, sourceURL: URL?, mainFrame: Bool, sender: WKWebView?) {
         if name == "nativeBridge", let message = body as? [String: Any],
-           ["saveCloudUsageExport", "saveLocalUsageExport"].contains(message["type"] as? String ?? ""), let sender {
+           ["saveLocalUsageExport"].contains(message["type"] as? String ?? ""), let sender {
             let expected = NativeQAProfile.current?.baseURL ?? URL(string: Constants.serverBaseURL)!
             let permitted = CloudUsageExport.permitsSource(sourceURL, current: webView?.url, expected: expected,
                                                           mainFrame: mainFrame, ownWebView: sender === webView)
@@ -589,12 +589,7 @@ final class DashboardWindowController: NSObject, NSWindowDelegate, WKNavigationD
             NativeBridge.shared.handle(message: body)
             return
         }
-        guard name == "nativeOAuth",
-              let urlString = body as? String,
-              let url = URL(string: urlString) else { return }
-        // Open OAuth in system browser where user has saved Google/GitHub sessions
-        beginNativeOAuth()
-        NSWorkspace.shared.open(url)
+
     }
 
     /// Open the dashboard and navigate directly to the Settings page.

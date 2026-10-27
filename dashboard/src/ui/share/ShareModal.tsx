@@ -69,7 +69,7 @@ function ActionButton({ onClick, disabled, children, emphasis, ariaLabel }: any)
 }
 
 export function ShareModal({ open, onClose, data, twitterText }: any) {
-  const [busy, setBusy] = useState<null | "x" | "copy" | "download">(null);
+  const [busy, setBusy] = useState<null | "copy" | "download">(null);
   const [handleOverride, setHandleOverride] = useState<string>("");
   const [variant, setVariant] = useState<string>("annual-report");
   const cardRef = useRef<HTMLDivElement | null>(null);
@@ -177,57 +177,6 @@ export function ShareModal({ open, onClose, data, twitterText }: any) {
     setBusy(null);
   }, [busy, ensureCardBlob, buildFilename, push]);
 
-  const handleShareX = useCallback(async () => {
-    if (busy) return;
-    setBusy("x");
-    const blob = await ensureCardBlob();
-    if (!blob) {
-      push(copy("share.toast.failed"), "error");
-      setBusy(null);
-      return;
-    }
-    // In native WKWebView: save image via bridge, then open URL via bridge.
-    // downloadBlobAsFile creates a blob: URL <a> click which navigates the
-    // entire WKWebView away from the dashboard. Avoid it in native context.
-    if (isNativeEmbed()) {
-      const dataUrl = await blobToPngDataUrl(blob);
-      if (dataUrl) {
-        await saveShareImageToDownloads(dataUrl, buildFilename());
-        push(copy("share.toast.downloaded"), "success");
-      }
-    } else {
-      const copied = await safeWriteClipboardImage(blob);
-      if (!copied) {
-        downloadBlobAsFile(blob, buildFilename());
-      } else {
-        push(copy("share.toast.copied"), "success");
-      }
-    }
-    const intentUrl = new URL("https://twitter.com/intent/tweet");
-    if (twitterText) intentUrl.searchParams.set("text", twitterText);
-    // Attach a clickable link so the tweet drives traffic back (and is
-    // attributable via ?ref=share). Point at the sharer's own profile when
-    // signed in so it lands on their stats + badge, not the generic homepage.
-    // Without `url` the X intent only carries the pasted image.
-    const shareUserId = (insforge?.user as any)?.id;
-    const sharePath = typeof shareUserId === "string" && shareUserId ? `/u/${shareUserId}` : "/";
-    intentUrl.searchParams.set("url", `https://www.tokentracker.cc${sharePath}?ref=share`);
-    // Use location.href in native embed so WKUIDelegate.createWebView
-    // (which intercepts window.open and opens in system browser) fires.
-    // window.open with _blank sometimes navigates the WKWebView itself.
-    if (isNativeEmbed()) {
-      try {
-        (window as any).webkit?.messageHandlers?.nativeBridge?.postMessage({
-          type: "action", name: "openURL", value: intentUrl.toString(),
-        });
-      } catch {
-        window.open(intentUrl.toString(), "_blank", "noopener,noreferrer");
-      }
-    } else {
-      window.open(intentUrl.toString(), "_blank", "noopener,noreferrer");
-    }
-    setBusy(null);
-  }, [busy, ensureCardBlob, push, twitterText, buildFilename, insforge]);
 
 
   if (!open) return null;
@@ -385,20 +334,6 @@ export function ShareModal({ open, onClose, data, twitterText }: any) {
 
             {/* Actions */}
             <div className="grid grid-cols-1 gap-2">
-              <ActionButton onClick={handleShareX} disabled={Boolean(busy)} emphasis>
-                <span className="flex items-center gap-3">
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
-                    <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
-                  </svg>
-                  <span className="font-medium text-sm">
-                    {copy("share.modal.action.x")}
-                  </span>
-                </span>
-                <span className="text-[11px] opacity-70">
-                  {busy === "x" ? copy("share.toast.working") : copy("share.modal.hint.x")}
-                </span>
-              </ActionButton>
-
               <ActionButton onClick={handleDownload} disabled={Boolean(busy)}>
                 <span className="flex items-center gap-3">
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>

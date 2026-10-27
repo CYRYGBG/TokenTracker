@@ -121,8 +121,8 @@ internal sealed class TrayApplicationContext : ApplicationContext
         _petCharacterByte = CreateMenuItem("", (_, _) => SetPetCharacter(PetWindow.CharacterByte));
         _petCharacterEmber = CreateMenuItem("", (_, _) => SetPetCharacter(PetWindow.CharacterEmber));
         _petCharacterItem = CreateMenuItem("", (_, _) => { });
-        _petCharacterItem.DropDownItems.AddRange([
-            _petCharacterClawd, _petCharacterBot, _petCharacterSprout, _petCharacterByte, _petCharacterEmber]);
+        _petCharacterItem.DropDownItems.AddRange(new ToolStripItem[] {
+            _petCharacterClawd, _petCharacterBot, _petCharacterSprout, _petCharacterByte, _petCharacterEmber});
         StyleSubmenu(_petCharacterItem.DropDown);
 
         // Pet right-click context menu: open/close dashboard / size / close pet.
@@ -142,8 +142,8 @@ internal sealed class TrayApplicationContext : ApplicationContext
         _petCtxCharacterByte = CreateMenuItem("", (_, _) => SetPetCharacter(PetWindow.CharacterByte));
         _petCtxCharacterEmber = CreateMenuItem("", (_, _) => SetPetCharacter(PetWindow.CharacterEmber));
         _petCtxCharacterItem = CreateMenuItem("", (_, _) => { });
-        _petCtxCharacterItem.DropDownItems.AddRange([
-            _petCtxCharacterClawd, _petCtxCharacterBot, _petCtxCharacterSprout, _petCtxCharacterByte, _petCtxCharacterEmber]);
+        _petCtxCharacterItem.DropDownItems.AddRange(new ToolStripItem[] {
+            _petCtxCharacterClawd, _petCtxCharacterBot, _petCtxCharacterSprout, _petCtxCharacterByte, _petCtxCharacterEmber});
         _petCtxClose = CreateMenuItem("", (_, _) => ClosePet());
         _petMenu = new ContextMenuStrip
         {
@@ -190,14 +190,14 @@ internal sealed class TrayApplicationContext : ApplicationContext
         _menu.Items.Add(CreateSeparator());
         _menu.Items.Add(_openDashboardItem);
         _menu.Items.Add(_syncItem);
-        _menu.Items.Add(_quotaItem);
-        _menu.Items.Add(_petItem);
-        _menu.Items.Add(_petSizeItem);
-        _menu.Items.Add(_petCharacterItem);
+
+
+
+
         _menu.Items.Add(CreateSeparator());
         _menu.Items.Add(_startupItem);
-        _menu.Items.Add(_checkUpdatesItem);
-        _menu.Items.Add(_starItem);
+
+
         _menu.Items.Add(CreateSeparator());
         _menu.Items.Add(_quitItem);
         ApplyLocaleToMenu();
@@ -255,31 +255,6 @@ internal sealed class TrayApplicationContext : ApplicationContext
         _updateChecker.IntegrityCheckFailed += () => PostToUi(() =>
             _trayIcon.ShowBalloonTip(8000, _updateStrings.IntegrityErrorTitle,
                 _updateStrings.IntegrityErrorMessage, ToolTipIcon.Warning));
-        _ = _updateChecker.CheckAsync(silent: true);
-        _updateCheckTimer.Tick += (_, _) => _ = _updateChecker.CheckAsync(silent: true);
-        _updateCheckTimer.Start();
-
-        // A stored preference (user toggled the pet at least once) always wins;
-        // only first launches fall back to the show-on-manual-run default.
-        // Deferred onto the dispatcher so it shows once the message pump is running.
-        _quotaWindow = new QuotaWidgetWindow(_server, OpenDashboard, _widgetWebViewEnvironment);
-        _quotaWindow.EnabledChanged += () => { _quotaItem.Checked = _quotaWindow.Enabled; UpdateLimitsPolling(); };
-        _quotaItem.Checked = _quotaWindow.Enabled;
-        if (_quotaWindow.Enabled)
-            _uiDispatcher.BeginInvoke(new Action(() => { _quotaWindow.SetEnabled(true); UpdateLimitsPolling(); _poller.RefreshNow(); }));
-
-        if (PetWindow.StoredVisible ?? showPetOnLaunch)
-        {
-            _uiDispatcher.BeginInvoke(new Action(() =>
-            {
-                EnsurePet();
-                _petWindow!.ShowPet();
-                _poller.IncludeRichStats = true;   // gather the pet's quip-pool stats
-                UpdateLimitsPolling();
-                UpdatePetMenuText();
-                RefreshSummary();
-            }));
-        }
     }
 
     private void UpdateLimitsPolling() => _poller.IncludeLimits = _petWindow?.IsVisible == true || _quotaWindow?.Enabled == true;
@@ -692,40 +667,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
 
     private void ApplyDashboardPetSetting(string key, string? value)
     {
-        switch (key)
-        {
-            case "visible":
-                EnsurePet();
-                if (string.Equals(value, "true", StringComparison.OrdinalIgnoreCase))
-                {
-                    _petWindow!.ShowPet();
-                    _petWindow.StoreVisible(true);
-                    _poller.IncludeRichStats = true;
-                    UpdateLimitsPolling();
-                    _poller.RefreshNow();
-                }
-                else
-                {
-                    _petWindow!.HidePet();
-                    _petWindow.StoreVisible(false);
-                    _poller.IncludeRichStats = false;
-                    UpdateLimitsPolling();
-                }
-                UpdatePetMenuText();
-                // Echo the applied state back; the size/character cases push inside
-                // SetPetSize / SetPetCharacter already, so no unconditional re-push.
-                PushDashboardPetSettings();
-                break;
-            case "size":
-                SetPetSize(value ?? PetWindow.SizeMedium);
-                break;
-            case "character":
-                SetPetCharacter(value ?? PetWindow.CharacterClawd);
-                break;
-            case "botColor":
-                SetPetBotColor(value ?? "auto");
-                break;
-        }
+        return;
     }
 
     private void SetPetBotColor(string colorId)
@@ -827,29 +769,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
     /// </summary>
     public void HandleDeepLink(string url)
     {
-        DiagLog($"HandleDeepLink present={!string.IsNullOrEmpty(url)} len={url?.Length ?? 0}");
-        if (NativeReturnUri.TryGetBillingOrder(url, out var order))
-        {
-            DiagLog("HandleDeepLink type=billing");
-            PostToUi(() =>
-            {
-                EnsureDashboard();
-                _dashboard!.HandleBillingReturn(order);
-            });
-            return;
-        }
-        if (!NativeReturnUri.TryGetAuthCode(url, out var code))
-        {
-            DiagLog("HandleDeepLink type=unsupported");
-            return;
-        }
-        var resolved = code;
-        DiagLog($"HandleDeepLink type=oauth code.len={resolved.Length}");
-        PostToUi(() =>
-        {
-            EnsureDashboard();
-            _dashboard!.HandleAuthCallback(resolved);
-        });
+        if (Uri.TryCreate(url, UriKind.Absolute, out var uri) && uri.Scheme == UrlProtocol.Scheme && uri.Host is "open" or "dashboard") PostToUi(OpenDashboard);
     }
 
     /// <summary>Diagnostics → %LOCALAPPDATA%\TokenTracker\windows-host.log (shared with ServerManager).</summary>

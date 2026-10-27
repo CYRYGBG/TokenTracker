@@ -114,8 +114,8 @@ test("DashboardPage wires install panel gating through helper", () => {
   );
   assert.ok(containerSrc.includes("hasActiveDeviceToken"), "expected camelCase fallback usage");
   assert.ok(
-    containerSrc.includes("const shouldShowInstall = shouldShowInstallCard({"),
-    "expected helper-based install gate assignment",
+    containerSrc.includes("const shouldShowInstall = !isLocalDashboardHost() && shouldShowInstallCard({"),
+    "expected helper-based install gate assignment, hidden on the native local host",
   );
   assert.ok(
     installStatusSrc.includes("publicMode || screenshotMode"),

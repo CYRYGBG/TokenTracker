@@ -157,7 +157,7 @@ test("Cline status and init report discovery failures and continue with other pr
       assert.ok(summary.providers.zed, "other providers remain in the report");
       assert.match(run("status", ["--light"]), /Provider · cline[^\n]*EACCES/);
       assert.match(run("status", []), /Cline: .*discovery failed[^\n]*EACCES/);
-      const init = run("init", ["--yes", "--no-auth", "--no-open"]);
+      const init = run("init", ["--yes", "--no-open"]);
       assert.match(init, /Local configuration complete/);
       assert.match(init, /Cline[^\n]*discovery failed[^\n]*EACCES/);
       if (target !== sessionsDir) assert.match(init, /Cline[^\n]*transcript/);

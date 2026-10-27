@@ -8,13 +8,13 @@ final class UpdateCheckerAutoUpdateTests: XCTestCase {
         return (defaults, suiteName)
     }
 
-    func testAutoUpdateDefaultsToEnabledWhenUnset() {
+    func testAutoUpdateDefaultsToDisabledWhenUnset() {
         let (defaults, suiteName) = makeIsolatedDefaults()
         defer { defaults.removePersistentDomain(forName: suiteName) }
 
-        XCTAssertTrue(
+        XCTAssertFalse(
             AutoUpdatePolicy.isEnabled(defaults),
-            "auto-update must default to enabled so existing behavior is unchanged (discussion #424)"
+            "the fork has no release channel; a silent check would install the upstream build, so auto-update must default to disabled"
         )
     }
 

@@ -37,9 +37,6 @@ const {
   describeCopilotOtelStatus,
   readCopilotOauthToken,
 } = require("../lib/usage-limits");
-const {
-  normalizeState: normalizeUploadState,
-} = require("../lib/upload-throttle");
 const { collectTrackerDiagnostics } = require("../lib/diagnostics");
 const { detectPassiveProviders, isPassiveModeActive } = require("../lib/passive-mode");
 const { probeOpenclawHookState } = require("../lib/openclaw-hook");
@@ -47,7 +44,6 @@ const {
   probeOpenclawSessionPluginState,
 } = require("../lib/openclaw-session-plugin");
 const { resolveTrackerPaths } = require("../lib/tracker-paths");
-const { resolveDeviceTokenPresence } = require("../lib/cloud-device-token");
 const {
   resolveKimiWireFiles,
   resolveKimiCodeWireFiles,
@@ -83,6 +79,7 @@ const {
   resolveZedDbPath,
   resolveLmstudioHome,
   resolveLmstudioLogFiles,
+  resolveOpenSquillaDbPaths,
   resolveUnslothDbPath,
   resolveQoderDbPaths,
   resolveQoderCnDbPaths,
@@ -201,13 +198,10 @@ async function cmdStatus(argv = []) {
   const { trackerDir, binDir } = await resolveTrackerPaths({ home });
   const configPath = path.join(trackerDir, "config.json");
   const queuePath = path.join(trackerDir, "queue.jsonl");
-  const queueStatePath = path.join(trackerDir, "queue.state.json");
   const cursorsPath = path.join(trackerDir, "cursors.json");
   const notifySignalPath = path.join(trackerDir, "notify.signal");
   const openclawSignalPath = path.join(trackerDir, "openclaw.signal");
   const throttlePath = path.join(trackerDir, "sync.throttle");
-  const uploadThrottlePath = path.join(trackerDir, "upload.throttle.json");
-  const autoRetryPath = path.join(trackerDir, "auto.retry.json");
   const syncSkipPath = path.join(trackerDir, "sync.skip.json");
   // Normalized like sync (a relative CODEX_HOME is anchored to home, not cwd)
   // so status lists exactly the root sync walks.
@@ -278,17 +272,11 @@ async function cmdStatus(argv = []) {
     : null;
   const { cursors } = await readCursorStateSummary({ trackerDir, cursorsPath });
   const codexRecordOnlyWarning = formatRecordOnlyWarning(countRecordOnlyFiles(cursors));
-  const queueState = (await readJson(queueStatePath)) || { offset: 0 };
-  const uploadThrottle = normalizeUploadState(
-    await readJson(uploadThrottlePath),
-  );
-  const autoRetry = await readJson(autoRetryPath);
   // Written by sync whenever it had to skip a run. Present here so a stalled
   // parse has a visible cause instead of only a frozen "Last parse".
   const syncSkip = await readJson(syncSkipPath);
 
   const queueSize = await safeStatSize(queuePath);
-  const pendingBytes = Math.max(0, queueSize - (queueState.offset || 0));
 
   const lastNotify = (await safeReadText(notifySignalPath))?.trim() || null;
   const lastOpenclawSync =
@@ -341,26 +329,10 @@ async function cmdStatus(argv = []) {
     env: process.env,
   });
 
-  const lastUpload = uploadThrottle.lastSuccessMs
-    ? parseEpochMsToIso(uploadThrottle.lastSuccessMs)
-    : typeof queueState.updatedAt === "string"
-      ? queueState.updatedAt
-      : null;
-  const nextUpload = parseEpochMsToIso(uploadThrottle.nextAllowedAtMs || null);
-  const backoffUntil = parseEpochMsToIso(uploadThrottle.backoffUntilMs || null);
-  const lastUploadError = uploadThrottle.lastError
-    ? `${uploadThrottle.lastErrorAt || "unknown"} ${uploadThrottle.lastError}`
-    : null;
   const syncSkipLine = syncSkip?.at
     ? `- Last sync skipped: ${syncSkip.at} (${syncSkip.reason || "unknown"}${
         syncSkip.detail ? `, ${syncSkip.detail}` : ""
       })`
-    : null;
-  const autoRetryAt = parseEpochMsToIso(autoRetry?.retryAtMs || null);
-  const autoRetryLine = autoRetryAt
-    ? `- Auto retry after: ${autoRetryAt} (${autoRetry?.reason || "scheduled"}, pending ${Number(
-        autoRetry?.pendingBytes || 0,
-      )} bytes)`
     : null;
 
   const subscriptions = await collectLocalSubscriptions({
@@ -828,6 +800,9 @@ async function cmdStatus(argv = []) {
   const lmstudioHome = resolveLmstudioHome(process.env);
   const lmstudioLogFiles = await resolveLmstudioLogFiles(process.env);
   const lmstudioInstalled = lmstudioLogFiles.length > 0;
+  const opensquillaDbPaths = resolveOpenSquillaDbPaths(process.env)
+    .filter((dbPath) => fssync.existsSync(dbPath));
+  const opensquillaInstalled = opensquillaDbPaths.length > 0;
   const unslothDbPath = resolveUnslothDbPath(process.env);
   const unslothInstalled = Boolean(unslothDbPath && fssync.existsSync(unslothDbPath));
 
@@ -1043,32 +1018,18 @@ async function cmdStatus(argv = []) {
     },
   });
 
-  const deviceTokenPresence = resolveDeviceTokenPresence({
-    trackerDir,
-    config: config || {},
-  });
-
   if (opts.json || opts.light) {
     const summary = {
       version: pkg.version,
       generated_at: new Date().toISOString(),
-      base_url: config?.baseUrl || null,
-      device_token_set: deviceTokenPresence.set,
       queue: {
-        pending_bytes: pendingBytes,
         size_bytes: queueSize,
-        offset: queueState.offset || 0,
       },
       last_parse: cursors?.updatedAt || null,
       last_notify: lastNotify || null,
       last_openclaw_sync: lastOpenclawSync || null,
       last_notify_spawn: lastNotifySpawn || null,
-      last_upload: lastUpload || null,
-      next_upload_after: nextUpload || null,
-      backoff_until: backoffUntil || null,
-      last_upload_error: lastUploadError || null,
       last_sync_skipped: syncSkip?.at ? syncSkip : null,
-      auto_retry: autoRetry || null,
       // Extra scan roots (#657): CODEX_HOME / CLAUDE_CONFIG_DIR of this process
       // plus config.scanRoots; `exists` false + `error` null means absent,
       // `error` set means present but unreadable.
@@ -1219,6 +1180,9 @@ async function cmdStatus(argv = []) {
         unsloth: unslothInstalled
           ? { installed: true, detail: unslothDbPath }
           : { installed: false },
+        opensquilla: opensquillaInstalled
+          ? { installed: true, detail: opensquillaDbPaths.join(" | ") }
+          : { installed: false },
         devin: devinInstalled
           ? { installed: true, detail: devinDbPath }
           : { installed: false },
@@ -1285,19 +1249,12 @@ async function cmdStatus(argv = []) {
     [
       `TokenTracker v${pkg.version}`,
       "Status:",
-      `- Base URL: ${config?.baseUrl || "unset"}`,
-      `- Device token: ${deviceTokenPresence.set ? "set" : "unset"}`,
-      `- Queue: ${pendingBytes} bytes pending`,
+      `- Queue: ${queueSize} bytes`,
       `- Last parse: ${cursors?.updatedAt || "never"}`,
       `- Last notify: ${lastNotify || "never"}`,
       `- Last OpenClaw-triggered sync: ${lastOpenclawSync || "never"}`,
       `- Last notify-triggered sync: ${lastNotifySpawn || "never"}`,
-      `- Last upload: ${lastUpload || "never"}`,
-      `- Next upload after: ${nextUpload || "never"}`,
-      `- Backoff until: ${backoffUntil || "never"}`,
-      lastUploadError ? `- Last upload error: ${lastUploadError}` : null,
       syncSkipLine,
-      autoRetryLine,
       scanRootsLine,
       `- Codex notify: ${notifyConfigured ? JSON.stringify(codexNotify) : "unset"}`,
       `- AStudio notify: ${acodeConfigured ? JSON.stringify(acodeNotify) : "unset"}`,
@@ -1436,6 +1393,9 @@ async function cmdStatus(argv = []) {
         : null,
       unslothInstalled
         ? `- Unsloth Studio: passive reader (${unslothDbPath})`
+        : null,
+      opensquillaInstalled
+        ? "- OpenSquilla: passive reader (" + opensquillaDbPaths.join(" | ") + ")"
         : null,
       devinInstalled
         ? `- Devin CLI: passive reader (${devinDbPath})`

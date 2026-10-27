@@ -236,7 +236,7 @@ describe("SessionsPage", () => {
     expect(within(grokDetails).getByText("Context 31.4K / 500K (6%)")).toBeInTheDocument();
     await userEvent.click(within(grokDetails).getByRole("button", { name: "Close session statistics" }));
     // The whole list is fetched once; no row cap and no server-side window.
-    expect(getSessions).toHaveBeenCalledWith({ refresh: false });
+    expect(getSessions).toHaveBeenCalledWith({ refresh: false, includeHidden: false });
 
     await chooseSelect("Filter by session source", "Codex");
     expect(screen.queryByText("Fix authentication flow")).not.toBeInTheDocument();

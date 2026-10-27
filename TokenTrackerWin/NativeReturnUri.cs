@@ -7,7 +7,7 @@ internal static class NativeReturnUri
     private const string AuthQueryKey = "insforge_code=";
 
     internal static string? FindArgument(string[] args) =>
-        args.FirstOrDefault(value => value.StartsWith("tokentracker://", StringComparison.OrdinalIgnoreCase));
+        args.FirstOrDefault(value => value.StartsWith("tokentracker-personal://", StringComparison.OrdinalIgnoreCase));
 
     internal static bool TryGetBillingOrder(string? value, out Guid order)
     {

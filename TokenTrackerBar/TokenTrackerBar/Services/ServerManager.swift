@@ -1,5 +1,6 @@
 import Foundation
 import Combine
+import Darwin
 
 @MainActor
 final class ServerManager: ObservableObject {
@@ -38,14 +39,6 @@ final class ServerManager: ObservableObject {
             // Kill any stale server on the port so we always run the bundled version
             await killExistingServerOnPort()
             launchServer(nodePath: embedded.nodePath, entryPath: embedded.entryPath)
-        } else if await APIClient.shared.checkServerHealth() {
-            // No embedded server, but an external one is already running — reuse it
-            status = .running
-            startHealthCheckLoop(ownership: .externalProcess)
-            return
-        } else if let binaryPath = findTokenTrackerBinary() {
-            // Fall back to system-installed CLI
-            launchServer(at: binaryPath)
         } else {
             status = .failed(Strings.serverNotAvailableMessage)
             return
@@ -66,9 +59,22 @@ final class ServerManager: ObservableObject {
         healthCheckTask?.cancel()
         healthCheckTask = nil
 
-        if let process = serverProcess, process.isRunning {
-            process.terminate()
-            serverProcess = nil
+        guard let process = serverProcess else { return }
+        serverProcess = nil
+        process.terminationHandler = nil
+        guard process.isRunning else { return }
+
+        // The app may exit immediately after this callback. Give our owned
+        // Node child time to finish its 3-second graceful shutdown before the
+        // parent disappears; never signal another listener on the same port.
+        let pid = process.processIdentifier
+        Darwin.kill(pid, SIGTERM)
+        let deadline = Date().addingTimeInterval(4)
+        while process.isRunning && Date() < deadline {
+            Thread.sleep(forTimeInterval: 0.05)
+        }
+        if process.isRunning {
+            Darwin.kill(pid, SIGKILL)
         }
     }
 
@@ -86,20 +92,7 @@ final class ServerManager: ObservableObject {
     /// sockets — and SIGTERMing that list makes the app kill itself. Its own PID is
     /// excluded as a second line of defense.
     private nonisolated func killExistingServerOnPort() async {
-        guard let output = shellOutput("/usr/sbin/lsof", args: ["-ti", "tcp:\(Constants.serverPort)", "-sTCP:LISTEN"]) else { return }
-        let ownPid = ProcessInfo.processInfo.processIdentifier
-        let pids = output
-            .trimmingCharacters(in: .whitespacesAndNewlines)
-            .split(separator: "\n")
-            .compactMap { Int32($0.trimmingCharacters(in: .whitespaces)) }
-            .filter { $0 != ownPid }
-        for pid in pids {
-            kill(pid, SIGTERM)
-        }
-        // Brief wait for the port to be released
-        if !pids.isEmpty {
-            try? await Task.sleep(nanoseconds: 500 * 1_000_000)
-        }
+        // Never signal an arbitrary listener. Only stopServer owns our child.
     }
 
     // MARK: - Find Embedded Server
@@ -175,7 +168,7 @@ final class ServerManager: ObservableObject {
         process.currentDirectoryURL = FileManager.default.temporaryDirectory
         process.standardOutput = pipe
         process.standardError = FileHandle.nullDevice
-        process.environment = ProcessInfo.processInfo.environment
+        process.environment = ProcessInfo.processInfo.environment.merging(["TOKENTRACKER_PERSONAL": "1"]) { _, new in new }
         do {
             try process.run()
             process.waitUntilExit()
@@ -198,8 +191,9 @@ final class ServerManager: ObservableObject {
         process.standardError = FileHandle.nullDevice
 
         var env = ProcessInfo.processInfo.environment
+        env["TOKENTRACKER_PERSONAL"] = "1"
         env["NODE_ENV"] = "production"
-        env["HOME"] = NSHomeDirectory()
+        env["HOME"] = env["HOME"] ?? NSHomeDirectory()
         env["TOKENTRACKER_APP_SHELL"] = "macos"
         process.environment = env
 
@@ -230,6 +224,7 @@ final class ServerManager: ObservableObject {
         process.standardOutput = FileHandle.nullDevice
         process.standardError = FileHandle.nullDevice
         var fallbackEnv = ProcessInfo.processInfo.environment
+        fallbackEnv["TOKENTRACKER_PERSONAL"] = "1"
         fallbackEnv["TOKENTRACKER_APP_SHELL"] = "macos"
         process.environment = fallbackEnv
 

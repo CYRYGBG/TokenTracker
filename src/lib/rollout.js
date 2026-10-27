@@ -196,7 +196,13 @@ function isRolloutFileName(name) {
 // null for a missing/non-file path; an empty archive yields no lines (the
 // same outcome as an empty uncompressed rollout).
 const CODEX_ROLLOUT_COMPRESSED_PATTERN = /^rollout-.*\.jsonl\.zstd?$/;
-const CODEX_ROLLOUT_TEXT_MAX_BYTES = 256 * 1024 * 1024;
+// Long-running Codex sessions can archive well past 256MB of decompressed
+// text; an archive over this cap is unreadable to the parser, which makes the
+// strict codex rebuild fail closed on every later full sync. 512MB keeps the
+// memory guard while covering real machine-local archives.
+const CODEX_ROLLOUT_TEXT_MAX_BYTES = Number(
+  process.env.TOKENTRACKER_CODEX_SNAPSHOT_MAX_MB || 512,
+) * 1024 * 1024;
 
 function isCompressedRolloutFileName(name) {
   return typeof name === "string" && CODEX_ROLLOUT_COMPRESSED_PATTERN.test(name);
@@ -207,11 +213,43 @@ function isCompressedRolloutPath(filePath) {
   return isCompressedRolloutFileName(path.basename(filePath));
 }
 
+// Fork collection-gap ledger: an unreadable, truncated, or oversized archive
+// is soft-skipped so sync keeps running, but a silent skip is exactly how
+// "totals look wrong" incidents start (real case: one 267MB decompressed
+// rollout exceeded the snapshot cap and failed every strict rebuild while
+// auto mode swallowed the warning). Record each gap here; cmdSync drains the
+// sink after the codex pass and persists it under the tracker directory.
+const codexCollectionGaps = new Map();
+
+function recordCodexCollectionGap(filePath, reason, detail) {
+  try {
+    if (typeof filePath !== "string" || !filePath) return;
+    const key = `${reason}|${filePath}`;
+    const previous = codexCollectionGaps.get(key);
+    if (previous) previous.count += 1;
+    else codexCollectionGaps.set(key, { reason, path: filePath, detail: detail || null, count: 1 });
+  } catch {
+    // Diagnostics must never break collection.
+  }
+}
+
+function drainCodexCollectionGaps() {
+  const gaps = Array.from(codexCollectionGaps.values());
+  codexCollectionGaps.clear();
+  return gaps;
+}
+
 async function readCodexRolloutSnapshot(filePath, { maxOutputBytes = CODEX_ROLLOUT_TEXT_MAX_BYTES } = {}) {
-  const handle = await fs.open(filePath, "r").catch(() => null);
+  const handle = await fs.open(filePath, "r").catch((error) => {
+    if (error.code !== "ENOENT") recordCodexCollectionGap(filePath, "read-error", error?.code || null);
+    return null;
+  });
   if (!handle) return null;
   try {
-    const initialStat = await handle.stat().catch(() => null);
+    const initialStat = await handle.stat().catch((error) => {
+      recordCodexCollectionGap(filePath, "stat-error", error?.code || null);
+      return null;
+    });
     if (!initialStat || !initialStat.isFile()) return null;
     const outputLimit = Number.isSafeInteger(maxOutputBytes) && maxOutputBytes >= 0
       ? maxOutputBytes
@@ -219,9 +257,10 @@ async function readCodexRolloutSnapshot(filePath, { maxOutputBytes = CODEX_ROLLO
     let data;
     try {
       data = await handle.readFile();
-    } catch (_error) {
+    } catch (error) {
       // Transient mount/IO failures (e.g. WSL ESTALE) must not abort the rest
       // of sync; treat like a missing archive and keep the prior cursor.
+      recordCodexCollectionGap(filePath, "read-error", error?.message || null);
       return null;
     }
     const metadata = {
@@ -234,9 +273,10 @@ async function readCodexRolloutSnapshot(filePath, { maxOutputBytes = CODEX_ROLLO
     try {
       const inspected = inspectDshZstdFrames(data, outputLimit);
       decoded = await decodeDshZstd(data, { maxOutputBytes: outputLimit, inspected });
-    } catch (_error) {
+    } catch (error) {
       // Malformed / truncated / oversized archives must not abort the rest of
       // the sync: return null so the caller keeps the prior cursor and retries.
+      recordCodexCollectionGap(filePath, "decode-failed", error?.message || null);
       return null;
     }
     // Fatal UTF-8: uncompressed JSONL parsing rejects invalid bytes under
@@ -247,6 +287,7 @@ async function readCodexRolloutSnapshot(filePath, { maxOutputBytes = CODEX_ROLLO
     try {
       text = new TextDecoder("utf-8", { fatal: true }).decode(decoded);
     } catch (_error) {
+      recordCodexCollectionGap(filePath, "invalid-utf8", null);
       return null;
     }
     return { ...metadata, unchanged: false, lines: text.length > 0 ? text.split("\n") : [] };
@@ -6770,13 +6811,35 @@ async function parseQoderDbIncremental({
 //
 // Qoder 2026-08 (app 0.1.2+) migrated from SharedClientCache/cache/db/local.db
 // to Electron main.sqlite + ~/.qoder/projects/<slug>/<sessionId>.jsonl.
-// The new transcript's message.usage no longer carries prompt_tokens — it is a
-// credit-billed SDK: {input_tokens:0, output_tokens:0, credits:3.2, billable:true}.
-// Only rows with authoritative token fields are counted: credit-only usage
-// without tokens is intentionally not counted (usage stays unsupported, no
-// token delta) because there is no first-party evidence for a credit→token
-// rate. Cost was never estimated — no authoritative credit→USD rate is
-// published, so total_cost_usd stays 0.
+//
+// The transcript's message.usage shape has drifted at least once, and BOTH
+// shapes occur in real user history:
+//   - app 0.1.8 / agent 1.1.44: Anthropic-style precise token fields, on the
+//     main transcript AND on subagent transcripts
+//     (see test/qoder-new-parser.test.js "Real CN record shape").
+//   - app 0.4.x, model "qfmodel": every row is
+//     {input_tokens:0, output_tokens:0, cache_*:0, credits:>0, billable:false}.
+// The old comment here claimed the credit-billed shape was `{credits, billable:
+// true}`; that assumption is what made the gate below drop 100% of modern Qoder
+// rows, so Qoder vanished from the dashboard instead of showing up as
+// "0 tokens / N requests". `billable` means "charged to the account", NOT
+// "a call happened" — free-tier models report false while still reporting
+// credits. Admission therefore needs all three signals, and dropping any of
+// them regresses a shape that used to count.
+//
+// Non-goals: credit→token conversion stays out. There is no first-party credit
+// → token (or → USD) rate, so fabricating one would push an invented number
+// into totals, trends, achievements and the cloud leaderboard. Rows without
+// authoritative tokens contribute conversation activity only, and
+// total_cost_usd stays 0. Transcript `usage.credits` is deliberately NOT copied
+// into bucket totals — there is no first-party credit→USD rate to book cost
+// from, and carrying it forward invites someone to divide by it later.
+//
+// conversation_count here follows this provider's existing per-response
+// convention (`: 1` per admitted main-transcript row). That field is NOT
+// comparable across providers — same rule as the Claude branch's isMainSession
+// (#307) and Claude Science's `isRoot ? 1 : 0` (see the Claude Science parser).
+//
 // Old local.db is kept as a legacy fallback; both sources now use distinct
 // cursor namespaces (qoder vs qoderNew) via disjoint messageKey prefixes
 // (row: vs jsonl:) but upload under the same source="qoder".
@@ -6870,17 +6933,47 @@ function qoderNewMessageKey(record, filePath, lineIndex = 0) {
   return `jsonl:${fallbackSuffix}|${record?.uuid || ""}`;
 }
 
+// 8.64e15 is the ECMAScript TimeClip limit. A larger finite number (nanosecond
+// epochs, clock garbage) passes coerceEpochMs untouched, and `new Date(ms)`
+// yields Invalid Date whose .toISOString() THROWS RangeError — outside the
+// per-line JSON.parse try/catch, aborting the whole source on one bad row and
+// silently removing Qoder from every later sync (warnProviderParseFailure is
+// quiet in auto syncs). Clamp to a drop instead.
+const MAX_QODER_TIMESTAMP_MS = 8.64e15;
+
 function qoderNewTimestampMs(record) {
-  return coerceEpochMs(record?.timestamp)
+  const ms = coerceEpochMs(record?.timestamp)
     || coerceEpochMs(record?.message?.timestamp)
     || parseIsoTimestampMs(record?.timestamp)
     || parseIsoTimestampMs(record?.message?.timestamp)
     || 0;
+  return ms > MAX_QODER_TIMESTAMP_MS ? 0 : ms;
+}
+
+// Nominal credits for one transcript row. `credits` and `original_credits`
+// coexist (the latter is the pre-discount value), and either alone can be 0,
+// so take the larger instead of `credits ?? original_credits` — `??` does not
+// skip a present-but-zero `credits`, which would drop real activity.
+//
+// The epsilon floor is load-bearing: the activity gate below only needs "some
+// credits were reported", and upstream float noise like 1e-9 would otherwise
+// admit rows that carry no usage at all. Real Qoder credits observed in the
+// wild start around 0.2 (2026-10 CN corpus), so 1e-6 never suppresses genuine
+// activity.
+const MIN_QODER_CREDIT_ACTIVITY = 1e-6;
+
+function readQoderNominalCredits(usage) {
+  let max = 0;
+  for (const raw of [usage?.credits, usage?.original_credits]) {
+    if (typeof raw !== "number" || !Number.isFinite(raw)) continue;
+    if (raw > max) max = raw;
+  }
+  return max >= MIN_QODER_CREDIT_ACTIVITY ? max : 0;
 }
 
 function normalizeQoderNewTokens(usage) {
   if (!usage || typeof usage !== "object") return null;
-  const credits = Number(usage.credits ?? usage.original_credits ?? 0);
+  const credits = readQoderNominalCredits(usage);
   let input = Number(usage.input_tokens ?? 0);
   let cached = Number(usage.cache_read_input_tokens ?? usage.cached_tokens ?? 0);
   let cacheCreation = Number(usage.cache_creation_input_tokens ?? 0);
@@ -6907,14 +7000,29 @@ function normalizeQoderNewTokens(usage) {
       total_tokens: inp + cach + cc + out,
       billable_total_tokens: inp + cach + cc + out,
       credits: Number.isFinite(credits) && credits > 0 ? credits : 0,
+      // `credits` dies at the totals boundary — parseQoderNewIncremental never
+      // copies it into bucket totals or the cursor, and must not start: there
+      // is no first-party credit→token or credit→USD rate to divide it by.
       usage_precision: null,
     };
   }
-  // Credit-only usage without authoritative token fields is intentionally
-  // not counted (no token delta): there is no first-party evidence for a
-  // credit→token rate. The caller still counts billable messages as
-  // conversation activity.
+  // Credit-only usage without authoritative token fields yields null: no token
+  // delta, because there is no first-party credit→token rate. The caller still
+  // counts it as conversation activity when nominal credits prove the call
+  // really happened.
   return null;
+}
+
+// Subagent transcripts are internal turns of the same conversation, so they
+// must not add to conversation activity — same rule the Claude branch enforces
+// with isMainSession (#307) and Claude Science encodes with `isRoot ? 1 : 0`.
+// A row that carries neither tokens nor activity is still tracked in the cursor:
+// a streamed rewrite can hand it real tokens later, and the cursor entry is what
+// makes that transition subtract/add correctly. It must not touch an hourly or
+// project bucket though, because getHourlyBucket() creates buckets on demand and
+// would publish an all-zero row.
+function qoderRowCountsAsUsage(totals) {
+  return (totals?.total_tokens || 0) > 0 || (totals?.conversation_count || 0) > 0;
 }
 
 async function parseQoderNewIncremental({
@@ -6977,6 +7085,9 @@ async function parseQoderNewIncremental({
     } catch (_e) {
       continue;
     }
+    // Separator-agnostic: WSL installs are walked over \\wsl$ UNC paths where
+    // path.join emits backslashes (#307).
+    const isMainSession = !/[\\/]subagents[\\/]/.test(filePath);
     const lines = raw.split("\n");
     for (let lineIdx = 0; lineIdx < lines.length; lineIdx++) {
       const line = lines[lineIdx];
@@ -6994,9 +7105,19 @@ async function parseQoderNewIncremental({
       const usage = msg.usage;
       if (!usage || typeof usage !== "object") continue;
       const base = normalizeQoderNewTokens(usage);
-      // Allow billable zero-token messages to still count conversation (no token delta)
+      // Three independent admission signals, kept as a superset of the previous
+      // behaviour — dropping any one regresses rows that used to count:
+      //   base            authoritative tokens (app 0.1.8 / agent 1.1.44 shape)
+      //   isBillable      billable is absent or true (the older credit-billed shape)
+      //   nominalCredits  credits > 0 even though billable is false: Qoder 0.4.x
+      //                   reports billable=false for its free model while still
+      //                   reporting real credits, and gate-on-billable alone
+      //                   discarded every row so the whole source vanished.
+      // Rows that are not billable AND carry no credits stay dropped: that is
+      // the synthetic / cancelled / empty-call case we must not count.
       const isBillable = usage.billable !== false;
-      if (!base && !isBillable) continue;
+      const nominalCredits = readQoderNominalCredits(usage);
+      if (!base && !isBillable && nominalCredits <= 0) continue;
       const timestampMs = qoderNewTimestampMs(record);
       if (!timestampMs) continue;
       const bucketStart = toUtcHalfHourStart(new Date(timestampMs).toISOString());
@@ -7014,7 +7135,7 @@ async function parseQoderNewIncremental({
         billable_total_tokens: base.billable_total_tokens,
         total_cost_usd: 0,
         usage_precision: base.usage_precision || undefined,
-        conversation_count: 1,
+        conversation_count: isMainSession ? 1 : 0,
       } : {
         input_tokens: 0,
         cached_input_tokens: 0,
@@ -7024,7 +7145,7 @@ async function parseQoderNewIncremental({
         total_tokens: 0,
         billable_total_tokens: 0,
         total_cost_usd: 0,
-        conversation_count: 1,
+        conversation_count: isMainSession ? 1 : 0,
       };
       let projectKey = null;
       let projectRef = null;
@@ -7043,6 +7164,16 @@ async function parseQoderNewIncremental({
           projectRef = context?.projectRef || null;
         }
       }
+      // Same sessionId+msgId can appear in both the main transcript and a
+      // subagent transcript (mirrored id). currentByKey is last-wins and
+      // listQoderNewSessionFiles orders by localeCompare, so an unguarded
+      // subagent copy (conversation_count 0) could silently replace the main
+      // row's activity depending on file order. Precedence: a main-session
+      // record always wins a subagent copy; within the same class, last-wins
+      // stands so a streamed rewrite (the later, final token counts) is what
+      // gets booked — first-wins here would under-count subagent tokens.
+      const existing = currentByKey.get(messageKey);
+      if (existing?.isMainSession && !isMainSession) continue;
       currentByKey.set(messageKey, {
         totals,
         bucketStart,
@@ -7050,6 +7181,7 @@ async function parseQoderNewIncremental({
         projectKey,
         projectRef,
         filePath,
+        isMainSession,
       });
     }
     if (cb && (fileIdx % 50 === 0 || fileIdx === files.length - 1)) {
@@ -7077,7 +7209,7 @@ async function parseQoderNewIncremental({
       && (prev.projectKey || null) === (cur.projectKey || null)
       && (prev.totals?.total_cost_usd || 0) === (cur.totals.total_cost_usd || 0);
     if (unchanged) continue;
-    if (prev.totals && prev.bucketStart && prev.model) {
+    if (prev.totals && prev.bucketStart && prev.model && qoderRowCountsAsUsage(prev.totals)) {
       const oldBucket = getHourlyBucket(hourlyState, sourceKey, prev.model, prev.bucketStart);
       subtractTotals(oldBucket.totals, prev.totals);
       touchedBuckets.add(bucketKey(sourceKey, prev.model, prev.bucketStart));
@@ -7088,16 +7220,17 @@ async function parseQoderNewIncremental({
       }
     }
     if (cur) {
-      const bucket = getHourlyBucket(hourlyState, sourceKey, cur.model, cur.bucketStart);
-      addTotals(bucket.totals, cur.totals);
-      if (cur.totals.usage_precision) bucket.usage_precision = cur.totals.usage_precision;
-      // addTotals handles total_cost_usd via USD_TICKS, but credits cost is small; ensure it accumulates
-      touchedBuckets.add(bucketKey(sourceKey, cur.model, cur.bucketStart));
-      if (projectEnabled && cur.projectKey) {
-        const projectBucket = getProjectBucket(projectState, cur.projectKey, sourceKey, cur.bucketStart, cur.projectRef);
-        addTotals(projectBucket.totals, cur.totals);
-        if (cur.totals.usage_precision) projectBucket.usage_precision = cur.totals.usage_precision;
-        projectTouchedBuckets.add(projectBucketKey(cur.projectKey, sourceKey, cur.bucketStart));
+      if (qoderRowCountsAsUsage(cur.totals)) {
+        const bucket = getHourlyBucket(hourlyState, sourceKey, cur.model, cur.bucketStart);
+        addTotals(bucket.totals, cur.totals);
+        if (cur.totals.usage_precision) bucket.usage_precision = cur.totals.usage_precision;
+        touchedBuckets.add(bucketKey(sourceKey, cur.model, cur.bucketStart));
+        if (projectEnabled && cur.projectKey) {
+          const projectBucket = getProjectBucket(projectState, cur.projectKey, sourceKey, cur.bucketStart, cur.projectRef);
+          addTotals(projectBucket.totals, cur.totals);
+          if (cur.totals.usage_precision) projectBucket.usage_precision = cur.totals.usage_precision;
+          projectTouchedBuckets.add(projectBucketKey(cur.projectKey, sourceKey, cur.bucketStart));
+        }
       }
       qoderState.messages[key] = {
         totals: cur.totals,
@@ -7118,15 +7251,17 @@ async function parseQoderNewIncremental({
   // Add brand-new keys
   for (const [key, cur] of currentByKey.entries()) {
     if (qoderState.messages[key]) continue;
-    const bucket = getHourlyBucket(hourlyState, sourceKey, cur.model, cur.bucketStart);
-    addTotals(bucket.totals, cur.totals);
-    if (cur.totals.usage_precision) bucket.usage_precision = cur.totals.usage_precision;
-    touchedBuckets.add(bucketKey(sourceKey, cur.model, cur.bucketStart));
-    if (projectEnabled && cur.projectKey) {
-      const projectBucket = getProjectBucket(projectState, cur.projectKey, sourceKey, cur.bucketStart, cur.projectRef);
-      addTotals(projectBucket.totals, cur.totals);
-      if (cur.totals.usage_precision) projectBucket.usage_precision = cur.totals.usage_precision;
-      projectTouchedBuckets.add(projectBucketKey(cur.projectKey, sourceKey, cur.bucketStart));
+    if (qoderRowCountsAsUsage(cur.totals)) {
+      const bucket = getHourlyBucket(hourlyState, sourceKey, cur.model, cur.bucketStart);
+      addTotals(bucket.totals, cur.totals);
+      if (cur.totals.usage_precision) bucket.usage_precision = cur.totals.usage_precision;
+      touchedBuckets.add(bucketKey(sourceKey, cur.model, cur.bucketStart));
+      if (projectEnabled && cur.projectKey) {
+        const projectBucket = getProjectBucket(projectState, cur.projectKey, sourceKey, cur.bucketStart, cur.projectRef);
+        addTotals(projectBucket.totals, cur.totals);
+        if (cur.totals.usage_precision) projectBucket.usage_precision = cur.totals.usage_precision;
+        projectTouchedBuckets.add(projectBucketKey(cur.projectKey, sourceKey, cur.bucketStart));
+      }
     }
     qoderState.messages[key] = {
       totals: cur.totals,
@@ -14105,6 +14240,279 @@ async function parseLmstudioIncremental({
     updatedAt,
   };
   return { recordsProcessed, eventsAggregated, bucketsQueued };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// OpenSquilla
+//
+// Read only the finalized usage ledger's model rows. Transcript entries and
+// message content are not needed for token attribution and are never selected.
+// ─────────────────────────────────────────────────────────────────────────────
+
+const OPENSQUILLA_SOURCE = "opensquilla";
+
+function resolveOpenSquillaPath(value, home) {
+  const raw = typeof value === "string" ? value.trim() : "";
+  if (!raw) return null;
+  if (raw === "~") return path.resolve(home);
+  if (raw.startsWith("~/") || raw.startsWith("~\\")) {
+    return path.resolve(home, raw.slice(2));
+  }
+  return path.resolve(raw);
+}
+
+function resolveOpenSquillaDbPaths(env = process.env, deps = {}) {
+  const home = deps.home || env.HOME || env.USERPROFILE || os.homedir();
+  const platform = deps.platform || process.platform;
+  const dbOverride = resolveOpenSquillaPath(env.TOKENTRACKER_OPENSQUILLA_DB, home);
+  if (dbOverride) return [dbOverride];
+
+  const gatewayStateDir = resolveOpenSquillaPath(env.OPENSQUILLA_GATEWAY_STATE_DIR, home);
+  if (gatewayStateDir) return [path.join(gatewayStateDir, "sessions.db")];
+
+  const stateHome = resolveOpenSquillaPath(env.OPENSQUILLA_STATE_DIR, home);
+  if (stateHome) return [path.join(stateHome, "state", "sessions.db")];
+
+  const profileHomeOverride = typeof env.OPENSQUILLA_HOME === "string"
+    ? env.OPENSQUILLA_HOME.trim()
+    : "";
+  const profileOverride = typeof env.OPENSQUILLA_PROFILE === "string"
+    ? env.OPENSQUILLA_PROFILE.trim()
+    : "";
+  if (profileHomeOverride || profileOverride) {
+    const profilesRoot = resolveOpenSquillaPath(
+      profileHomeOverride || path.join(home, ".opensquilla", "profiles"),
+      home,
+    );
+    const profile = profileOverride || "default";
+    if (!/^[a-z0-9][a-z0-9_-]{0,63}$/i.test(profile)) return [];
+    return [path.join(profilesRoot, profile, "state", "sessions.db")];
+  }
+
+  const paths = [path.join(home, ".opensquilla", "state", "sessions.db")];
+  let userDataRoot;
+  if (platform === "win32") {
+    userDataRoot = env.APPDATA || path.join(home, "AppData", "Roaming");
+  } else if (platform === "darwin") {
+    userDataRoot = path.join(home, "Library", "Application Support");
+  } else {
+    userDataRoot = env.XDG_CONFIG_HOME || path.join(home, ".config");
+  }
+  paths.unshift(path.join(
+    userDataRoot,
+    "@opensquilla",
+    "desktop-electron",
+    "opensquilla",
+    "state",
+    "sessions.db",
+  ));
+
+  const seen = new Set();
+  return paths.filter((dbPath) => {
+    const resolved = path.resolve(dbPath);
+    const key = platform === "win32" ? resolved.toLowerCase() : resolved;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
+async function readOpenSquillaUsageRows(dbPath, sqliteOptions = {}) {
+  if (!dbPath || !fssync.existsSync(dbPath)) return [];
+  const options = {
+    label: "OpenSquilla",
+    maxBuffer: 32 * 1024 * 1024,
+    timeout: 30_000,
+    ...sqliteOptions,
+    readOnly: true,
+    throwOnReadFailure: true,
+  };
+  const tables = new Set(
+    (await readSqliteJsonRowsAsync(
+      dbPath,
+      "SELECT name FROM sqlite_master WHERE type='table' AND name IN ('usage_events','usage_event_items')",
+      options,
+    )).map((row) => row?.name).filter(Boolean),
+  );
+  if (!tables.has("usage_events") || !tables.has("usage_event_items")) return [];
+  const sql = [
+    "SELECT e.event_id, e.completed_at_ms, i.ordinal,",
+    "COALESCE(i.model, e.model) AS model, i.input_tokens, i.output_tokens,",
+    "i.reasoning_tokens, i.cache_read_tokens, i.cache_write_tokens, i.total_tokens",
+    "FROM usage_events AS e",
+    "JOIN usage_event_items AS i ON i.event_id = e.event_id",
+    "WHERE e.status = 'finalized' AND e.completed_at_ms IS NOT NULL",
+    "ORDER BY e.completed_at_ms, e.event_id, i.ordinal",
+  ].join(" ");
+  return readSqliteJsonRowsAsync(dbPath, sql, options);
+}
+
+function normalizeOpenSquillaUsageRow(row) {
+  const eventId = typeof row?.event_id === "string" ? row.event_id.trim() : "";
+  if (!eventId || row?.ordinal == null) return null;
+
+  // OpenSquilla stores input as a cache-inclusive total and reasoning as an
+  // output subset; normalize both before writing TokenTracker queue rows.
+  const totals = normalizeLocalStudioTokens({
+    input_tokens: row.input_tokens,
+    output_tokens: row.output_tokens,
+    reasoning_tokens: row.reasoning_tokens,
+    cached_tokens: row.cache_read_tokens,
+    cache_creation_input_tokens: row.cache_write_tokens,
+    total_tokens: row.total_tokens,
+  });
+  const timestampMs = coerceEpochMs(row.completed_at_ms);
+  const bucketStart = timestampMs
+    ? toUtcHalfHourStart(new Date(timestampMs).toISOString())
+    : null;
+  if (!totals || !bucketStart) return null;
+
+  return {
+    key: "opensquilla:" + eventId + ":" + String(toNonNegativeInt(row.ordinal)),
+    model: normalizeModelInput(row.model) || DEFAULT_MODEL,
+    bucketStart,
+    totals,
+  };
+}
+
+async function parseOpenSquillaIncremental({
+  dbPaths,
+  cursors,
+  queuePath,
+  onProgress,
+  env,
+  sqliteOptions,
+} = {}) {
+  await ensureDir(path.dirname(queuePath));
+  const priorState = cursors.opensquilla && typeof cursors.opensquilla === "object"
+    ? cursors.opensquilla
+    : {};
+  // Copy before mutate so a failed queue append leaves committed cursors intact.
+  const messages = priorState.messages && typeof priorState.messages === "object"
+    ? { ...priorState.messages }
+    : {};
+  const fingerprints = priorState.fingerprints && typeof priorState.fingerprints === "object"
+    ? { ...priorState.fingerprints }
+    : {};
+  const requestedPaths = Array.isArray(dbPaths) && dbPaths.length
+    ? dbPaths
+    : resolveOpenSquillaDbPaths(env || process.env);
+  const seenPaths = new Set();
+  const availablePaths = requestedPaths.filter((dbPath) => {
+    if (typeof dbPath !== "string" || !dbPath.trim() || !fssync.existsSync(dbPath)) return false;
+    const resolved = path.resolve(dbPath);
+    const key = process.platform === "win32" ? resolved.toLowerCase() : resolved;
+    if (seenPaths.has(key)) return false;
+    seenPaths.add(key);
+    return true;
+  });
+  // No currently readable DB is treated as temporary unavailability — keep
+  // prior observations rather than wiping totals.
+  if (availablePaths.length === 0) {
+    cursors.opensquilla = { ...priorState, messages, fingerprints, updatedAt: new Date().toISOString() };
+    return { recordsProcessed: 0, eventsAggregated: 0, bucketsQueued: 0 };
+  }
+
+  const pathFingerprints = new Map();
+  let databaseChanged = false;
+  const currentPathKeys = new Set();
+  for (const dbPath of availablePaths) {
+    const key = path.resolve(dbPath);
+    currentPathKeys.add(key);
+    const fingerprint = sqliteSidecarFingerprint(dbPath);
+    pathFingerprints.set(key, fingerprint);
+    if (!fingerprints[key] || !sameSqliteFingerprint(fingerprint, fingerprints[key])) {
+      databaseChanged = true;
+    }
+  }
+  // A removed Desktop/CLI DB must also trigger reconciliation so orphaned
+  // observations can be retracted (fingerprint-only checks would miss this).
+  for (const key of Object.keys(fingerprints)) {
+    if (!currentPathKeys.has(key)) {
+      databaseChanged = true;
+      break;
+    }
+  }
+  if (!databaseChanged) {
+    return { recordsProcessed: 0, eventsAggregated: 0, bucketsQueued: 0 };
+  }
+
+  // The Desktop profile is first in the default path list. If a migrated CLI
+  // profile retains the same event IDs, prefer the active Desktop copy and
+  // count each model row only once.
+  const rowsByEventItem = new Map();
+  for (const dbPath of availablePaths) {
+    const dbRows = await readOpenSquillaUsageRows(dbPath, sqliteOptions);
+    for (const row of dbRows) {
+      const eventId = typeof row?.event_id === "string" ? row.event_id.trim() : "";
+      if (!eventId || row?.ordinal == null) continue;
+      const key = eventId + ":" + String(toNonNegativeInt(row.ordinal));
+      if (!rowsByEventItem.has(key)) rowsByEventItem.set(key, row);
+    }
+  }
+  const rows = Array.from(rowsByEventItem.values());
+  // structuredClone so a failed enqueueTouchedBuckets cannot leave mutated
+  // totals committed while opensquilla.messages stays unchanged (retry would
+  // subtract again). Same pattern as TRAE / session reconcilers.
+  const hourlyState = structuredClone(normalizeHourlyState(cursors?.hourly));
+  const touchedBuckets = new Set();
+  const cb = typeof onProgress === "function" ? onProgress : null;
+  let eventsAggregated = 0;
+  const currentKeys = new Set();
+  for (let index = 0; index < rows.length; index++) {
+    const event = normalizeOpenSquillaUsageRow(rows[index]);
+    if (event) currentKeys.add(event.key);
+    if (event && reconcilePassiveUsageEvent({
+      event,
+      source: OPENSQUILLA_SOURCE,
+      messages,
+      hourlyState,
+      touchedBuckets,
+    })) eventsAggregated += 1;
+    if (cb) {
+      cb({
+        index: index + 1,
+        total: rows.length,
+        recordsProcessed: index + 1,
+        eventsAggregated,
+        bucketsQueued: touchedBuckets.size,
+      });
+    }
+  }
+
+  // Retract observations that disappeared with a removed database (or were
+  // deleted from the remaining DB). Overlapping event IDs keep Desktop-first
+  // totals via reconcilePassiveUsageEvent above.
+  for (const key of Object.keys(messages)) {
+    if (!key.startsWith("opensquilla:") || currentKeys.has(key)) continue;
+    const previous = messages[key];
+    if (previous?.model && previous?.bucketStart && previous?.totals) {
+      const oldBucket = getHourlyBucket(
+        hourlyState,
+        OPENSQUILLA_SOURCE,
+        previous.model,
+        previous.bucketStart,
+      );
+      subtractTotals(oldBucket.totals, previous.totals);
+      touchedBuckets.add(bucketKey(OPENSQUILLA_SOURCE, previous.model, previous.bucketStart));
+    }
+    delete messages[key];
+    eventsAggregated += 1;
+  }
+
+  const nextFingerprints = {};
+  for (const dbPath of availablePaths) {
+    const key = path.resolve(dbPath);
+    const before = pathFingerprints.get(key);
+    const after = sqliteSidecarFingerprint(dbPath);
+    nextFingerprints[key] = sameSqliteFingerprint(before, after) ? after : before;
+  }
+  const bucketsQueued = await enqueueTouchedBuckets({ queuePath, hourlyState, touchedBuckets });
+  const updatedAt = new Date().toISOString();
+  hourlyState.updatedAt = updatedAt;
+  cursors.hourly = hourlyState;
+  cursors.opensquilla = { messages, fingerprints: nextFingerprints, updatedAt };
+  return { recordsProcessed: rows.length, eventsAggregated, bucketsQueued };
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -25724,6 +26132,8 @@ async function parseCommandCodeIncremental({
 }
 
 module.exports = {
+  recordCodexCollectionGap,
+  drainCodexCollectionGaps,
   parseTraeIncremental,
   listRolloutFiles,
   listRolloutFilesDeep,
@@ -25865,6 +26275,10 @@ module.exports = {
   normalizeLocalStudioTokens,
   readLmstudioFileRecords,
   parseLmstudioIncremental,
+  resolveOpenSquillaDbPaths,
+  readOpenSquillaUsageRows,
+  normalizeOpenSquillaUsageRow,
+  parseOpenSquillaIncremental,
   resolveUnslothDbPath,
   readUnslothUsageRows,
   normalizeUnslothUsageRow,
@@ -25938,6 +26352,7 @@ module.exports = {
   groupBucketKey,
   // Exposed for regression tests covering nested-group remote URLs.
   canonicalizeProjectRef,
+  resolveProjectMetaForPath,
   deriveProjectKeyFromRef,
   CLAUDE_MEM_OBSERVER_PROJECT_REF,
 

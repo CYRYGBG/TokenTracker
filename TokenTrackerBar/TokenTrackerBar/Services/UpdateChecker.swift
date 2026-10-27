@@ -6,7 +6,7 @@ final class UpdateChecker {
 
     static let shared = UpdateChecker()
 
-    private let repo = "xiufengsun/TokenTracker"
+    private let repo = "CYRYGBG/TokenTracker"
     private let releaseURL: String = "https://github.com/xiufengsun/TokenTracker/releases/latest"
 
     /// Observable status for menu item display
@@ -42,45 +42,8 @@ final class UpdateChecker {
     }
 
     func check(silent: Bool = false) {
-        guard !isBusy else { return }
-
-        // Auto-update toggle: silent checks are exclusively launch-time background
-        // checks whose success path downloads and installs without prompting, so the
-        // toggle short-circuits them before any network call. Manual (non-silent)
-        // checks stay available regardless of the toggle.
-        if silent, !AutoUpdatePolicy.isEnabled() {
-            Swift.print("[UpdateChecker] Skipping silent update check: auto-update is disabled")
-            return
-        }
-
-        // Developer / Debug path guard:
-        // Skip automatic silent background checks if the application is running from outside
-        // the standard Applications directories (e.g., from Xcode DerivedData).
-        // This prevents developer builds from being replaced by official App Store/GitHub releases.
-        if silent {
-            let path = Bundle.main.bundlePath
-            let inStandardApps = path.hasPrefix("/Applications/") || path.hasPrefix("/Users/\(NSUserName())/Applications/")
-            if !inStandardApps {
-                Swift.print("[UpdateChecker] Skipping silent update check: running from non-standard path \(path)")
-                return
-            }
-        }
-
-        isBusy = true
-        statusText = Strings.updateChecking
-
-        Task.detached { [self] in
-            let result: Result<GitHubRelease, Error>
-            do {
-                result = .success(try await self.fetchLatestRelease())
-            } catch {
-                result = .failure(error)
-            }
-
-            await MainActor.run {
-                self.handleResult(result, silent: silent)
-            }
-        }
+        // Personal builds are updated through reviewed local builds.
+        return
     }
 
     // MARK: - GitHub API (URLSession — respects system proxy)

@@ -21,11 +21,7 @@ struct TokenTrackerBarApp: App {
                         NSApp.activate(ignoringOtherApps: true)
                         NSApp.orderFrontStandardAboutPanel(nil)
                     }
-                    #if !TOKENTRACKER_NATIVE_QA
-                    Button(Strings.menuCheckForUpdates) {
-                        UpdateChecker.shared.check(silent: false)
-                    }
-                    #endif
+
                 }
                 CommandGroup(replacing: .appSettings) {
                     Button(Strings.menuSettings + "…") {
@@ -37,7 +33,7 @@ struct TokenTrackerBarApp: App {
                 #if !TOKENTRACKER_NATIVE_QA
                 CommandGroup(replacing: .help) {
                     Button(Strings.menuHelp) {
-                        if let url = URL(string: "https://www.tokentracker.cc") {
+                        if let url = URL(string: "https://github.com/CYRYGBG/TokenTracker") {
                             NSWorkspace.shared.open(url)
                         }
                     }
@@ -133,7 +129,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             }
             return
         }
-        removeLegacyAppBundleIfNeeded()
+
         NativeLocalization.synchronizeSharedPreference()
 
         statusBarController = StatusBarController(
@@ -145,10 +141,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         )
 
         // Bring the desktop pet back if it was showing when the app last quit.
-        desktopPetController.restoreIfNeeded()
+
 
         // Bring the Dynamic Island back if it was enabled when the app last quit.
-        dynamicIslandController.restoreIfNeeded()
+
 
         NativeBridge.shared.configure(
             viewModel: viewModel,
@@ -175,7 +171,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             }
             viewModel.startAutoRefresh()
 
-            UpdateChecker.shared.check(silent: true)
+
         }
     }
 
@@ -244,37 +240,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func application(_ application: NSApplication, open urls: [URL]) {
-        if let profile = NativeQAProfile.current {
-            for url in urls {
-                guard let order = try? profile.billingReturnOrder(url) else {
-                    fatalError("Native QA billing return rejected")
-                }
-                Task { @MainActor in
-                    guard await profile.approveOwnedOrder(order) else { fatalError("Native QA order ownership rejected") }
-                    DashboardWindowController.shared.handleNativeQABillingReturn(order: order)
-                }
-            }
-            return
-        }
-        for url in urls {
-            guard url.scheme == "tokentracker" else { continue }
-            if let order = NativeBillingReturn.orderID(from: url) {
-                DashboardWindowController.shared.handleBillingReturn(order: order)
-            } else if url.host == "auth" && url.path.hasPrefix("/done") {
-                DashboardWindowController.shared.handleAuthDone()
-            } else if url.host == "auth" && url.path.hasPrefix("/callback") {
-                // Browser relays OAuth code back via tokentracker://auth/callback?insforge_code=xxx
-                let components = URLComponents(url: url, resolvingAgainstBaseURL: false)
-                let code = components?.queryItems?.first(where: { $0.name == "insforge_code" })?.value
-                if let code {
-                    DashboardWindowController.shared.handleAuthCallback(code: code)
-                }
-            } else if url.host == "open" || url.host == "dashboard" {
-                // The web app's local-only pages (Limits / Skills on
-                // tokentracker.cc) deep-link here via tokentracker://open to
-                // surface the local dashboard window.
-                DashboardPresentationCoordinator.shared.showDashboard()
-            }
+        for url in urls where url.scheme == "tokentracker-personal" && ["open", "dashboard"].contains(url.host ?? "") {
+            DashboardPresentationCoordinator.shared.showDashboard()
         }
     }
 }

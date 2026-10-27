@@ -9,7 +9,7 @@
 #
 # Build the dashboard first, WITH the floating-pet entry (off by default so the
 # macOS/web builds stay byte-identical):
-#   $env:TOKENTRACKER_BUILD_PET = "1"; npm run dashboard:build   (from the repo root)
+#   npm run dashboard:build   (from the repo root)
 # ──────────────────────────────────────────────
 param([switch]$Clean)
 
@@ -127,6 +127,7 @@ Write-Host "Node.js ready - v$bundledVersion"
 $ttDir = Join-Path $EmbedDir 'tokentracker'
 New-Item -ItemType Directory -Force -Path (Join-Path $ttDir 'bin') | Out-Null
 Copy-Item (Join-Path $RepoRoot 'bin\tracker.js') (Join-Path $ttDir 'bin\')
+Copy-Item (Join-Path $RepoRoot 'bin\personal.js') (Join-Path $ttDir 'bin\')
 Copy-Item (Join-Path $RepoRoot 'src') (Join-Path $ttDir 'src') -Recurse
 Copy-Item (Join-Path $RepoRoot 'package.json') $ttDir
 # The lockfile pins transitive versions; without it `npm install` resolves

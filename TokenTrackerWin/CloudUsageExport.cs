@@ -16,6 +16,7 @@ internal sealed record CloudUsageExportResult(
 internal static class CloudUsageExport
 {
     internal const int MaximumBytes = 5 * 1024 * 1024;
+    internal const int LocalMaximumBytes = 64 * 1024 * 1024;
     private static readonly Regex FilenamePattern = new("\\Atokentracker-cloud-[A-Za-z0-9][A-Za-z0-9_-]{0,150}\\.(csv|json)\\z");
     private static readonly Regex LocalFilenamePattern = new("\\Atokentracker-local-[A-Za-z0-9][A-Za-z0-9_-]{0,150}\\.json\\z");
     private static readonly UTF8Encoding Utf8 = new(false, true);
@@ -62,7 +63,7 @@ internal static class CloudUsageExport
             var local = message.GetProperty("type").GetString() == "saveLocalUsageExport";
             if (format is not ("csv" or "json") || (local ? format != "json" || !LocalFilenamePattern.IsMatch(filename) : !FilenamePattern.IsMatch(filename))
                 || !filename.EndsWith("." + format, StringComparison.Ordinal)
-                || content.Length == 0 || content.Contains('\0') || Utf8.GetByteCount(content) > MaximumBytes)
+                || content.Length == 0 || content.Contains('\0') || Utf8.GetByteCount(content) > (local ? LocalMaximumBytes : MaximumBytes))
                 return new(requestId, false, ErrorCode: "invalid_export");
             if (format == "json")
             {

@@ -4,6 +4,7 @@ node_modules/
 # matches directories, which let two self-referential symlinks get committed.
 node_modules
 dist/
+TokenTrackerWin/installer/runtime/
 build/
 .tmp/
 dashboard/tmp/

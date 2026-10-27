@@ -8,8 +8,8 @@ public sealed class AutoUpdatePolicyTests
     [Theory]
     [InlineData("false", false)]
     [InlineData("true", true)]
-    [InlineData("\"false\"", true)]
-    [InlineData("null", true)]
+    [InlineData("\"false\"", false)]
+    [InlineData("null", false)]
     public void DeserializedPreferencePreservesValidBooleans(string jsonValue, bool expected)
     {
         var settings = JsonNode.Parse("{\"" + AutoUpdatePolicy.EnabledKey + "\":" + jsonValue + "}")!.AsObject();
@@ -17,9 +17,11 @@ public sealed class AutoUpdatePolicyTests
     }
 
     [Fact]
-    public void MissingPreferenceKeepsAutomaticUpdatesEnabled()
+    public void MissingPreferenceKeepsAutomaticUpdatesDisabled()
     {
-        Assert.True(AutoUpdatePolicy.ResolveEnabled(new JsonObject()));
+        // The fork has no release channel; a silent check would install the
+        // upstream build, so a missing preference must default to disabled.
+        Assert.False(AutoUpdatePolicy.ResolveEnabled(new JsonObject()));
     }
 
     [Fact]
@@ -45,15 +47,15 @@ public sealed class AutoUpdatePolicyTests
     }
 
     [Fact]
-    public void MalformedPreferenceFallsBackToEnabled()
+    public void MalformedPreferenceFallsBackToDisabled()
     {
         var settings = new JsonObject
         {
             // An older build could persist the value as a string; that is not
-            // a user decision, so the default stays enabled.
+            // a user decision, so the fork default stays disabled.
             [AutoUpdatePolicy.EnabledKey] = "false",
         };
 
-        Assert.True(AutoUpdatePolicy.ResolveEnabled(settings));
+        Assert.False(AutoUpdatePolicy.ResolveEnabled(settings));
     }
 }

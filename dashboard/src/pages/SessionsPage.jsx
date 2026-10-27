@@ -1,3 +1,4 @@
+import {forkApi} from '../lib/fork-api';
 import React, { useCallback, useDeferredValue, useEffect, useId, useMemo, useRef, useState } from "react";
 import { Calendar, ChevronRight, Copy, Info, Loader2, RefreshCw, Search, X as XIcon } from "lucide-react";
 import { Input, Select } from "../ui/components";
@@ -222,7 +223,7 @@ const SessionRow = React.memo(function SessionRow({
             {title}
           </button>
           <div className="sessions-row-meta flex min-w-0 flex-wrap items-center gap-y-1 text-xs text-oai-gray-500 dark:text-oai-gray-400">
-            <span className="sessions-meta-item min-w-0 max-w-full">{session.project_ref ? projectLabelNode("min-h-6 inline-flex items-center md:min-h-0") : <span className="truncate">{projectLabel}</span>}</span>
+            <span className="sessions-meta-item min-w-0 max-w-full">{session.device && <span className="mr-2 truncate text-oai-gray-500" title={session.device}>{session.device_name || session.device}</span>}{session.project_ref ? projectLabelNode("min-h-6 inline-flex items-center md:min-h-0") : <span className="truncate">{projectLabel}</span>}</span>
             <span className="sessions-meta-item min-w-0 max-w-full truncate" title={modelUsageLabel(session)}>{modelUsageLabel(session)}</span>
             <span className="sessions-meta-item tabular-nums">{formatWhen(session.started_at, locale, { timeOnly: timeOnly && startsOnGroupDay(session) })}</span>
             {duration ? <span className="sessions-meta-item tabular-nums">{duration}</span> : null}
@@ -276,6 +277,7 @@ const SessionRow = React.memo(function SessionRow({
           <dd className="mt-1 min-h-5 text-sm tabular-nums text-oai-gray-600 dark:text-oai-gray-300 md:mt-0"><SessionPerformance performance={session.performance} /></dd>
         </div>
       </dl>
+      <button className="px-2 text-xs" onClick={async()=>{try{await forkApi('/api/fork/prefs',{method:'POST',body:{action:session.hidden?'unhide':'hide',target:session.session_hash}});window.dispatchEvent(new Event('fork:sessions-changed'));}catch(e){showToast({title:e.message});}}}>{session.hidden?copy("fork.personal.cd2b69b986"):copy("fork.personal.bb0e7e01aa")}</button>
       <button
         type="button"
         onClick={handleCopy}
@@ -368,6 +370,7 @@ export function SessionsPage() {
   const [rangeFilter, setRangeFilter] = useState(initialFilters.from || initialFilters.to ? "custom" : "all");
   const [customFrom, setCustomFrom] = useState(initialFilters.from);
   const [customTo, setCustomTo] = useState(initialFilters.to);
+  const [includeHidden, setIncludeHidden] = useState(false);
   const [projectFilter, setProjectFilter] = useState("all");
   const [groupMode, setGroupMode] = useState("time");
   const [sortMode, setSortMode] = useState("recent");
@@ -391,7 +394,7 @@ export function SessionsPage() {
     else setIsLoading(true);
     setError(null);
     try {
-      const result = await getSessions({ refresh });
+      const result = await getSessions({ refresh, includeHidden });
       // A cold scan can take several seconds; never let an older response
       // overwrite a newer one.
       if (requestId === requestIdRef.current) setData(result);
@@ -403,7 +406,9 @@ export function SessionsPage() {
         setRefreshing(false);
       }
     }
-  }, []);
+  }, [includeHidden]);
+
+  useEffect(() => { const reload = () => void load(false); window.addEventListener("fork:sessions-changed",reload); return () => window.removeEventListener("fork:sessions-changed",reload); }, [load]);
 
   useEffect(() => {
     if (IS_LOCAL_HOST || isMockEnabled()) void load(false);
@@ -621,6 +626,7 @@ export function SessionsPage() {
             </button>
           </div>
 
+          <label className="mb-3 flex gap-2 text-sm"><input type="checkbox" checked={includeHidden} onChange={e=>setIncludeHidden(e.target.checked)}/>{copy("fork.personal.db956b19a4")}</label>
           <div className="mb-6 space-y-3">
             <div className="sessions-toolbar">
             <div className="sessions-toolbar-search relative">

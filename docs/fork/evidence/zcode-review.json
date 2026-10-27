@@ -1,0 +1,65 @@
+{
+  "checkedAt": "2026-10-27T08:22:30.226066+00:00",
+  "oldMacPayloadMismatches": [
+    "src/commands/sync.js",
+    "src/lib/rollout.js"
+  ],
+  "oldDmgHadBackfill": false,
+  "oldDmgHadGapLedger": false,
+  "oldNativeBinaryHadOfficialQueueWatchPaths": true,
+  "recoveryBeforeFix": {
+    "first": 165,
+    "backgroundAfterRepair": 165,
+    "fullAfterRepair": 465
+  },
+  "permissionErrorBeforeFix": {
+    "result": null,
+    "gapCount": 0
+  },
+  "fixes": [
+    "retry archive backfill until gap-free",
+    "record open and stat failures",
+    "atomic diagnostic ledger",
+    "compile actual current Swift sources",
+    "refresh current source in Mac DMG and Windows setup"
+  ],
+  "reviewedDmgPayloadMatchesWorkspace": true,
+  "retestLog": "/tmp/tt-reviewed-final-node.log",
+  "nativeBuildLog": "/tmp/tt-reviewed-mac-build.log",
+  "windowsInstallerBuildLog": "/tmp/tt-reviewed-windows-build.log",
+  "windowsRealMachineVerified": false,
+  "realNutstoreVerified": false,
+  "backfillRecoveryAfterFix": 465,
+  "permissionErrorAfterFix": "EACCES diagnostic retained",
+  "nativeHomeOverrideFixed": true,
+  "latestUpstream": "9dc925d89e7c526c9d5831b689a8bac427e7d8ea",
+  "nativeUiFinalCheck": "passed; see native-checks.json",
+  "finalDmgPayload": {
+    "checkedAt": "2026-10-27T11:16:29.693691+00:00",
+    "mount": "/tmp/tt-reviewed-native",
+    "readOnly": true,
+    "comparisons": {
+      "src": {
+        "files": 133,
+        "matches": true,
+        "differences": []
+      },
+      "bin": {
+        "files": 2,
+        "matches": true,
+        "differences": []
+      },
+      "dashboard/dist": {
+        "files": 178,
+        "matches": true,
+        "differences": []
+      },
+      "package.json": {
+        "matches": true
+      },
+      "package-lock.json": {
+        "matches": true
+      }
+    }
+  }
+}

@@ -34,18 +34,9 @@ it("ignores removed promotional cards in saved layouts without leaving draggable
   expect(screen.getAllByRole("button", { name: copy("dashboard.overview.layout.drag_handle") })).toHaveLength(2);
 });
 
-it("keeps an async data card mounted while empty so its loaded result can appear", () => {
-  loadingCard.pending = true;
-  loadingCard.mounts = loadingCard.unmounts = 0;
-  const page = () => <DashboardView copy={copy} isLocalMode
-    leftCardOrder={["qualityPerDollar"]} rightCardOrder={["usageOverview"]} />;
-  const view = render(page());
+it("ignores the retired quality experiment in saved layouts", () => {
+  loadingCard.mounts=0;render(<DashboardView copy={copy} isLocalMode leftCardOrder={["qualityPerDollar"]} rightCardOrder={["usageOverview"]}/>);
   expect(screen.queryByTestId("quality")).toBeNull();
-  expect(loadingCard.mounts).toBe(1);
-  expect(loadingCard.unmounts).toBe(0);
-  loadingCard.pending = false;
-  view.rerender(page());
-  expect(screen.getByTestId("quality")).toBeInTheDocument();
-  expect(loadingCard.mounts).toBe(1);
-  expect(loadingCard.unmounts).toBe(0);
+  expect(loadingCard.mounts).toBe(0);
+  expect(screen.getByTestId("usage")).toBeInTheDocument();
 });

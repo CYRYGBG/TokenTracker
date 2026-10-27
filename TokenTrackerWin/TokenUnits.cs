@@ -17,7 +17,7 @@ internal static class TokenUnits
 
     private static readonly string SettingsPath = Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-        "TokenTracker",
+        "TokenTrackerPersonal",
         "native-settings.json");
 
     private static string? _cached;

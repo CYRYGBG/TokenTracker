@@ -20,15 +20,15 @@
   #define MyAppVersion "0.0.0"
 #endif
 
-#define MyAppName "TokenTracker"
+#define MyAppName "TokenTracker Personal"
 #define MyAppPublisher "TokenTracker"
-#define MyAppURL "https://www.tokentracker.cc"
-#define MyAppExeName "TokenTracker.exe"
+#define MyAppURL "https://github.com/CYRYGBG/TokenTracker"
+#define MyAppExeName "TokenTrackerPersonal.exe"
 
 [Setup]
 ; Stable per-product GUID — keep constant so upgrades replace in place and
 ; uninstall stays a single Add/Remove Programs entry.
-AppId={{8F2A6C71-4E9D-4B7A-9C3E-1D5F0A2B6E84}
+AppId={{86D1E90D-29B2-41C3-982E-B0081A9740B4}
 AppName={#MyAppName}
 AppVersion={#MyAppVersion}
 AppPublisher={#MyAppPublisher}
@@ -64,6 +64,7 @@ Name: "chinesetraditional"; MessagesFile: "ChineseTraditional.isl"
 Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; Flags: unchecked
 
 [Files]
+Source: "runtime\MicrosoftEdgeWebView2RuntimeInstallerX64.exe"; DestDir: "{tmp}"; Flags: deleteafterinstall; Check: not WebView2Present
 ; The whole self-contained publish folder, including EmbeddedServer\ which
 ; ServerManager resolves from AppContext.BaseDirectory at runtime.
 Source: "..\publish\*"; DestDir: "{app}"; Flags: recursesubdirs createallsubdirs ignoreversion
@@ -74,3 +75,29 @@ Name: "{userdesktop}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; Tasks: de
 
 [Run]
 Filename: "{app}\{#MyAppExeName}"; Description: "{cm:LaunchProgram,{#MyAppName}}"; Flags: nowait postinstall skipifsilent
+
+[Code]
+function WebView2Present: Boolean;
+var
+  Version: String;
+  Key: String;
+begin
+  Key := 'Software\Microsoft\EdgeUpdate\Clients\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}';
+  Result := (RegQueryStringValue(HKLM32, Key, 'pv', Version) or
+             RegQueryStringValue(HKCU32, Key, 'pv', Version)) and
+            (Version <> '') and (Version <> '0.0.0.0');
+end;
+
+procedure CurStepChanged(CurStep: TSetupStep);
+var
+  ResultCode: Integer;
+begin
+  if (CurStep = ssPostInstall) and not WebView2Present then
+  begin
+    if not Exec(ExpandConstant('{tmp}\MicrosoftEdgeWebView2RuntimeInstallerX64.exe'),
+      '/silent /install', '', SW_HIDE, ewWaitUntilTerminated, ResultCode) then
+      RaiseException('Unable to start the Microsoft WebView2 Runtime installer.');
+    if not WebView2Present then
+      RaiseException('Microsoft WebView2 Runtime installation failed. Error: ' + IntToStr(ResultCode));
+  end;
+end;

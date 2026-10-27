@@ -9,7 +9,7 @@ namespace TokenTrackerWin;
 /// </summary>
 internal static class SingleInstance
 {
-    private const string PipeName = "TokenTracker.Windows.Tray.DeepLink";
+    private const string PipeName = "TokenTrackerPersonal.Windows.Tray.DeepLink";
     public const string ActivateMessage = "activate";
 
     /// <summary>

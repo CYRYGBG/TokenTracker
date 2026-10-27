@@ -1,0 +1,63 @@
+{
+  "checkedAt": "2026-10-27T11:15:56.914Z",
+  "version": "1.4.11",
+  "upstream": "9dc925d89e7c526c9d5831b689a8bac427e7d8ea",
+  "dashboard": "dashboard/dist",
+  "embeddedServer": "TokenTrackerBar/EmbeddedServer",
+  "architecture": "darwin-arm64",
+  "nodeVersion": "22.22.2",
+  "nodeSha256": "31c9b901f72536e3710fb91381bc9371c5ee7880bdea9a03383a8d6e5d05949c",
+  "comparisons": {
+    "src": {
+      "files": 133,
+      "sha256": "a554a208b3d400299663920ad564238b478616665a0ae572c03dabf6c95c71ce",
+      "matchesWorkspace": true
+    },
+    "bin": {
+      "files": 2,
+      "sha256": "7abec83e95296bca5930497e736c8c092fa7b4184a00ac48ec450c647d81e873",
+      "matchesWorkspace": true
+    },
+    "dashboard/dist": {
+      "files": 178,
+      "sha256": "9d3d4598ef87410c1e9d310f4e7ee343c1e2e553bf9496b683f1d561ee036e8e",
+      "matchesWorkspace": true
+    },
+    "package.json": {
+      "sha256": "24329cb2e5015f460311d6f623ae26d9f995576440413ec7d3e02990942c29e2",
+      "matchesWorkspace": true
+    },
+    "package-lock.json": {
+      "sha256": "7d83606e5840ea7a89cc7fd7a913d87c8ddbb6f8d000e618e0c25336dd89b5cc",
+      "matchesWorkspace": true
+    }
+  },
+  "packagedCliSmoke": {
+    "passed": true,
+    "isolatedHome": true,
+    "offline": true,
+    "productionHtml": true,
+    "officialProfileUntouched": true,
+    "normalExit": true
+  },
+  "macOSAppBuilt": true,
+  "windowsAppBuilt": true,
+  "installedOrPublished": false,
+  "nativeApp": {
+    "path": "dist/reviewed/TokenTrackerPersonal.app",
+    "sourceHashesVerified": true,
+    "signature": "ad-hoc",
+    "notarized": false
+  },
+  "installers": {
+    "TokenTrackerPersonal-macOS-arm64.dmg": {
+      "bytes": 64086434,
+      "sha256": "92065a8703f3793acb025fddc5c57a327f19cc2e23d8901b1a401397376e895e"
+    },
+    "TokenTrackerPersonal-Windows-x64-Setup.exe": {
+      "bytes": 302944965,
+      "sha256": "803f6cea03579c0938a7cb610dc3c4f77ea59a2727a56a2bc56542e6899e0c4e"
+    }
+  },
+  "windowsRealMachineVerified": false
+}

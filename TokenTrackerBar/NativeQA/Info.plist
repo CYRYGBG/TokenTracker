@@ -22,7 +22,7 @@
 	<array>
 		<dict>
 			<key>CFBundleURLName</key>
-			<string>com.tokentracker.bar.qa.billing</string>
+			<string>com.cyrygbg.tokentracker.personal.qa.billing</string>
 			<key>CFBundleURLSchemes</key>
 			<array>
 				<string>tokentracker-qa</string>

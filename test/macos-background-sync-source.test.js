@@ -80,8 +80,13 @@ test("macOS background sync sends auto background while Sync Now drains", () => 
   );
   assert.match(
     viewModel,
-    /private func refreshHiddenDataContents[\s\S]*checkServerHealth\(\)[\s\S]*guard serverOnline[\s\S]*WidgetSnapshotWriter\.hasConfiguredWidgets\(\)[\s\S]*await loadAll\(\)[\s\S]*loadMenuBarSummaries\(summaries, checkHealth: false\)[\s\S]*refreshUsageLimits\(\)/,
-    "Hidden refresh must preserve full freshness for configured widgets, then use summaries and limits for everyone else.",
+    /private func refreshHiddenDataContents[\s\S]*checkServerHealth\(\)[\s\S]*guard serverOnline[\s\S]*loadMenuBarSummaries\(summaries, checkHealth: false\)[\s\S]*refreshUsageLimits\(\)/,
+    "Hidden refresh must stay on the lightweight summaries-and-limits path.",
+  );
+  assert.doesNotMatch(
+    viewModel,
+    /WidgetSnapshotWriter/,
+    "The personal edition ships no widget extension, so the view model must not write widget snapshots.",
   );
   assert.match(
     viewModel,
@@ -97,7 +102,7 @@ test("macOS background sync sends auto background while Sync Now drains", () => 
   assert.match(
     widgetWriter,
     /func hasConfiguredWidgets\(\) async -> Bool[\s\S]*getCurrentConfigurations[\s\S]*!configurations\.isEmpty[\s\S]*resume\(returning: true\)/,
-    "Widget discovery should avoid full hidden loads when unused and fail toward freshness on query errors.",
+    "WidgetSnapshotWriter stays in tree for upstream merge cost, even though the personal runtime never calls it.",
   );
   assert.match(
     statusBarController,

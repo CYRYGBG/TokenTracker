@@ -2,11 +2,11 @@ import React from "react";
 import { Cloud, FlaskConical, Gauge, Globe, Monitor, Palette, Settings, UserRound } from "lucide-react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { LimitsSettingsPanel } from "../components/LimitsSettingsPanel.jsx";
-import { AccountSection } from "../components/settings/AccountSection.jsx";
-import { CloudSection } from "../components/settings/CloudSection.jsx";
-import { useAccountProfileSettings } from "../components/settings/useAccountProfileSettings.js";
+
+
+
 import { AppearanceSection } from "../components/settings/AppearanceSection.jsx";
-import { LabsSection } from "../components/settings/LabsSection.jsx";
+
 import {
   SectionCard,
   SegmentedControl,
@@ -56,7 +56,7 @@ function LimitsDisplayModeControl({ prefs }) {
 }
 
 export function SettingsPage() {
-  const accountSettings = useAccountProfileSettings();
+
   const limitsPrefs = useLimitsDisplayPrefs();
   const {
     available: nativeSettingsAvailable,
@@ -120,22 +120,6 @@ export function SettingsPage() {
           content: <NetworkSection proxySettings={proxySettings} />,
         }]
       : []),
-    {
-      id: SETTINGS_SECTION_IDS.ACCOUNT,
-      label: copy("settings.section.account"),
-      description: copy("settings.section.account.description"),
-      group: SETTINGS_GROUP_IDS.PERSONAL,
-      Icon: UserRound,
-      content: <AccountSection settings={accountSettings} />,
-    },
-    {
-      id: SETTINGS_SECTION_IDS.CLOUD,
-      label: copy("settings.section.cloud"),
-      description: copy("settings.section.cloud.description"),
-      group: SETTINGS_GROUP_IDS.PERSONAL,
-      Icon: Cloud,
-      content: <CloudSection settings={accountSettings} active={activeSection === SETTINGS_SECTION_IDS.CLOUD} />,
-    },
     {
       id: SETTINGS_SECTION_IDS.LIMITS,
       label: copy("settings.section.limits"),
@@ -214,14 +198,7 @@ export function SettingsPage() {
       Icon: Monitor,
       content: <LocalDataSection active={activeSection === SETTINGS_SECTION_IDS.LOCAL_DATA} />,
     }] : []),
-    {
-      id: SETTINGS_SECTION_IDS.LABS,
-      label: copy("settings.section.labs"),
-      description: copy("settings.section.labs.description"),
-      group: SETTINGS_GROUP_IDS.DEVELOPER,
-      Icon: FlaskConical,
-      content: <LabsSection />,
-    },
+
   ];
 
   const sectionGroups = [

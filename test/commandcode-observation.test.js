@@ -201,7 +201,6 @@ for (const [scenario, code] of [
         const summary = JSON.parse(output);
         assert.deepEqual(summary.providers["command-code"], isWsl ? { installed: false } : { installed: false, error: expectedError });
         assert.deepEqual(summary.providers.cline, { installed: true, files: 1 });
-        assert.equal(summary.queue.pending_bytes, pendingBytes);
         assert.equal(summary.queue.size_bytes, pendingBytes);
         assert.equal(typeof summary.hooks.claude, "boolean");
       } else {
@@ -209,7 +208,7 @@ for (const [scenario, code] of [
         if (isWsl) assert.ok(!output.includes("Command Code: discovery failed"));
         else assert.ok(output.includes(`- Command Code: discovery failed (${expectedError})`));
         assert.match(output, /- Cline: passive reader \(1 transcript in 1 sessions dir\)/);
-        assert.ok(output.includes(`- Queue: ${pendingBytes} bytes pending`));
+        assert.ok(output.includes(`- Queue: ${pendingBytes} bytes`));
       }
       // WSL-only can be empty on failure; native discovery errors stay visible.
       const discovery = runtime.load("src/lib/rollout.js").resolveCommandCodeSessionFiles();

@@ -82,8 +82,6 @@ const {
   resolveMuseHome,
   resolveTraeStoragePath,
 } = require("../lib/rollout");
-const { resolveRuntimeConfig, DEFAULT_BASE_URL, normalizeInstanceBaseUrl, assertInsforgeRuntime,
-  clearDeviceIdentity, resetInstanceState } = require("../lib/runtime-config");
 const {
   BOLD,
   DIM,
@@ -94,8 +92,7 @@ const {
   promptMenu,
   createSpinner,
 } = require("../lib/cli-ui");
-const { renderLocalReport, renderAuthTransition, renderSuccessBox } = require("../lib/init-flow");
-const { maybeShowStarCta } = require("../lib/star-cta");
+const { renderLocalReport } = require("../lib/init-flow");
 
 const ASCII_LOGO = [
   "████████╗ ██████╗ ██╗  ██╗███████╗███╗   ██╗",
@@ -113,7 +110,6 @@ const ASCII_LOGO = [
 ].join("\n");
 
 const DIVIDER = "----------------------------------------------";
-const DEFAULT_DASHBOARD_URL = "https://www.tokentracker.cc";
 
 // Single source of truth for the welcome screen's provider count + sample list.
 // test/discovery-metadata.test.js keeps this aligned with public tool copy.
@@ -126,6 +122,7 @@ const SUPPORTED_PROVIDERS = [
   "Antigravity",
   "Kiro",
   "OpenCode",
+  "OpenSquilla",
   "OpenClaw",
   "Every Code",
   "Hermes Agent",
@@ -169,21 +166,13 @@ const SUPPORTED_PROVIDERS = [
 async function cmdInit(argv, options = {}) {
   const opts = parseArgs(argv);
   const home = options.home || os.homedir();
-  if (opts.anonKeyFile) opts.anonKey = (await fs.readFile(opts.anonKeyFile, "utf8")).trim();
 
   const { rootDir, trackerDir, binDir } = await resolveTrackerPaths({ home });
 
   const configPath = path.join(trackerDir, "config.json");
   const notifyOriginalPath = path.join(trackerDir, "codex_notify_original.json");
-  const linkCodeStatePath = path.join(trackerDir, "link_code_state.json");
 
   const existingConfig = await readJson(configPath);
-  const runtime = resolveRuntimeConfig({
-    cli: { baseUrl: opts.baseUrl, dashboardUrl: opts.dashboardUrl, anonKey: opts.anonKey },
-    config: existingConfig || {},
-    env: process.env,
-  });
-  assertInsforgeRuntime(runtime);
   const notifyPath = path.join(binDir, "notify.cjs");
   const appDir = path.join(trackerDir, "app");
   const trackerBinPath = path.join(appDir, "bin", "tracker.js");
@@ -215,7 +204,6 @@ async function cmdInit(argv, options = {}) {
       home,
       trackerDir,
       notifyPath,
-      runtime,
     });
     renderLocalReport({ summary: preview.summary, isDryRun: true });
     renderAccountNotLinked({ context: "dry-run" });
@@ -233,11 +221,9 @@ async function cmdInit(argv, options = {}) {
       binDir,
       configPath,
       notifyOriginalPath,
-      linkCodeStatePath,
       notifyPath,
       appDir,
       trackerBinPath,
-      runtime,
       existingConfig,
     });
   } catch (err) {
@@ -269,7 +255,6 @@ async function cmdInit(argv, options = {}) {
   }
 
   renderLocalSuccess({ firstSync });
-  await maybeShowStarCta({ trackerDir });
 }
 
 function renderWelcome() {
@@ -335,20 +320,10 @@ function renderAccountNotLinked({ context } = {}) {
   renderLocalSuccess();
 }
 
-function shouldUseBrowserAuth({ deviceToken, opts }) {
-  if (deviceToken) return false;
-  if (opts.noAuth) return false;
-  if (opts.linkCode) return false;
-  if (opts.email || opts.password) return false;
-  return true;
-}
-
-async function buildDryRunSummary({ opts, home, trackerDir, notifyPath, runtime }) {
-  const deviceToken = runtime?.deviceToken || null;
-  const pendingBrowserAuth = shouldUseBrowserAuth({ deviceToken, opts });
+async function buildDryRunSummary({ opts, home, trackerDir, notifyPath }) {
   const context = buildIntegrationTargets({ home, trackerDir, notifyPath });
   const summary = await previewIntegrations({ context });
-  return { summary, pendingBrowserAuth, deviceToken };
+  return { summary };
 }
 
 async function runSetup({
@@ -358,19 +333,14 @@ async function runSetup({
   binDir,
   configPath,
   notifyOriginalPath,
-  linkCodeStatePath,
   notifyPath,
   appDir,
   trackerBinPath,
-  runtime,
   existingConfig,
 }) {
   await ensureDir(trackerDir);
   await ensureDir(binDir);
-  let deviceToken = runtime?.deviceToken || null;
-  let deviceId = existingConfig?.deviceId || null;
   const installedAt = existingConfig?.installedAt || new Date().toISOString();
-  let pendingBrowserAuth = false;
 
   await installLocalTrackerApp({ appDir });
 
@@ -378,29 +348,7 @@ async function runSetup({
     existingConfig && typeof existingConfig === "object" && !Array.isArray(existingConfig)
       ? existingConfig
       : {};
-  const previousRuntime = resolveRuntimeConfig({ config: existingPlainConfig, env: {} });
-  const changedInstance = normalizeInstanceBaseUrl(previousRuntime.baseUrl) !== runtime.baseUrl ||
-    previousRuntime.anonKey !== runtime.anonKey;
-  if (changedInstance) {
-    resetInstanceState(trackerDir);
-    deviceToken = null; deviceId = null;
-  }
-  const config = {
-    ...(changedInstance ? clearDeviceIdentity(existingPlainConfig) : existingPlainConfig),
-    installedAt,
-    // Keep a persisted legacy URL until the first sync. sync owns the migration
-    // lock and must reset the upload offset/backoff before removing this marker;
-    // rewriting it here would skip the historical replay permanently.
-    baseUrl: opts.baseUrl || existingPlainConfig.baseUrl || DEFAULT_BASE_URL,
-  };
-  if (changedInstance || opts.dashboardUrl) {
-    config.dashboardUrl = runtime.dashboardUrl;
-  }
-  if (changedInstance || opts.anonKey || runtime.sources.anonKey === "env") config.anonKey = runtime.anonKey;
-  if (runtime.baseUrl !== DEFAULT_BASE_URL) {
-    config.baseUrl = runtime.baseUrl;
-    config.dashboardUrl = runtime.dashboardUrl;
-  }
+  const config = { ...existingPlainConfig, installedAt };
 
   await writeJson(configPath, config);
   await chmod600IfPossible(configPath);
@@ -417,9 +365,6 @@ async function runSetup({
 
   return {
     summary,
-    pendingBrowserAuth,
-    deviceToken,
-    deviceId,
     installedAt,
   };
 }
@@ -1406,15 +1351,6 @@ function containsNestedTokenTrackerNotify(cmd, expectedNotify) {
 
 function parseArgs(argv) {
   const out = {
-    baseUrl: null,
-    dashboardUrl: null,
-    anonKey: null,
-    anonKeyFile: null,
-    email: null,
-    password: null,
-    deviceName: null,
-    linkCode: null,
-    noAuth: false,
     noOpen: false,
     yes: false,
     dryRun: false,
@@ -1422,16 +1358,7 @@ function parseArgs(argv) {
 
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
-    if (a === "--base-url") out.baseUrl = argv[++i] || null;
-    else if (a === "--dashboard-url") out.dashboardUrl = argv[++i] || null;
-    else if (a === "--anon-key") out.anonKey = argv[++i] || null;
-    else if (a === "--anon-key-file") out.anonKeyFile = argv[++i] || null;
-    else if (a === "--email") out.email = argv[++i] || null;
-    else if (a === "--password") out.password = argv[++i] || null;
-    else if (a === "--device-name") out.deviceName = argv[++i] || null;
-    else if (a === "--link-code") out.linkCode = argv[++i] || null;
-    else if (a === "--no-auth") out.noAuth = true;
-    else if (a === "--no-open") out.noOpen = true;
+    if (a === "--no-open") out.noOpen = true;
     else if (a === "--yes") out.yes = true;
     else if (a === "--dry-run") out.dryRun = true;
     else throw new Error(`Unknown option: ${a}`);
@@ -2340,7 +2267,9 @@ async function runFirstSyncAndRead({ trackerBinPath, trackerDir, packageName }) 
     return readFirstSyncTotals(trackerDir);
   }
   const fallbackPkg = packageName || "tokentracker-cli";
-  const argv = ["sync", "--auto", "--drain"];
+  // `--drain` was the cloud-upload backfill flag; the fork's sync is
+  // local-only, so the first sync is a plain auto pass.
+  const argv = ["sync", "--auto"];
   const hasLocalRuntime = typeof trackerBinPath === "string" && fssync.existsSync(trackerBinPath);
   const cmd = hasLocalRuntime
     ? [process.execPath, trackerBinPath, ...argv]

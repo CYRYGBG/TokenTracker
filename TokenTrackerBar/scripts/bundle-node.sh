@@ -148,7 +148,7 @@ echo "📂 Copying tokentracker source..."
 TT_DIR="$EMBED_DIR/tokentracker"
 mkdir -p "$TT_DIR/bin"
 
-cp "$REPO_ROOT/bin/tracker.js" "$TT_DIR/bin/"
+cp "$REPO_ROOT/bin/tracker.js" "$REPO_ROOT/bin/personal.js" "$TT_DIR/bin/"
 cp -R "$REPO_ROOT/src" "$TT_DIR/src"
 cp "$REPO_ROOT/package.json" "$TT_DIR/"
 # The lockfile pins transitive versions; without it `npm install` resolves

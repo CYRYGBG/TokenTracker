@@ -13,7 +13,7 @@ internal static class NativeTheme
 
     private static readonly string SettingsPath = Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-        "TokenTracker",
+        "TokenTrackerPersonal",
         "native-settings.json");
 
     public static string CurrentPreference => ReadStoredPreference() ?? DarkPreference;

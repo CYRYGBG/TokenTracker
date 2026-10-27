@@ -9,9 +9,8 @@ const { createLocalApiHandler, resolveQueuePath } = require("../lib/local-api");
 const { ensurePricingLoaded } = require("../lib/pricing");
 const { serveStaticFile } = require("../lib/static-server");
 const { openInBrowser } = require("../lib/browser-auth");
-const { maybeShowStarCta } = require("../lib/star-cta");
 
-const DEFAULT_PORT = 7680;
+const DEFAULT_PORT = process.env.TOKENTRACKER_PERSONAL === "1" ? 17680 : 7680;
 // Windows Delivery Optimization (DoSvc) listens on 0.0.0.0:7680 on virtually
 // every Windows host. Under WSL2 NAT networking the in-WSL bind succeeds (the
 // conflict lives on the Windows side of the loopback), but the Windows
@@ -79,7 +78,8 @@ async function cmdServe(argv) {
 
   // 0. First-time setup: if tracker dir doesn't exist, run init first
   const { trackerDir, binDir } = await resolveTrackerPaths();
-  if (!fssync.existsSync(path.join(trackerDir, "cursors.json"))) {
+  if (process.env.TOKENTRACKER_PERSONAL === "1") fssync.mkdirSync(trackerDir,{recursive:true,mode:0o700});
+  if (process.env.TOKENTRACKER_PERSONAL !== "1" && !fssync.existsSync(path.join(trackerDir, "cursors.json"))) {
     process.stdout.write("First time? Setting up Token Tracker...\n\n");
     try {
       const { cmdInit } = require("./init");
@@ -90,6 +90,7 @@ async function cmdServe(argv) {
   }
 
   try {
+    if (process.env.TOKENTRACKER_PERSONAL !== "1") {
     const { installLocalTrackerApp, repairRuntimeIntegrations } = require("./init");
     await installLocalTrackerApp({ appDir: path.join(trackerDir, "app") });
     const repairResult = await repairRuntimeIntegrations({ trackerDir, binDir, safeMode: true });
@@ -97,6 +98,7 @@ async function cmdServe(argv) {
       process.stdout.write(
         `Runtime integration repair warning (${warning.integration}): ${warning.error}\n`,
       );
+    }
     }
   } catch (e) {
     process.stdout.write(`Runtime refresh warning: ${e?.message || e}\n`);
@@ -159,7 +161,7 @@ async function cmdServe(argv) {
       const url = new URL(req.url || "/", `http://${req.headers.host || "localhost"}`);
 
       // CORS preflight
-      if (req.method === "OPTIONS" && !url.pathname.startsWith("/api/auth/")) {
+      if (req.method === "OPTIONS") {
         res.writeHead(204, {
           "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
           "Access-Control-Allow-Headers": "Content-Type, Authorization",
@@ -243,8 +245,6 @@ async function cmdServe(argv) {
     }
   }
 
-  await maybeShowStarCta({ trackerDir });
-
   // The Windows desktop app keeps this server alive even when the dashboard
   // window is closed. Provider hooks are the fast path, but they can be removed
   // by a tool update or skipped by a provider. Scan every local source once a
@@ -255,21 +255,41 @@ async function cmdServe(argv) {
   // wake-aware refresh loop; running both loops made sync.lock nearly
   // continuous and starved provider notify syncs.
   const nativeBackgroundSync = startNativeBackgroundSync({
+    appShell: process.env.TOKENTRACKER_APP_SHELL || (process.env.TOKENTRACKER_PERSONAL === "1" ? "personal" : ""),
     onError: (e) =>
       process.stdout.write(`Background local sync warning: ${e?.message || e}\n`),
   });
 
-  // Anonymous daily heartbeat (see src/lib/telemetry.js for the privacy
-  // contract). Fire-and-forget at startup, then re-checked every 6 hours so
-  // long-lived embedded-app servers still count on later days; the shared
-  // 24h throttle state guarantees at most one send per day.
-  {
-    const { maybeSendHeartbeat } = require("../lib/telemetry");
-    const { trackerDir: heartbeatTrackerDir } = await resolveTrackerPaths();
-    const sendHeartbeat = () =>
-      maybeSendHeartbeat({ trackerDir: heartbeatTrackerDir }).catch(() => {});
-    sendHeartbeat();
-    setInterval(sendHeartbeat, 6 * 60 * 60 * 1000).unref();
+  // Fork WebDAV sync runs inside this serve process (docs/fork
+  // /SYNC_DESIGN.md §5): change-detection export/import on a minutes cadence,
+  // with backoff and an auth-failure pause. Leaving the dashboard window open
+  // is not required — only this process staying alive (status bar / tray).
+  let webdavStop = null;
+  // Durable metadata collection stays alive when windows are closed and also
+  // when WebDAV is disabled. It is independent of provider notify hot paths.
+  let historyStopped = false;
+  let historyTimer;
+  const collectHistory = async () => {
+    try { await require('../lib/fork-view').collectSessions(trackerDir); }
+    catch (e) { process.stderr.write(`Session history warning: ${e.code || 'persist_failed'}\n`); }
+    if (!historyStopped) { historyTimer = setTimeout(collectHistory,300_000); historyTimer.unref?.(); }
+  };
+  historyTimer = setTimeout(collectHistory,5_000); historyTimer.unref?.();
+  try {
+    const { getOrCreateMachineId } = require("../lib/machine-id");
+    const { createWebdavScheduler, webdavDirFor } = require("../lib/webdav/scheduler");
+    const { loadWebdavPassword } = require("../lib/webdav/credential-store");
+    const { readJson } = require("../lib/fs");
+    const { trackerDir: serveTrackerDir } = await resolveTrackerPaths();
+    const scheduler = createWebdavScheduler({
+      trackerDir: serveTrackerDir,
+      loadPassword: async ({ username, url }) => loadWebdavPassword({ username, url, trackerDir: serveTrackerDir }),
+      getConfig: async () => readJson(path.join(webdavDirFor(serveTrackerDir), "config.json"), null),
+      machineIdProvider: async () => getOrCreateMachineId(path.join(serveTrackerDir, "queue.jsonl")),
+    });
+    webdavStop = scheduler.start();
+  } catch (e) {
+    process.stdout.write(`WebDAV sync disabled (${e?.message || e})\n`);
   }
 
   server.on("error", (e) => {
@@ -281,6 +301,8 @@ async function cmdServe(argv) {
   const shutdown = () => {
     process.stdout.write("\nShutting down...\n");
     nativeBackgroundSync?.stop();
+    webdavStop?.();
+    historyStopped = true; clearTimeout(historyTimer);
     server.close(() => process.exit(0));
     setTimeout(() => process.exit(0), 3000);
   };
@@ -301,7 +323,7 @@ function startNativeBackgroundSync({
   onError = () => {},
 } = {}) {
   const normalizedShell = String(appShell || "").trim().toLowerCase();
-  if (normalizedShell !== "windows") return null;
+  if (!["windows", "personal"].includes(normalizedShell)) return null;
   // The Windows tray host owns its five-minute background sync timer and
   // receives completion events for the UI. Running this server-side fallback
   // as well creates two independent sync producers that contend on sync.lock,
@@ -400,7 +422,7 @@ function readProcessCommand(pid) {
 // than the resolved script. Requiring the `bin/` component keeps an unrelated
 // `node /srv/other/tracker.js serve` from looking like ours.
 const TRACKER_ENTRY_RE = new RegExp(
-  String.raw`(?:^|[\\/])\.?bin[\\/](?:tracker\.js|tokentracker-cli|tokentracker-tracker|tokentracker|tracker)$`,
+  String.raw`(?:^|[\\/])\.?bin[\\/](?:tracker\.js|personal\.js|tokentracker-personal|tokentracker-cli|tokentracker-tracker|tokentracker|tracker)$`,
   "i",
 );
 const NODE_EXECUTABLE_RE = /(?:^|[\\/])node(?:\.exe)?$/i;
@@ -419,8 +441,12 @@ function parseServeScriptPath(command) {
   const value = String(command || "").replaceAll("\0", " ").trim();
   if (!value) return null;
 
-  const executable = /^\S+(?=\s)/.exec(value);
+  // The bundled Node executable can itself live under "Token Tracker".
+  // ps drops its quoting too. Require a real path before accepting a prefix
+  // with spaces, so e.g. a python command containing /tmp/node is not ours.
+  const executable = /^(?:(?:[A-Za-z]:[\\/]|\/).*?[\\/]node(?:\.exe)?|\S+)(?=\s)/i.exec(value);
   if (!executable || !NODE_EXECUTABLE_RE.test(executable[0])) return null;
+  if (/\s/.test(executable[0]) && !fssync.existsSync(executable[0])) return null;
   const rest = value.slice(executable[0].length);
 
   SERVE_BOUNDARY_RE.lastIndex = 0;

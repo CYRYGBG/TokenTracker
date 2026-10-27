@@ -1,0 +1,56 @@
+{
+  "checkedAt": "2026-10-27T11:16:29.694415+00:00",
+  "host": "macOS arm64",
+  "macOSBuild": {
+    "passed": true,
+    "method": "CLT swiftc Release; actual pinned Vortex sources; no library stub",
+    "script": "scripts/build-personal-macos.py",
+    "buildLog": "/tmp/tt-reviewed-mac-build.log",
+    "signature": "ad-hoc, not notarized",
+    "readOnlyDmgMounted": true,
+    "profileIsolationVerified": true,
+    "apiHealthStatus": 200,
+    "isolatedUsageTokens": 0,
+    "productionHtmlStatus": 200,
+    "nativeUiLifecycleFinal": "passed",
+    "nativeUi": {
+      "syncPageVisible": true,
+      "nativeSettingsAvailableAfterRouteNavigation": true,
+      "metricsConfiguredThroughBridge": true,
+      "testPreferenceRestored": true,
+      "noWidgetGalleryLink": true,
+      "screenshots": [
+        "native-sync-settings.png",
+        "native-app-settings.png"
+      ]
+    },
+    "lifecycle": {
+      "finalAppPid": 22767,
+      "ownedNodePid": 22801,
+      "closeKeepsNativeAndServerRunning": true,
+      "httpStatusAfterClose": 200,
+      "settingsReopened": true,
+      "quitMenuUsed": true,
+      "nativeAndOwnedNodeExited": true,
+      "portClosed": true,
+      "dmgDetached": true,
+      "earlierAttemptFailed": "parent exited while Node remained; fixed owned-child SIGTERM and bounded shutdown wait, then rebuilt and retested"
+    },
+    "executableSha256": "b2a5a733392359ab6a95164e17cc095d79fce36375ec49739db24fedb63dcbcd"
+  },
+  "windowsBuild": {
+    "passed": true,
+    "sdk": "8.0.132 + WindowsDesktop SDK",
+    "selfContained": "win-x64",
+    "installerBuild": "ISCC 6.7.3 under isolated CrossOver bottle",
+    "installerLog": "/tmp/tt-reviewed-windows-build.log",
+    "wineRuntimeSmokePassed": true,
+    "realMachineVerified": false
+  },
+  "realNutstoreVerified": false,
+  "physicalCrossDeviceVerified": false,
+  "installedOverOfficialApp": false,
+  "realKeychainVerified": true,
+  "realDPAPIVerified": false,
+  "keychainEvidence": "keychain-check.json"
+}

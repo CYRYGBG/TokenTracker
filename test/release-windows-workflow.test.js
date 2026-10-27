@@ -15,11 +15,9 @@ function loadWorkflow() {
   return fs.readFileSync(WORKFLOW_PATH, "utf8");
 }
 
-test("Windows release includes and verifies the resident quota entry", () => {
-  assert.match(loadWorkflow(), /TOKENTRACKER_BUILD_PET:\s*"1"/);
-  assert.ok(loadWorkflow().includes("dashboard/dist/quota.html"));
+test("personal dashboard does not build retired floating window entries", () => {
   const config = fs.readFileSync(path.join(__dirname, "..", "dashboard", "vite.config.js"), "utf8");
-  assert.match(config, /rollupInput\.quota\s*=\s*path\.resolve\(ROOT_DIR, "quota.html"\)/);
+  assert.doesNotMatch(config, /rollupInput\.(?:pet|quota)\s*=/);
 });
 
 test("release-windows workflow file exists", () => {

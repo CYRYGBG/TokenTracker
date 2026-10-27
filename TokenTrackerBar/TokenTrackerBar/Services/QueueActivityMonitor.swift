@@ -28,8 +28,7 @@ final class QueueActivityMonitor {
         retryDelay: TimeInterval = 60,
         publishInitialState: Bool = false
     ) {
-        self.queueURL = queueURL ?? FileManager.default.homeDirectoryForCurrentUser
-            .appendingPathComponent(".tokentracker/tracker/queue.jsonl")
+        self.queueURL = queueURL ?? Constants.trackerDirectory.appendingPathComponent("queue.jsonl")
         settleDelayNanoseconds = UInt64(max(0, settleDelay) * 1_000_000_000)
         self.retryDelay = max(0, retryDelay)
         self.publishInitialState = publishInitialState

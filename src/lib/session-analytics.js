@@ -118,7 +118,7 @@ function normalizeSessionModel(value) {
 }
 
 function resolveSessionSidecarPath(home = os.homedir()) {
-  return path.join(home, ".tokentracker", "tracker", "session.queue.jsonl");
+  return path.join(home, (process.env.TOKENTRACKER_PERSONAL === "1" ? ".tokentracker-personal" : ".tokentracker"), "tracker", "session.queue.jsonl");
 }
 
 function sessionHash(source, id) {
@@ -284,6 +284,7 @@ function serializeSessionRecord(row) {
 }
 
 function repriceSessionRecord(record) {
+  if (Number.isFinite(record.fork_frozen_cost_usd)) { record.cost_usd = record.fork_frozen_cost_usd; return record; }
   if (Array.isArray(record.usage_buckets)) {
     record.usage_buckets = record.usage_buckets.map((bucket) => ({
       ...bucket, cost_usd: computeRowCost({ source: record.source, ...bucket }),
@@ -2039,7 +2040,7 @@ async function discoverSessionFiles(home, env = process.env, deps = {}) {
   const zcodeWslDbPath = zcodeWslHome ? path.join(zcodeWslHome, "cli", "db", "db.sqlite") : null;
   const zcodeNativeExisting = zcodeExisting(zcodeNativeDbPath);
   const { cursors } = zcodePlatform === "win32"
-    ? await readCursorStateSummary({ trackerDir: path.join(home, ".tokentracker", "tracker") })
+    ? await readCursorStateSummary({ trackerDir: path.join(home, (process.env.TOKENTRACKER_PERSONAL === "1" ? ".tokentracker-personal" : ".tokentracker"), "tracker") })
     : {};
   const zcodePaths = resolveZcodeInstallPaths({
     nativeValue: zcodePlatform === "win32" ? zcodeNativeDbPath : zcodeNativeExisting,
@@ -3009,6 +3010,7 @@ function sessionsToCsv(rows) {
 }
 
 module.exports = {
+  mergeSessionFragments,
   resolveSessionSidecarPath,
   sessionHash,
   scanClaudeSession,

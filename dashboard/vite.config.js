@@ -1240,7 +1240,7 @@ function localDataApiPlugin() {
         // Serve the checkout implementation so a stale packaged desktop app (or
         // Windows DoSvc occupying :7680) cannot hide newly supported tool roots.
         const isRepoSkillsApi = url.pathname === "/functions/tokentracker-skills";
-        if (isRepoPetApi || isRepoProjectUsageApi || isRepoSessionAnalyticsApi || isRepoSkillsApi) {
+        if (url.pathname.startsWith("/api/webdav/") || url.pathname.startsWith("/api/fork/") || isRepoPetApi || isRepoProjectUsageApi || isRepoSessionAnalyticsApi || isRepoSkillsApi) {
           Promise.resolve(handleRepoLocalApi(req, res, url))
             .then((handled) => { if (!handled) next(); })
             .catch(next);
@@ -1264,9 +1264,7 @@ function localDataApiPlugin() {
 
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, ROOT_DIR, "VITE_");
-  const backendConfiguration = validateInsforgeBuildEnv(env);
-  if (backendConfiguration.errorCode)
-    throw new Error(`InsForge frontend configuration rejected: ${backendConfiguration.errorCode}. Values were not logged.`);
+
   const fallbackVersion = loadAppVersion();
   const define = {};
 
@@ -1274,20 +1272,10 @@ export default defineConfig(({ mode }) => {
     define["import.meta.env.VITE_APP_VERSION"] = JSON.stringify(fallbackVersion);
   }
 
-  // Build inputs. The Windows and Linux apps' floating-pet page (pet.html) is an
-  // OPT-IN extra entry, enabled only when TOKENTRACKER_BUILD_PET=1 (set by the
-  // Windows and Linux builds). Adding a rollup entry reshuffles shared chunks, so keeping it
-  // off by default makes the macOS + web builds byte-identical to a no-pet build —
-  // this matters because this project has a history of chunk-split changes subtly
-  // breaking the native OAuth callback (see CLAUDE.md). macOS never loads pet.html.
+  // Personal builds have a single application entry, including native bundles.
   const rollupInput = {
     main: path.resolve(ROOT_DIR, "index.html"),
-    share: path.resolve(ROOT_DIR, "share.html"),
   };
-  if (process.env.TOKENTRACKER_BUILD_PET === "1") {
-    rollupInput.pet = path.resolve(ROOT_DIR, "pet.html");
-    rollupInput.quota = path.resolve(ROOT_DIR, "quota.html");
-  }
 
   return {
     plugins: [
@@ -1303,8 +1291,8 @@ export default defineConfig(({ mode }) => {
         },
       },
       react(),
-      richLinkMetaPlugin(),
-      routeSeoPagesPlugin(),
+
+
       localDataApiPlugin(),
     ],
     ...(Object.keys(define).length ? { define } : {}),
@@ -1324,29 +1312,7 @@ export default defineConfig(({ mode }) => {
         ]
       },
       // 代理 InsForge auth/functions 请求到云端，避免跨域 cookie 问题
-      proxy: (() => {
-        const proxies = {
-          // IP-check page proxies ip.net.coffee API + assets. Without this,
-          // 5173 dev mode shows "无数据" because trust score / geoip endpoints
-          // are not part of the Vite mock — they live on ip.net.coffee.
-          "/proxy/ipcheck": {
-            target: "https://ip.net.coffee",
-            changeOrigin: true,
-            secure: true,
-            rewrite: (p) => p.replace(/^\/proxy\/ipcheck/, ""),
-          },
-        };
-        // Match the frontend's validated configuration, including its official
-        // default. Otherwise the SDK receives SPA HTML as a successful config.
-        proxies["/api/auth"] = {
-          target: backendConfiguration.baseUrl,
-          changeOrigin: true,
-          secure: true,
-          // Host-only cookies work on both localhost and 127.0.0.1.
-          cookieDomainRewrite: "",
-        };
-        return proxies;
-      })(),
+      proxy: {},
     },
   };
 });

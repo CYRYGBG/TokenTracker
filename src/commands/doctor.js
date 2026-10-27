@@ -5,7 +5,6 @@ const { readJsonStrict, writeFileAtomic, chmod600IfPossible } = require("../lib/
 const { resolveTrackerPaths } = require("../lib/tracker-paths");
 const { collectTrackerDiagnostics } = require("../lib/diagnostics");
 const { resolveRuntimeConfig } = require("../lib/runtime-config");
-const { resolveDeviceTokenPresence } = require("../lib/cloud-device-token");
 const { buildDoctorReport } = require("../lib/doctor");
 
 async function cmdDoctor(argv = []) {
@@ -17,24 +16,11 @@ async function cmdDoctor(argv = []) {
   const configStatus = await readJsonStrict(configPath);
   const config =
     configStatus.status === "ok" && isPlainObject(configStatus.value) ? configStatus.value : {};
-  let runtime = resolveRuntimeConfig({
+  const runtime = resolveRuntimeConfig({
     cli: { baseUrl: opts.baseUrl },
     config,
     env: process.env,
   });
-  const deviceTokenPresence = resolveDeviceTokenPresence({
-    trackerDir,
-    config,
-    runtime,
-  });
-  if (deviceTokenPresence.set && !(typeof runtime.deviceToken === "string" && runtime.deviceToken.trim())) {
-    // Sentinel only — doctor reports set/unset and never uses the value for auth.
-    runtime = {
-      ...runtime,
-      deviceToken: "present",
-      sources: { ...(runtime.sources || {}), deviceToken: deviceTokenPresence.source },
-    };
-  }
   const diagnostics = await collectTrackerDiagnostics({ home });
   const cliPath = process.argv[1] ? path.resolve(process.argv[1]) : null;
 

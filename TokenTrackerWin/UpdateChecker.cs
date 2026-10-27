@@ -83,53 +83,8 @@ internal sealed class UpdateChecker
     /// </summary>
     public async Task<CheckOutcome> CheckAsync(bool silent)
     {
-        if (State is UpdateState.Checking or UpdateState.Downloading or UpdateState.Installing)
-            return CheckOutcome.Skipped;
-        if (silent && !AutoUpdatePolicy.IsEnabled())
-        {
-            Diag.Log("update", "silent check skipped: automatic updates disabled");
-            return CheckOutcome.Skipped;
-        }
-        if (silent && !IsInstalledBuild())
-        {
-            Diag.Log("update", "silent check skipped: not an installed build");
-            return CheckOutcome.Skipped;
-        }
-
-        SetState(UpdateState.Checking);
-        try
-        {
-            using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(20));
-            var release = await _releaseClient.FetchLatestAsync(cts.Token);
-            var latest = release.Version;
-            if (CompareVersions(CurrentVersion, latest) < 0)
-            {
-                LatestVersion = latest;
-                _setupUrl = release.SetupUrl;
-                _setupSize = release.SetupSize;
-                _checksumsUrl = release.ChecksumsUrl;
-                SetState(UpdateState.UpdateAvailable);
-                Diag.Log("update", $"update available current={CurrentVersion} latest={latest}");
-                if (silent && AutoUpdatePolicy.IsEnabled())
-                {
-                    // The launch-time check is the unattended path. Start the same
-                    // resumable installer flow used by the tray action; it asks the
-                    // tray to quit only after the download is complete.
-                    _ = DownloadAndInstallAsync();
-                }
-                return CheckOutcome.UpdateAvailable;
-            }
-
-            SetState(UpdateState.Idle);
-            Diag.Log("update", $"up to date current={CurrentVersion} latest={latest}");
-            return CheckOutcome.UpToDate;
-        }
-        catch (Exception ex)
-        {
-            Diag.Log("update", $"check failed: {ex.Message}");
-            SetState(UpdateState.Idle);
-            return CheckOutcome.Failed;
-        }
+        await Task.CompletedTask;
+        return CheckOutcome.Skipped;
     }
 
     /// <summary>Whether launch-time checks may download and install releases.</summary>

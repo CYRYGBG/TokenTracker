@@ -11,7 +11,7 @@ namespace TokenTrackerWin;
 /// </summary>
 internal static class UrlProtocol
 {
-    public const string Scheme = "tokentracker";
+    public const string Scheme = "tokentracker-personal";
 
     /// <summary>
     /// Point <c>tokentracker://</c> at this executable. Idempotent and cheap, so we just

@@ -433,7 +433,7 @@ class DashboardViewModel: ObservableObject {
 
         // Push the latest data to the widget snapshot file so the desktop
         // widgets pick it up on their next timeline reload.
-        await WidgetSnapshotWriter.update(from: self, capturedAt: capturedAt)
+
         await finishDataLoad(allowPendingRefresh: errorCount == 0)
     }
 
@@ -778,14 +778,6 @@ class DashboardViewModel: ObservableObject {
         guard serverOnline,
               !pendingFullRefreshAfterHiddenRefresh,
               !isPopoverVisible else { return }
-        if await WidgetSnapshotWriter.hasConfiguredWidgets() {
-            // Active desktop widgets are visible even while the popover is
-            // closed. Preserve their complete snapshot refresh; the cheaper
-            // summary-only path is for installations without configured
-            // widgets.
-            await loadAll()
-            return
-        }
         // Publications observed while sync/health work was in flight are
         // covered by the summary request that starts after this point. Events
         // arriving once the request is active are queued by `isLoading` and

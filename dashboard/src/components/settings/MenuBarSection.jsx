@@ -1,54 +1,97 @@
 import React from "react";
-import { Link } from "react-router-dom";
-import { Activity, ArrowUpRight, Download, RefreshCw } from "lucide-react";
+import { RefreshCw } from "lucide-react";
 import { useNativeSettings } from "../../hooks/use-native-settings.js";
-import { useLocale } from "../../hooks/useLocale.js";
-import { ConfirmModal } from "../../ui/components";
-import { showToast } from "../../ui/components/Toast.jsx";
-import { STATUSPAGE_URL } from "../../lib/config";
 import { copy } from "../../lib/copy";
 import { cn } from "../../lib/cn";
 import { isNativeWindowsApp } from "../../lib/native-bridge.js";
+import { FALLBACK_MENU_BAR_ITEMS, MENU_BAR_NONE_ID, normalizeMenuBarItems } from "../../lib/menu-bar-display.js";
+import { Select } from "../../ui/components";
 import { SectionCard, SettingsRow, ToggleSwitch } from "./Controls.jsx";
 import { Button } from "../../ui/components/Button.jsx";
+
+function metricLabel(id, fallback) {
+  switch (id) {
+    case MENU_BAR_NONE_ID:
+      return copy("menubar.metric.none");
+    case "todayTokens":
+      return copy("menubar.metric.today_tokens");
+    case "todayCost":
+      return copy("menubar.metric.today_cost");
+    case "last7dTokens":
+      return copy("menubar.metric.last_7d_tokens");
+    case "totalTokens":
+      return copy("menubar.metric.total_tokens");
+    case "totalCost":
+      return copy("menubar.metric.total_cost");
+    case "claude5h":
+      return copy("menubar.metric.claude_5h");
+    case "claude7d":
+      return copy("menubar.metric.claude_7d");
+    case "codex5h":
+      return copy("menubar.metric.codex_5h");
+    case "codex7d":
+      return copy("menubar.metric.codex_7d");
+    case "codexCredits":
+      return copy("menubar.metric.codex_credits");
+    case "codexSpark5h":
+      return copy("menubar.metric.codex_spark_5h");
+    case "codexSpark7d":
+      return copy("menubar.metric.codex_spark_7d");
+    default:
+      return fallback;
+  }
+}
+
+// Keep the upstream metric IDs and normalization while exposing their controls
+// directly in settings: the personal app does not ship the widget gallery route.
+function MenuBarDisplayControls({ settings, setSetting }) {
+  const nativeItems = settings?.menuBarAvailableItems;
+  const items = Array.isArray(nativeItems) && nativeItems.length ? nativeItems : FALLBACK_MENU_BAR_ITEMS;
+  const options = items.some((item) => item.id === MENU_BAR_NONE_ID)
+    ? items : [{ id: MENU_BAR_NONE_ID, label: copy("menubar.metric.none") }, ...items];
+  const selected = normalizeMenuBarItems(settings?.menuBarItems, options, 2);
+  const showStats = settings?.showStats !== false;
+  return <>
+    <SettingsRow
+      label={copy("settings.menubar.showStats")}
+      hint={copy("settings.menubar.showStatsHint")}
+      control={<ToggleSwitch checked={showStats} onChange={() => setSetting("showStats", !showStats)} ariaLabel={copy("settings.menubar.showStats")} />}
+    />
+    {[0, 1].map((slot) => {
+      const label = copy(slot === 0 ? "menubar.slot.primary" : "menubar.slot.secondary");
+      const value = selected[slot] || MENU_BAR_NONE_ID;
+      return <SettingsRow key={slot} label={label} control={
+        <Select value={value} disabled={!showStats} ariaLabel={label}
+          options={options.filter((item) => item.id === MENU_BAR_NONE_ID || item.id === value || !selected.includes(item.id))
+            .map((item) => ({ value: item.id, label: metricLabel(item.id, item.label) }))}
+          onValueChange={(next) => {
+            const ids = [selected[0] || MENU_BAR_NONE_ID, selected[1] || MENU_BAR_NONE_ID];
+            ids[slot] = next;
+            setSetting("menuBarItems", normalizeMenuBarItems(ids, options, 2));
+          }}
+          className="min-w-40 px-3 py-2 text-sm"
+        />
+      } />;
+    })}
+  </>;
+}
 
 export function MenuBarSection() {
   const { available, settings, setSetting, runAction } = useNativeSettings();
   if (!available) return null;
   const isWindows = isNativeWindowsApp();
 
-  // showStats + animatedIcon live on the Widgets page (Menu Bar section) where
-  // they sit next to the live preview. This section keeps only the system-level
-  // toggles + actions that don't have a visual analogue.
   const launchAtLogin = Boolean(settings?.launchAtLogin);
   const toastOnReset = settings?.toastOnReset !== false;
   const confettiOnReset = settings?.confettiOnReset !== false;
   const launchAtLoginSupported = settings?.launchAtLoginSupported !== false;
-  const autoUpdateEnabled = settings?.autoUpdateEnabled !== false;
-  const updateStatus = settings?.updateStatus || null;
-  const updateBusy = Boolean(settings?.updateBusy);
   const isSyncing = Boolean(settings?.isSyncing);
 
   return (
     <SectionCard title={copy("settings.section.menubar")}>
       {!isWindows ? (
         <>
-          <SettingsRow
-            label={copy("settings.menubar.appearance")}
-            hint={copy("settings.menubar.appearanceHint")}
-            control={
-              <Button
-                as={Link}
-                to="/widgets"
-                variant="secondary"
-                size="sm"
-                className="gap-1.5 no-underline"
-              >
-                <span>{copy("settings.menubar.appearanceLink")}</span>
-                <ArrowUpRight className="h-3.5 w-3.5" aria-hidden />
-              </Button>
-            }
-          />
+          <MenuBarDisplayControls settings={settings} setSetting={setSetting} />
           <SettingsRow
             label={copy("settings.menubar.toastOnReset")}
             hint={copy("settings.menubar.toastOnResetHint")}
@@ -102,162 +145,9 @@ export function MenuBarSection() {
           </Button>
         }
       />
-      <SettingsRow
-        label={copy("settings.menubar.autoUpdate")}
-        hint={copy("settings.menubar.autoUpdateHint")}
-        control={
-          <ToggleSwitch
-            checked={autoUpdateEnabled}
-            onChange={() => setSetting("autoUpdateEnabled", !autoUpdateEnabled)}
-            ariaLabel={copy("settings.menubar.autoUpdate")}
-          />
-        }
-      />
-      <SettingsRow
-        label={copy("settings.menubar.updates")}
-        hint={updateStatus || undefined}
-        control={
-          <Button
-            variant="secondary"
-            size="sm"
-            onClick={() => runAction("checkForUpdates")}
-            disabled={updateBusy}
-            className="gap-1.5"
-          >
-            <Download className="h-3.5 w-3.5" aria-hidden />
-            <span>{copy("settings.menubar.checkUpdates")}</span>
-          </Button>
-        }
-      />
     </SectionCard>
   );
 }
 
-function hasUpdate(current, latest) {
-  function parseParts(v) {
-    return v.replace(/^v/, "").split(".").map(Number);
-  }
-  const currParts = parseParts(current);
-  const lateParts = parseParts(latest);
-  for (let i = 0; i < Math.max(currParts.length, lateParts.length); i++) {
-    const curr = currParts[i] || 0;
-    const late = lateParts[i] || 0;
-    if (curr < late) return true;
-    if (curr > late) return false;
-  }
-  return false;
-}
 
-export function NativeAppFooter() {
-  const { available, settings, runAction } = useNativeSettings();
-  const showNativeInfo = available && settings?.version;
-  const nativePlatform = settings?.platform || "macos";
-  const [checking, setChecking] = React.useState(false);
-  const [updateModal, setUpdateModal] = React.useState({
-    open: false,
-    latestVersion: "",
-    htmlUrl: "",
-  });
-  const { resolvedLocale } = useLocale();
-  const currentVersion = import.meta.env.VITE_APP_VERSION || "0.64.2";
-
-  const handleCheckUpdates = async () => {
-    setChecking(true);
-    try {
-      const res = await fetch("https://api.github.com/repos/xiufengsun/TokenTracker/releases/latest");
-      if (!res.ok) throw new Error("Failed to fetch");
-      const data = await res.json();
-      const latestVersion = data.tag_name;
-
-      if (hasUpdate(currentVersion, latestVersion)) {
-        setUpdateModal({
-          open: true,
-          latestVersion,
-          htmlUrl: data.html_url
-        });
-      } else {
-        showToast({
-          title: copy("settings.menubar.updates.upToDate"),
-        });
-      }
-    } catch (err) {
-      console.error("Check updates failed:", err);
-      showToast({
-        title: copy("settings.menubar.updates.failed"),
-      });
-    } finally {
-      setChecking(false);
-    }
-  };
-
-  const modalTitle = copy("settings.menubar.updates.modalTitle");
-  const modalDescription = copy("settings.menubar.updates.modalDescription", {
-    version: updateModal.latestVersion,
-  });
-  const modalConfirm = copy("settings.menubar.updates.modalConfirm");
-  const modalCancel = copy("settings.menubar.updates.modalCancel");
-
-  return (
-    <div className="mt-6 flex flex-col items-center justify-center gap-4 text-xs text-oai-gray-500 dark:text-oai-gray-500">
-      <div className="flex flex-wrap items-center justify-center gap-2">
-        {showNativeInfo ? (
-          <>
-            <span>
-              {nativePlatform === "windows"
-                ? copy("settings.menubar.updates.footerCore", { version: settings.version })
-                : copy("settings.menubar.updates.footerCombined", {
-                    barVersion: settings.version,
-                    coreVersion: currentVersion,
-                  })}
-            </span>
-            <span aria-hidden>·</span>
-            <button
-              type="button"
-              onClick={() => runAction("openAbout")}
-              className="underline-offset-2 transition-colors hover:text-oai-gray-700 hover:underline dark:hover:text-oai-gray-300"
-            >
-              GitHub
-            </button>
-            <span aria-hidden>·</span>
-          </>
-        ) : (
-          <>
-            <span>{copy("settings.menubar.updates.footerCore", { version: currentVersion })}</span>
-            <span aria-hidden>·</span>
-            <button
-              type="button"
-              onClick={handleCheckUpdates}
-              disabled={checking}
-              className="underline-offset-2 transition-colors hover:text-oai-gray-700 hover:underline dark:hover:text-oai-gray-300 disabled:opacity-50"
-            >
-              {checking ? copy("settings.menubar.updates.checking") : copy("settings.menubar.checkUpdates")}
-            </button>
-            <span aria-hidden>·</span>
-          </>
-        )}
-        <a
-          href={STATUSPAGE_URL}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="inline-flex items-center gap-1.5 underline-offset-2 transition-colors hover:text-oai-gray-700 hover:underline dark:hover:text-oai-gray-300"
-        >
-          <Activity className="h-3.5 w-3.5" aria-hidden />
-          {copy("settings.footer.statusPage")}
-        </a>
-      </div>
-
-      <ConfirmModal
-        open={updateModal.open}
-        title={modalTitle}
-        description={modalDescription}
-        confirmLabel={modalConfirm}
-        cancelLabel={modalCancel}
-        onConfirm={() => {
-          window.open(updateModal.htmlUrl, "_blank");
-          setUpdateModal((prev) => ({ ...prev, open: false }));
-        }}
-        onCancel={() => setUpdateModal((prev) => ({ ...prev, open: false }))}
-      />
-    </div>
-  );
-}
+export function NativeAppFooter() { return null; }

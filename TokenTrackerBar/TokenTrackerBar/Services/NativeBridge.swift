@@ -130,6 +130,8 @@ final class NativeBridge {
         guard let dict = message as? [String: Any],
               let type = dict["type"] as? String else { return }
 
+        if ["getPetSettings", "setPetSetting", "refreshPetCatalog"].contains(type) { return }
+        if let key = dict["key"] as? String, ["dynamicIslandEnabled", "hideMenuBarIcon", "autoUpdateEnabled"].contains(key) { return }
         switch type {
         case "getSettings":
             pushSettings()
@@ -339,7 +341,7 @@ final class NativeBridge {
             "hideMenuBarIcon": UserDefaults.standard.bool(forKey: StatusBarController.hideMenuBarIconKey),
             // macOS-only feature flag: the Windows bridge never sends this, so
             // the dashboard can gate the Labs toggle on its presence.
-            "dynamicIslandSupported": true,
+            "dynamicIslandSupported": false,
             "version": UpdateChecker.shared.currentVersion(),
             "updateStatus": UpdateChecker.shared.statusText ?? NSNull(),
             "updateBusy": UpdateChecker.shared.isBusy,
@@ -449,12 +451,10 @@ final class NativeBridge {
         case "locale":
             LocalizationObserver.shared.storePreference(value)
             NotificationCenter.default.post(name: .nativeSettingsChanged, object: nil)
-            WidgetCenter.shared.reloadAllTimelines()
         case "currency":
             if let str = value as? String {
                 UserDefaults.standard.set(str, forKey: "MenuBarCurrency")
                 NotificationCenter.default.post(name: .nativeSettingsChanged, object: nil)
-                WidgetCenter.shared.reloadAllTimelines()
             }
         case "tokenUnitSystem":
             if let str = value as? String {
@@ -465,7 +465,6 @@ final class NativeBridge {
             if let str = value as? String, !str.isEmpty {
                 UserDefaults.standard.set(str, forKey: "MenuBarCurrencySymbol")
                 NotificationCenter.default.post(name: .nativeSettingsChanged, object: nil)
-                WidgetCenter.shared.reloadAllTimelines()
             }
         case "exchangeRate":
             let rate: Double?
@@ -481,7 +480,6 @@ final class NativeBridge {
             if let rate, rate.isFinite, rate > 0 {
                 UserDefaults.standard.set(rate, forKey: "MenuBarExchangeRate")
                 NotificationCenter.default.post(name: .nativeSettingsChanged, object: nil)
-                WidgetCenter.shared.reloadAllTimelines()
             }
         case "limitsPreferences":
             // Fall through to pushSettings even when the snapshot applies:

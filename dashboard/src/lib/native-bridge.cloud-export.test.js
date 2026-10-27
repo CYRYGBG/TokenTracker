@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { saveCloudUsageExport, saveLocalUsageExport } from "./native-bridge.js";
+import { saveCloudUsageExport, saveLocalUsageExport, isNativeApp } from "./native-bridge.js";
 
 const payload = { filename: "tokentracker-cloud-usage-2026-10-10.csv", content: "date,tokens\n2026-10-10,4\n", format: "csv" };
 const acknowledge = (detail) => window.dispatchEvent(new CustomEvent("tokentracker:cloud-export-result", { detail }));
@@ -19,6 +19,14 @@ describe("saveCloudUsageExport IPC", () => {
     vi.useRealTimers();
   });
   const mac = (handler) => { window.webkit = { messageHandlers: { nativeBridge: { postMessage: handler } } }; };
+  it("recognizes desktop navigation without the initial app query or storage marker", () => {
+    expect(isNativeApp()).toBe(false);
+    mac(vi.fn());
+    expect(isNativeApp()).toBe(true);
+    delete window.webkit;
+    window.chrome = { webview: { postMessage: vi.fn() } };
+    expect(isNativeApp()).toBe(true);
+  });
 
   it("saves local JSON through the same bounded writer without accepting cloud filenames", async () => {
     window.__TOKENTRACKER_LOCAL_EXPORT__ = true;

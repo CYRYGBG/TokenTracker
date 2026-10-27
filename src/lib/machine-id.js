@@ -7,7 +7,7 @@ const crypto = require("node:crypto");
 const { execFileSync } = require("node:child_process");
 
 function resolveQueuePath() {
-  return path.join(os.homedir(), ".tokentracker", "tracker", "queue.jsonl");
+  return path.join(os.homedir(), process.env.TOKENTRACKER_PERSONAL === "1" ? ".tokentracker-personal" : ".tokentracker", "tracker", "queue.jsonl");
 }
 
 /**
@@ -27,8 +27,8 @@ function resolveQueuePath() {
  */
 function defaultSeedPath(queuePath) {
   const rootDir = path.dirname(path.dirname(queuePath));
-  const home = path.basename(rootDir) === ".tokentracker" ? path.dirname(rootDir) : os.homedir();
-  return path.join(home, ".config", "tokentracker", "machine-id");
+  const home = [".tokentracker", ".tokentracker-personal"].includes(path.basename(rootDir)) ? path.dirname(rootDir) : os.homedir();
+  return path.join(home, ".config", process.env.TOKENTRACKER_PERSONAL === "1" ? "tokentracker-personal" : "tokentracker", "machine-id");
 }
 
 function isValidMachineIdString(value) {

@@ -5,7 +5,7 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>
-	<string>TokenTracker</string>
+	<string>TokenTracker Personal</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIconFile</key>
@@ -17,7 +17,7 @@
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
 	<key>CFBundleName</key>
-	<string>TokenTracker</string>
+	<string>TokenTracker Personal</string>
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>
@@ -26,10 +26,10 @@
 	<array>
 		<dict>
 			<key>CFBundleURLName</key>
-			<string>com.tokentracker.bar.auth</string>
+			<string>com.cyrygbg.tokentracker.personal.auth</string>
 			<key>CFBundleURLSchemes</key>
 			<array>
-				<string>tokentracker</string>
+				<string>tokentracker-personal</string>
 			</array>
 		</dict>
 	</array>

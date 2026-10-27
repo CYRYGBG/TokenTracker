@@ -5,8 +5,10 @@ namespace TokenTrackerWin;
 
 /// <summary>
 /// Persists the Windows automatic-update preference alongside the other native
-/// settings. A missing value intentionally means enabled so existing installs
-/// keep their historical update behaviour until the user turns it off.
+/// settings. A missing value intentionally means DISABLED in this fork: the
+/// fork has no release channel of its own and the bundled updater's URLs still
+/// point at the upstream repo, so a silent launch check could overwrite this
+/// fork with the official build. Manual "Check for Updates" is never gated.
 /// </summary>
 internal static class AutoUpdatePolicy
 {
@@ -14,15 +16,15 @@ internal static class AutoUpdatePolicy
 
     private static readonly string SettingsPath = Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-        "TokenTracker",
+        "TokenTrackerPersonal",
         "native-settings.json");
 
     public static bool IsEnabled() => ResolveEnabled(ReadSettings());
 
     /// <summary>
-    /// Resolve a persisted settings object, defaulting to enabled. A valid
-    /// boolean <c>false</c> must survive; only a missing or malformed value
-    /// (e.g. persisted as a string by an older build) falls back to enabled.
+    /// Resolve a persisted settings object, defaulting to disabled. A valid
+    /// boolean must survive; only a missing or malformed value (e.g. persisted
+    /// as a string by an older build) falls back to disabled.
     /// </summary>
     internal static bool ResolveEnabled(JsonObject? settings)
     {
@@ -32,7 +34,7 @@ internal static class AutoUpdatePolicy
             return enabled;
         }
 
-        return true;
+        return false;
     }
 
     public static void SetEnabled(bool enabled)
@@ -46,7 +48,7 @@ internal static class AutoUpdatePolicy
         }
         catch
         {
-            // Preferences are best effort. A failed write leaves the default-on
+            // Preferences are best effort. A failed write leaves the default-off
             // behaviour intact for the next launch.
         }
     }

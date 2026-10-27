@@ -366,12 +366,12 @@ describe("dashboard preload state", () => {
 });
 
 describe("dashboard preload route boundary", () => {
-  it("keeps NativeAuthCallbackPage eager-imported while target pages stay lazy-loaded", () => {
+  it("loads retained pages lazily without official auth or leaderboard entry", () => {
     const appSource = readFileSync(join(process.cwd(), "src/App.jsx"), "utf8");
 
-    expect(appSource).toContain('import { NativeAuthCallbackPage } from "./pages/NativeAuthCallbackPage.jsx";');
+    expect(appSource).not.toContain("NativeAuthCallbackPage");
     expect(appSource).not.toMatch(/const\s+NativeAuthCallbackPage\s*=\s*lazy\(/);
     expect(appSource).toContain('import("./pages/LimitsPage.jsx")');
-    expect(appSource).toContain('import("./pages/LeaderboardPage.jsx")');
+    expect(appSource).not.toContain('import("./pages/LeaderboardPage.jsx")');
   });
 });

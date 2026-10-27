@@ -1,0 +1,20 @@
+{
+  "checkedAt": "2026-10-27T08:23:16.416880+00:00",
+  "nodeVersion": "22.22.2",
+  "command": "TokenTrackerBar/EmbeddedServer/node --test --test-concurrency=4 test/*.test.js",
+  "exitCode": 0,
+  "log": "/tmp/tt-reviewed-node22.log",
+  "counts": {
+    "tests": 3700,
+    "pass": 3683,
+    "fail": 0,
+    "cancelled": 0,
+    "skipped": 17
+  },
+  "windowsWineModuleSmoke": {
+    "platform": "win32",
+    "node": "22.22.2",
+    "zstdRoundTrip": true,
+    "rolloutLoaded": true
+  }
+}

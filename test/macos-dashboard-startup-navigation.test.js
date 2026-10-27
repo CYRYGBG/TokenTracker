@@ -31,7 +31,7 @@ test("macOS defers every initial dashboard navigation until the bundled server s
 
   assert.ok(launchHandler, "AppDelegate should define its launch sequence");
 
-  const ordinaryStart = launchHandler.indexOf("removeLegacyAppBundleIfNeeded()");
+  const ordinaryStart = launchHandler.indexOf("NativeLocalization.synchronizeSharedPreference()");
   assert.notEqual(ordinaryStart, -1, "ordinary startup should retain its original service initialization");
   const ordinaryLaunch = launchHandler.slice(ordinaryStart);
   const ensureIndex = ordinaryLaunch.indexOf("await serverManager.ensureServerRunning()");

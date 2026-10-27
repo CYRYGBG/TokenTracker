@@ -52,6 +52,7 @@ internal sealed class DashboardWindow : Window
     private bool _backdropEnabled;
     private bool _exiting;
     private bool _oauthInFlight;
+    private long _oauthAttempt;
     private CancellationTokenSource? _oauthTimeout;
     private Task? _initializationTask;
     private bool _recoveryInFlight;
@@ -370,7 +371,7 @@ internal sealed class DashboardWindow : Window
         // (Program Files). Persist under LocalAppData so login/cookies survive restarts.
         var userDataFolder = Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-            "TokenTracker", "WebView2");
+            "TokenTrackerPersonal", "WebView2");
         Directory.CreateDirectory(userDataFolder);
 
         // Make the WebView2 composition surface itself transparent. Must be set before
@@ -487,7 +488,8 @@ internal sealed class DashboardWindow : Window
                 {
                     using var doc = JsonDocument.Parse(msg);
                     if (!doc.RootElement.TryGetProperty("type", out var t)) return;
-                    if (t.GetString() is "saveCloudUsageExport" or "saveLocalUsageExport")
+                    if (t.GetString() is "getPetSettings" or "setPetSetting" or "refreshPetCatalog") return;
+                    if (t.GetString() is "saveLocalUsageExport")
                     {
                         // Core.WebMessageReceived is emitted by the top-level document;
                         // iframe messages use the separate CoreWebView2Frame event.
@@ -505,17 +507,6 @@ internal sealed class DashboardWindow : Window
                         }
                         var json = JsonSerializer.Serialize(result);
                         await core.ExecuteScriptAsync("window.dispatchEvent(new CustomEvent('tokentracker:cloud-export-result',{detail:" + json + "}));");
-                    }
-                    else if (t.GetString() == "oauth"
-                        && doc.RootElement.TryGetProperty("url", out var u) && u.GetString() is { } url)
-                    {
-                        Log($"oauth open urlPresent={!string.IsNullOrEmpty(url)} urlLen={url.Length}");
-                        BeginNativeOAuth();
-                        OpenInBrowser(url);
-                    }
-                    else if (t.GetString() == "authCompleted")
-                    {
-                        CompleteNativeOAuth();
                     }
                     else if (t.GetString() == "getSettings")
                     {
@@ -640,16 +631,6 @@ internal sealed class DashboardWindow : Window
             "if(k==='tokentracker-theme'){" +
             "try{window.chrome.webview.postMessage('theme');}catch(e){}" +
             "try{window.chrome.webview.postMessage(JSON.stringify({type:'nativeSetting',key:k,value:v}));}catch(e){}}};" +
-            // nativeOAuth shim: the dashboard's OAuth code already has a native branch
-            // gated on window.webkit.messageHandlers.nativeOAuth (the macOS bridge).
-            // Provide the same shape here so that branch fires on Windows too — it posts
-            // the provider authorize URL, which we forward to the system browser (see
-            // WebMessageReceived). Needs no dashboard JS changes for the OAuth start.
-            "try{window.webkit=window.webkit||{};" +
-            "window.webkit.messageHandlers=window.webkit.messageHandlers||{};" +
-            "window.webkit.messageHandlers.nativeOAuth={postMessage:function(u){" +
-            "try{window.chrome.webview.postMessage(JSON.stringify({type:'oauth',url:u}));}catch(e){}}};" +
-            "}catch(e){}" +
             "}catch(e){}");
 
         // ?app=1 → dashboard renders in native-app layout (Clawd companion, native
@@ -872,20 +853,6 @@ internal sealed class DashboardWindow : Window
         {
             await _webView.CoreWebView2.ExecuteScriptAsync(js);
             await _webView.CoreWebView2.ExecuteScriptAsync(TitleBarScript);
-            // Belt-and-suspenders: guarantee the nativeOAuth shim exists *after* the page
-            // has loaded. The document-created injection can lose a race against the first
-            // navigation, leaving the shim absent — then the dashboard's OAuth code takes
-            // its web branch (redirect → "/", no callback page) and login never completes.
-            // Re-injecting here runs on every NavigationCompleted, so the shim is reliably
-            // present by the time the user clicks a provider button. Idempotent; logs
-            // whether it was already there for diagnostics.
-            var hadShim = await _webView.CoreWebView2.ExecuteScriptAsync(
-                "(function(){var had=!!(window.webkit&&window.webkit.messageHandlers&&window.webkit.messageHandlers.nativeOAuth);" +
-                "window.webkit=window.webkit||{};window.webkit.messageHandlers=window.webkit.messageHandlers||{};" +
-                "if(!window.webkit.messageHandlers.nativeOAuth){window.webkit.messageHandlers.nativeOAuth={postMessage:function(u){" +
-                "try{window.chrome.webview.postMessage(JSON.stringify({type:'oauth',url:u}));}catch(e){}}};}" +
-                "return had;})()");
-            Log($"nativeOAuth shim present-before-reinject={hadShim}");
             // Sync the maximise/restore glyph to the current state.
             var maxed = WindowState == WindowState.Maximized ? "true" : "false";
             await _webView.CoreWebView2.ExecuteScriptAsync($"window.__ttSetMax&&window.__ttSetMax({maxed})");
@@ -942,19 +909,23 @@ internal sealed class DashboardWindow : Window
     private void BeginNativeOAuth()
     {
         _oauthInFlight = true;
+        var attempt = ++_oauthAttempt;
         UpdateWebViewActivity();
         _oauthTimeout?.Cancel();
         _oauthTimeout?.Dispose();
         _oauthTimeout = new CancellationTokenSource();
-        _ = WaitForNativeOAuthTimeoutAsync(_oauthTimeout.Token);
+        _ = WaitForNativeOAuthTimeoutAsync(_oauthTimeout.Token, attempt);
     }
 
-    private async Task WaitForNativeOAuthTimeoutAsync(CancellationToken cancellationToken)
+    private async Task WaitForNativeOAuthTimeoutAsync(CancellationToken cancellationToken, long attempt)
     {
         try
         {
             await Task.Delay(TimeSpan.FromMinutes(10), cancellationToken);
-            await Dispatcher.InvokeAsync(ExpireNativeOAuth);
+            // Re-check attempt on the dispatcher: Cancel does not dequeue an
+            // already-queued InvokeAsync, so a stale timeout must not close a
+            // newer login's dedicated browser window.
+            await Dispatcher.InvokeAsync(() => ExpireNativeOAuth(attempt));
         }
         catch (OperationCanceledException)
         {
@@ -999,8 +970,10 @@ internal sealed class DashboardWindow : Window
         UpdateWebViewActivity();
     }
 
-    private void ExpireNativeOAuth()
+    private void ExpireNativeOAuth(long attempt)
     {
+        if (attempt != _oauthAttempt || !_oauthInFlight) return;
+
         CompleteNativeOAuth();
     }
 
@@ -1049,7 +1022,7 @@ internal sealed class DashboardWindow : Window
     {
         Log($"HandleAuthCallback code.len={code.Length}");
         ShowDashboard();
-        BrowserTabCloser.CloseAuthCallbackTab(_server.BaseUrl, _hwnd);
+
         var encoded = Uri.EscapeDataString(code);
         NavigateWhenServerReady($"/auth/callback?insforge_code={encoded}&app=1");
 

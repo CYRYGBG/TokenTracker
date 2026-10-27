@@ -198,7 +198,7 @@ test("locale PR stays scoped away from silent auto update flags", () => {
   const plist = read("TokenTrackerBar/TokenTrackerBar/Info.plist");
   const project = read("TokenTrackerBar/project.yml");
 
-  assert.ok(app.includes("UpdateChecker.shared.check(silent: true)"));
+  assert.ok(!app.includes("UpdateChecker.shared.check(silent: true)"));
   assert.doesNotMatch(app, /TokenTrackerEnableSilentAutoUpdate|isSilentAutoUpdateEnabled/);
   assert.doesNotMatch(plist, /TokenTrackerEnableSilentAutoUpdate/);
   assert.doesNotMatch(project, /TokenTrackerEnableSilentAutoUpdate/);

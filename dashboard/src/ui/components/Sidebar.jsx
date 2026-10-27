@@ -26,7 +26,7 @@ import { cn } from "../../lib/cn";
 import { useTheme } from "../../hooks/useTheme.js";
 import { useLocale } from "../../hooks/useLocale.js";
 import { shouldFetchGithubStars } from "../dashboard/util/should-fetch-github-stars.js";
-import { InsforgeUserHeaderControls } from "../../components/InsforgeUserHeaderControls.jsx";
+
 import { isNativeApp, isNativeEmbed, isNativeLinuxApp, isNativeWindowsApp } from "../../lib/native-bridge.js";
 
 const STORAGE_KEY = "tt.sidebarCollapsed";
@@ -34,38 +34,13 @@ const STORAGE_KEY = "tt.sidebarCollapsed";
 export function getNavGroups() {
   // copy() must be called at render time so locale switches apply.
   // Validator regex picks up these literal calls.
-  return [
-    {
-      id: "general",
-      label: copy("nav.group.general"),
-      items: [
-        { id: "usage", to: "/dashboard", icon: BarChart3, label: copy("nav.usage") },
-        { id: "sessions", to: "/sessions", icon: History, label: copy("nav.sessions") },
-        { id: "limits", to: "/limits", icon: Gauge, label: copy("nav.limits") },
-        { id: "leaderboard", to: "/leaderboard", icon: Trophy, label: copy("nav.leaderboard") },
-        { id: "achievements", to: "/achievements", icon: Award, label: copy("nav.achievements") },
-      ],
-    },
-    {
-      id: "tools",
-      label: copy("nav.group.tools"),
-      items: [
-        { id: "widgets", to: "/widgets", icon: LayoutGrid, label: copy("nav.widgets") },
-        { id: "pet", to: "/pet-settings", icon: PawPrint, label: copy("nav.pet") },
-        { id: "skills", to: "/skills", icon: Puzzle, label: copy("nav.skills") },
-        { id: "ip-check", to: "/ip-check", icon: Globe, label: copy("nav.ip_check") },
-        { id: "service-status", to: "/service-status", icon: Activity, label: copy("nav.service_status") },
-      ],
-    },
-    {
-      id: "account",
-      label: copy("nav.group.account"),
-      items: [
-        { id: "cloud", to: "/cloud", icon: Cloud, label: copy("cloud.nav") },
-        { id: "settings", to: "/settings", icon: SettingsIcon, label: copy("nav.settings") },
-      ],
-    },
-  ];
+  return [{id:'general',label:copy('nav.group.general'),items:[
+    {id:'usage',to:'/dashboard',icon:BarChart3,label:copy('nav.usage')},
+    {id:'sessions',to:'/sessions',icon:History,label:copy('nav.sessions')},
+    {id:'limits',to:'/limits',icon:Gauge,label:copy('nav.limits')},
+    {id:'devices',to:'/devices',icon:Cloud,label:copy("fork.personal.3651670662")},
+    {id:'settings',to:'/settings',icon:SettingsIcon,label:copy('nav.settings')},
+  ]}];
 }
 
 function readCollapsed() {
@@ -341,11 +316,7 @@ function SidebarBody({
       {/* Keep navigation sizing beside the identity instead of mixing it with utility links. */}
       <div className={cn("tt-sidebar-header flex px-2 pt-2 pb-2", collapsed ? "flex-col items-center" : "items-center gap-1")}>
         <div className={cn("min-w-0", !collapsed && "flex-1")}>
-          <InsforgeUserHeaderControls
-            variant="sidebar"
-            collapsed={collapsed}
-            onAfterAction={onItemClick}
-          />
+          <span className="text-sm font-semibold">{collapsed ? "TT" : copy("fork.personal.54ddee95eb")}</span>
         </div>
         {showCloseButton ? (
             <button
@@ -412,7 +383,7 @@ function SidebarBody({
         )}
       >
         <ThemePill theme={theme} resolvedTheme={resolvedTheme} onSetTheme={setTheme} glassChrome={glassChrome} />
-        {!collapsed && <StarPill glassChrome={glassChrome} />}
+
       </div>
     </>
   );
@@ -559,7 +530,7 @@ function MobileTopBar({ open, onOpenDrawer, menuButtonRef }) {
         <Menu className="h-5 w-5" aria-hidden />
       </IconButton>
       <Link
-        to="/landing"
+        to="/dashboard"
         className="flex items-center gap-2 no-underline hover:opacity-80 transition-opacity"
         aria-label="Token Tracker"
       >

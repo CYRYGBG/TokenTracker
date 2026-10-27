@@ -18,13 +18,13 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <LangVersion>latest</LangVersion>
-    <AssemblyName>TokenTracker</AssemblyName>
+    <AssemblyName>TokenTrackerPersonal</AssemblyName>
     <RootNamespace>TokenTrackerWin</RootNamespace>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <ApplicationIcon>assets\trayicon.ico</ApplicationIcon>
     <!-- Keep in sync with package.json / project.yml on release. -->
     <Version>1.4.11</Version>
-    <Product>TokenTracker</Product>
+    <Product>TokenTracker Personal</Product>
     <Company>TokenTracker</Company>
     <!-- App UI strings live in TrayStrings/NativeLocalization (no .resx), so the
          self-contained publish only needs English framework satellite resources;
@@ -33,6 +33,7 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Remove="OAuthLoginWindow.cs" />
     <!-- Floating 1.0.* so restore picks the latest Evergreen-compatible runtime loader. -->
     <PackageReference Include="Microsoft.Web.WebView2" Version="1.0.*" />
   </ItemGroup>
