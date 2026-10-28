@@ -1,0 +1,17 @@
+{
+  "builtAt": "2026-10-29T00:22+08:00",
+  "machine": "Windows 11 x64 local build (蛟龙16pro)",
+  "chain": [
+    "dashboard:build (emptyOutDir, single main-*.js verified)",
+    "bundle-node.ps1 (node 22.22.2 win-x64, SHASUMS verified)",
+    "dotnet publish self-contained win-x64",
+    "verify-windows-package.cjs (313 inputs byte-identical, exactly-one-main-bundle assert passed)",
+    "ISCC 6.7.3 /DMyAppVersion=1.4.17 (WebView2 standalone runtime included, 214.9MB official fwlink download)"
+  ],
+  "sourceSha": "d05b24490da587dfb03fc4c63d0b7f8846d4f840",
+  "version": "1.4.17",
+  "matchedInputs": 313,
+  "packageFiles": 4880,
+  "setupSha256": "e936a06978ec7d38cd2af03f6b510d6f52c4e51b6c955ebd4fed778e85b38147",
+  "setupBytes": 331078335
+}

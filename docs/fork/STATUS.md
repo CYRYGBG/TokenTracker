@@ -1,5 +1,30 @@
 # STATUS — 个人同步版事实状态
 
+## 1.4.17 发布（2026-10-28/29 Windows 实机轮，用户授权发布双平台）
+
+**内存尖峰排查与修复（本轮核心）**：
+- 事故复盘：Windows 实机事件日志显示 10/28 14:07 RADAR 内存泄漏检测点名 node.exe（个人版 1.4.14 serve，pid 107088），16:38 提交内存 8.04GB，呈 4–8GB 周期性锯齿；窗口期 node stderr 三次 `Session history warning: ZSTD_error_memory_allocation`。已排除：官方版残留（其 serve 10/25 后未运行）。
+- 实测定位：隔离环境 45 分钟常驻 `collectSessions` 压力（真实 HOME 会话日志 + CDP 采样 + 0/20/45min 三张堆快照）完全平稳——快照对比无任何类增长超 200KB，循环本身无泄漏。真实 1.4.16 serve 跑 2.7h 仅 205MB。结合锯齿形态与 ZSTD 报错，锁定根因为**巨型临时解压**：`zstdDecompressSync` 在任何上限检查前就按帧声明（或损坏、或缺失）的内容大小整块分配；活跃追加的 .zst 会话归档每轮扫描 mtime 变化触发重复解压 → 周期性 GB 级分配/回收锯齿 → 极端时分配失败报 `ZSTD_error_memory_allocation` 并挤占系统提交预算。
+- 修复（a62e7033 + 978f948f）：新增 `src/lib/zstd-bounded.js` 有界流式解压（`zlib.createZstdDecompress` 管道 + 计数 Writable，超限即销毁解压器停止分配）；`decodeDshZstdFrame` 按帧剩余预算硬上限（覆盖无 Frame_Content_Size 的流式帧）；`readCodexRolloutSnapshot` 对压缩后仍超输出上限的归档按 stat 直接拒绝并记 `oversized-archive` 台账（不再读入内存）；`decodeZedThreadBlob` 接入 32MB 有界解码。覆盖 Codex 归档快照、DSH 帧、Zed blob 三条解压路径。新增 4 项单测（round-trip/超限拒绝/帧预算/台账）全过。
+
+**Windows 实机测试适配（f5224a04）**：
+- fork-profile 测试卡死修复：exit waiter 改为 spawn 时注册（serve 早死于就绪检查时迟挂的 `events.once()` 在 Windows 上永远等待）；Windows `kill()` 是 TerminateProcess，退出码断言按平台区分。
+- windows-launch-activation fixture 对齐 fork 已改名的个人版管道 `TokenTrackerPersonal.Windows.Tray.DeepLink`（上游 fixture 钉的还是官方名）。
+- webdav 凭据 file fallback 的 POSIX 0600 断言在 NTFS 无语义（Windows 实走 DPAPI），按仓库既有 skip 模式平台跳过。
+- 新机环境补齐：.NET 8.0.427、Inno Setup 6.7.3、PowerShell 7.6.9、sqlite3 3.54.1、Node 22.22.2 win-x64 缓存、WebView2 独立运行时安装包（官方 fwlink，214.9MB）。
+
+**打包死重修复（90aecc73）**：vite `emptyOutDir` 显式化；`verify-windows-package.cjs` 新增「dashboard/dist/assets 仅允许一份 main-*.js / main-*.css」断言（此前 1.4.16 包内携带 3 个旧 main bundle 约 2MB，包与工作区同时脏可双过清单比对）。
+
+**macOS 构建通道（d05b2449）**：新增 fork 专用 `release-personal-macos.yml`（dispatch-only，只构建 + 传 artifact，发布组装仍留本地，保持个人版逐轮确认模式）；workflow 文件作为唯一变更单独提交到 main（905a54e8→2de765e5）以启用 workflow_dispatch。
+
+**验证**：node 全量 3714 项 0 失败（3672 过 42 跳过，Windows 实机）；fork 端到端/去重/设备 19 项全过（连续采集不重复、源删历史保留语义由 fork-end-to-end 覆盖）；dashboard vitest 146 文件 1273 项全过（首轮 sentry.test.js 收集失败为 vitest 旧转换缓存误报，清 `.vite` 缓存后消失）；typecheck、copy/locale/ui-hardcode/guardrails/versions/bot-frames/架构全过。Windows 包校验 313 输入逐字节一致 + 4880 包文件 + 单 main 断言通过（sourceSha d05b2449）。
+
+**构建**：Windows Setup `dist/reviewed/TokenTrackerPersonal-Windows-x64-Setup.exe`，SHA256 `e936a06978ec7d38cd2af03f6b510d6f52c4e51b6c955ebd4fed778e85b38147`（331,078,335 字节），证据 evidence/windows-local-1.4.17-build.json + windows-package-1.4.17.json。macOS DMG 经 GitHub CI（macos-26）构建，状态见 evidence/release-1.4.17.json。
+
+**发布**：personal-v1.4.17（DMG + Windows Setup + SHA256SUMS.txt，设 latest）——结果与远端 digest 核对见下方补记。
+
+**未做/边界**：72h 常驻稳定性与游戏同开提交峰值验收待真实观察（修复已消除分配根因，但不等于验收）；上游 `f15b3f64`（社区指标缓存修复）不采纳——fork 无存活调用方；本机升级走应用内更新，无覆盖安装。
+
 ## 2026-10-28 最新接续：1.4.17 发布验收中
 
 - 已逐项复核第二个 ZCode 接续会话的用户需求、文字对话和实际实现；核对 1.4.16 已公开，三附件本地大小/远端 digest 一致，但此前 release.json 与 STATUS 停在 1.4.15。详见 ZCODE_REVIEW.md。

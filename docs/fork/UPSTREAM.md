@@ -1,6 +1,10 @@
 # UPSTREAM 跟踪与 Fork 改动地图
 
-## 最新检查点：2026-10-28 第二次 ZCode 接续审查
+## 最新检查点：2026-10-28 Windows 轮（泄漏修复发布前核对）
+
+经代理 fetch 到 `f15b3f643a2df5119724cc77f797ac9aa0cb2052`（#911）。相对上一检查点 `b2c2eb85` 仅新增此一个主线提交：`fix(dashboard): reject partial community metrics cache`，只改 `dashboard/src/hooks/use-community-stats.js` 及其测试。该 hook 在 fork 运行路径中已无存活调用方（引用它的 LeaderboardPage / MarketingLanding 均已移出路由，文件按依赖清理原则保留为死代码），**不采纳**，后续若恢复任何社区统计入口再重新评估。
+
+# 上一检查点：2026-10-28 第二次 ZCode 接续审查
 
 经代理 fetch 到 `b2c2eb8545cee15d517f4fd6e783191c2ba30117`。
 
