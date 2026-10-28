@@ -1,6 +1,6 @@
 {
-  "checkedAt": "2026-10-28T02:01:16.273Z",
-  "version": "1.4.12",
+  "checkedAt": "2026-10-28T02:49:41.011Z",
+  "version": "1.4.13",
   "upstream": "9dc925d89e7c526c9d5831b689a8bac427e7d8ea",
   "dashboard": "dashboard/dist",
   "embeddedServer": "TokenTrackerBar/EmbeddedServer",
@@ -24,11 +24,11 @@
       "matchesWorkspace": true
     },
     "package.json": {
-      "sha256": "4a87e4121c6f5cca979959b530775a064b5c1658779a57d595009ca723b97687",
+      "sha256": "9f640b6b5fcb2998a1669b6206b3ae2b885e871016c5bccd83c1730c8906d8c7",
       "matchesWorkspace": true
     },
     "package-lock.json": {
-      "sha256": "ad588244745db52072b57a330b17e4e45d39cef1b22124b17090f285adea83d8",
+      "sha256": "c01be4e748a64f42ff36e322c0caa417ccc80156169681dba372e0e382b404f5",
       "matchesWorkspace": true
     }
   },
@@ -51,12 +51,12 @@
   },
   "installers": {
     "TokenTrackerPersonal-macOS-arm64.dmg": {
-      "bytes": 64661125,
-      "sha256": "ab37b273e343540e4a36e5aa1489467f977537d2373ef770c467375ece9b5ddd"
+      "bytes": 65482667,
+      "sha256": "781260363085cf2823e26cd0d02f1f70699b4cd333df2603f947c143b9a326b0"
     },
     "TokenTrackerPersonal-Windows-x64-Setup.exe": {
-      "bytes": 302947530,
-      "sha256": "14400aa62e1693766a866bfc868309bb4fd30f5edabfff345a35cf289d168eba"
+      "bytes": 302950801,
+      "sha256": "573fcbbedb9ac705b73b7d69933227b086608577b923693addc08f4c24f9e3ca"
     }
   },
   "windowsRealMachineVerified": false

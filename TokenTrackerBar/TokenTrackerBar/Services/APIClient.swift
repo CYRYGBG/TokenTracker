@@ -147,12 +147,13 @@ actor APIClient {
 
     func checkServerHealth() async -> Bool {
         do {
-            guard let url = URL(string: baseURL + "/functions/tokentracker-user-status") else {
+            guard let url = URL(string: baseURL + LocalServerHealth.path) else {
                 return false
             }
-            let (_, response) = try await session.data(from: url)
+            let (data, response) = try await session.data(from: url)
             guard let httpResponse = response as? HTTPURLResponse else { return false }
-            return httpResponse.statusCode == 200
+            let expectedVersion = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? ""
+            return LocalServerHealth.isHealthy(data: data, statusCode: httpResponse.statusCode, expectedVersion: expectedVersion)
         } catch {
             return false
         }

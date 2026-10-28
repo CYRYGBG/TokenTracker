@@ -55,7 +55,7 @@ enum Strings {
     static var serverStartingSubtitle: String { t("Starting local server…", "正在启动本地服务…", "正在啟動本地服務…", "ローカルサーバーを起動中…", "로컬 서버 시작 중…") }
     static var serverStartingHint: String { t("This usually takes a few seconds.", "通常只需要几秒钟。", "通常只需要幾秒鐘。", "通常は数秒で完了します。", "보통 몇 초 정도 걸립니다.") }
     static var serverOfflineHint: String {
-        t("Check that tokentracker-cli is installed and try again.", "请检查 tokentracker-cli 是否已安装，然后重试。", "請檢查 tokentracker-cli 是否已安裝，然後重試。", "tokentracker-cli がインストールされているか確認して、もう一度お試しください。", "tokentracker-cli가 설치되어 있는지 확인한 후 다시 시도하세요.")
+        t("The app includes the local service. Retry, or reopen the app if the problem persists.", "本应用已内置服务。请点击重试；若仍失败，请重新打开应用。", "本應用已內建服務。請點選重試；若仍失敗，請重新開啟應用。", "サービスはアプリに含まれています。再試行し、改善しない場合はアプリを開き直してください。", "서비스는 앱에 포함되어 있습니다. 다시 시도하고 문제가 계속되면 앱을 다시 여세요.")
     }
 
     static var usageLimitsTitle: String { t("Limits", "限额", "限額", "上限", "한도") }
@@ -348,11 +348,11 @@ enum Strings {
 
     static var serverNotAvailableMessage: String {
         t(
-            "TokenTracker server not available.\nPlease reinstall the app or install: npm install -g tokentracker-cli",
-            "TokenTracker 服务不可用。\n请重新安装应用，或运行：npm install -g tokentracker-cli",
-            "TokenTracker 服務不可用。\n請重新安裝應用，或執行：npm install -g tokentracker-cli",
-            "TokenTracker サーバーを利用できません。\nアプリを再インストールするか、次を実行してください：npm install -g tokentracker-cli",
-            "TokenTracker 서버를 사용할 수 없습니다.\n앱을 재설치하거나 다음을 설치하세요: npm install -g tokentracker-cli"
+            "The bundled local service is missing.\nPlease reinstall TokenTracker Personal.",
+            "内置本地服务缺失。\n请重新安装 TokenTracker 个人版。",
+            "內建本機服務遺失。\n請重新安裝 TokenTracker 個人版。",
+            "内蔵サービスが見つかりません。\nTokenTracker Personal を再インストールしてください。",
+            "내장 서비스를 찾을 수 없습니다.\nTokenTracker Personal을 다시 설치하세요."
         )
     }
     static func serverNotResponding(port: Int) -> String {

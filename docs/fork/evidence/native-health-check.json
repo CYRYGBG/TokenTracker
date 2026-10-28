@@ -1,0 +1,15 @@
+{
+  "checkedAt": "2026-10-28T02:48:30.359Z",
+  "version": "1.4.13",
+  "rootCause": "macOS native health check used removed official account status endpoint",
+  "oldEndpointStatus": 404,
+  "htmlFallbackRejected": true,
+  "healthPath": "/api/local-auth",
+  "requiresToken": true,
+  "requiresMatchingServerVersion": true,
+  "regressionTests": 22,
+  "regressionFailures": 0,
+  "localizationAndHealthTests": 12,
+  "upstreamReviewed": "0c279d967169232b0cc92d7f170c290f5ebe710a",
+  "physicalPopoverVerified": false
+}

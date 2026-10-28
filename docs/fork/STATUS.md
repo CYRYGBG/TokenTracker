@@ -102,3 +102,12 @@ ZCode 新增的 512 MiB Codex 解压上限、后台归档回填和缺口台账�
 用户本轮明确要求代为安装后，已从已发布且 SHA-256 匹配的 1.4.12 DMG 覆盖安装 Applications 中的个人版。先通过原生菜单退出 1.4.11，在用户 Library/Application Support 下建立仅本机访问的 .noindex 备份（旧应用以 .app.backup 保存、统计目录及原生偏好），验证源 bundle 身份/版本/签名后完整复制并原子替换。未覆盖官方版，不清理或迁移个人统计目录，Keychain 凭据未修改。
 
 实际安装版启动后核对：版本 1.4.12、签名有效、后端 HTTP 200，首页设备分布出现；统计与项目队列原有字节保留，长期会话身份全部保留，机器配置与 WebDAV 配置一致。session.queue 是会随正常采集重建的上游 sidecar，不用其字节变化判定历史丢失。原生第一个显示位已设为 codex5h，第二个仍为 todayCost；真实额度 API 返回 Codex 已配置且五小时窗口可用、无错误，未记录额度数值或凭据。自动更新保持默认关闭；实际检查个人 GitHub 渠道后显示“1.4.12 已是最新版本”。Spotlight 仅返回 Applications 中一份个人版。安装证据 evidence/local-install.json；含真实配置的备份路径只留本机 gitignored 安装记录，不随源码公开。
+
+
+## 1.4.13 状态栏健康检查修复（2026-10-28）
+
+用户发现状态栏弹出面板误报“服务器不可用”。复现时进程与本地 API 正常，但 macOS APIClient.checkServerHealth 仍请求已移除的官方账号接口 /functions/tokentracker-user-status，得到 404，因此 ServerManager 标为 failed，面板不进入统计分支。此前验收网页/更新入口而未覆盖真实状态栏内容，遗漏了此故障；此前 /health 的 200 是 SPA HTML 回退，不能作为 API 就绪证明。
+
+已改为独立 LocalServerHealth，通过上游 CLI 已使用的 /api/local-auth JSON 握手检查非空 token 和与 app 一致的 serverVersion，拒绝网页 HTML、404、字段缺失与错版本。没有恢复官方账号接口，也没有重写采集器。离线提示改为应用内置服务，不再指导另装官方 CLI。Windows 健康检查不使用已删账号接口，本轮只同步版本与打包。
+
+真实本地 API + Swift 帮助模块回归，以及原生端口/设置桥/更新校验/真实 serve 重装相关测试共 22 项通过；另含本地化定向 12 项通过，受管版本一致，dashboard 生产构建通过。macOS 完整编译、Windows publish 已通过；安装器与实际应用内升级/状态栏面板验收在接续步骤记录。

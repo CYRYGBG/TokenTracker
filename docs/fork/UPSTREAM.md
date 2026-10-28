@@ -102,3 +102,8 @@
 本轮开始再次 fetch，upstream/main 仍为 `9dc925d89e7c526c9d5831b689a8bac427e7d8ea`，没有新主线修复需要移植。复用上游 DeviceUsageCard、菜单栏指标和原生下载/安装流程，增加独立 PersonalUpdateChannel / PersonalUpdateInstaller。首页设备分布此前读取旧手动导入通道而没有接 WebDAV，本轮经 fork-view/local-api 的独立 device-usage 适配恢复。没有改采集器、去重和迁移。
 
 用户明确要求应用内更新后恢复自己的发布渠道：仅 CYRYGBG/TokenTracker、personal-vX.Y.Z 稳定标签、精确资产和必须的 SHA-256。macOS 替换前检查个人 bundle 身份/版本/签名；Windows 复用既有安装 GUID，校验失败不启动安装器。状态栏 Codex/Claude 五小时指标可在未取得额度时配置，不再因可用性筛选而找不到入口。
+
+
+## 2026-10-28 状态栏故障前核对
+
+再次 fetch 到 upstream/main 0c279d967169232b0cc92d7f170c290f5ebe710a。相对 9dc925d8 仅 #899：让官方账号云视图慢请求在后台完成并填充缓存。个人版已移除官方账号云读取路径，本轮不采纳，未涉及采集/定价/迁移修复。当前故障为 fork 移除账号接口后遗漏修改 macOS 健康检查，已在独立 LocalServerHealth 及 APIClient 最小接线修复，不恢复官方端点。
