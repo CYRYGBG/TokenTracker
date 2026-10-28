@@ -1,0 +1,119 @@
+name: personal release (macOS arm64 build only)
+
+# Fork-specific build for the personal macOS arm64 DMG. Unlike the inherited
+# upstream release workflows (upstream asset names, Homebrew tap, widget
+# signing), this ONLY builds dist/reviewed/TokenTrackerPersonal-macOS-arm64.dmg
+# with the fork's own scripts/build-personal-macos.py and uploads it as a
+# workflow artifact. Release assembly (DMG + Windows Setup + SHA256SUMS.txt +
+# publish) stays a deliberate local step, matching every personal release so
+# far. Dispatch-only; never runs on push.
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version to build (must equal package.json, e.g. 1.4.17)"
+        required: true
+        type: string
+      no_cache:
+        description: "Disable npm caches"
+        required: false
+        type: boolean
+        default: false
+
+concurrency:
+  group: release-personal-macos-${{ inputs.version }}
+  cancel-in-progress: false
+
+jobs:
+  build-macos:
+    runs-on: macos-26
+    permissions: {}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: ${{ inputs.no_cache && '' || 'npm' }}
+          cache-dependency-path: dashboard/package-lock.json
+
+      # Same lockstep guard the upstream workflow uses: a DMG whose
+      # CFBundleShortVersionString disagrees with the tag breaks the in-app
+      # updater's version comparison.
+      - name: Verify version
+        run: |
+          set -euo pipefail
+          PKG_VERSION=$(node -p "require('./package.json').version")
+          if [[ "$PKG_VERSION" != "${{ inputs.version }}" ]]; then
+            echo "::error::package.json version ($PKG_VERSION) does not match input (${{ inputs.version }})"
+            exit 1
+          fi
+          MISMATCHED=$(grep -E '^[[:space:]]*MARKETING_VERSION:' TokenTrackerBar/project.yml \
+            | sed -E 's/.*MARKETING_VERSION:[[:space:]]*"([^"]+)".*/\1/' \
+            | sort -u \
+            | grep -v "^${{ inputs.version }}$" || true)
+          if [ -n "$MISMATCHED" ]; then
+            echo "::error::project.yml MARKETING_VERSION value(s) not matching ${{ inputs.version }}: $MISMATCHED"
+            exit 1
+          fi
+
+      # build-personal-macos.py stages TokenTrackerBar/EmbeddedServer from the
+      # repo working tree and then re-copies src/bin/dashboard/dist from the
+      # repo, so a fresh dashboard build must land in dashboard/dist first.
+      - name: Install dashboard dependencies
+        run: npm ci --prefix dashboard --no-audit --no-fund
+
+      - name: Build dashboard
+        run: npm run dashboard:build
+
+      - name: Cache Node.js binary for EmbeddedServer
+        if: ${{ !inputs.no_cache }}
+        uses: actions/cache@v4
+        with:
+          path: ~/tt-node-cache
+          key: node-darwin-arm64-22.22.2
+
+      - name: Bundle EmbeddedServer
+        env:
+          NODE_CACHE_DIR: /Users/runner/tt-node-cache
+        run: bash TokenTrackerBar/scripts/bundle-node.sh --arch arm64
+
+      - name: Build personal macOS app and DMG
+        run: python3 scripts/build-personal-macos.py
+
+      - name: Verify DMG payload version and signature
+        run: |
+          set -euo pipefail
+          DMG="dist/reviewed/TokenTrackerPersonal-macOS-arm64.dmg"
+          test -f "$DMG"
+          test -f "dist/reviewed/macos-build.json"
+          python3 - <<'PY'
+          import json, pathlib, plistlib, re, subprocess, sys
+          version = json.loads(pathlib.Path("package.json").read_text())["version"]
+          build = json.loads(pathlib.Path("dist/reviewed/macos-build.json").read_text())
+          assert build["version"] == version, f"macos-build.json version {build['version']} != {version}"
+          assert build["vortexStub"] is False
+          app = pathlib.Path("dist/personal-build.noindex") / "TokenTrackerPersonal.app"
+          plist = plistlib.loads((app / "Contents/Info.plist").read_bytes())
+          assert plist["CFBundleShortVersionString"] == version, plist["CFBundleShortVersionString"]
+          assert plist["CFBundleIdentifier"] == "com.cyrygbg.tokentracker.personal", plist["CFBundleIdentifier"]
+          subprocess.run(["codesign", "--verify", "--deep", "--strict", str(app)], check=True)
+          # The fork ships no pet/quota pages; a stray dist would mean the
+          # wrong dashboard tree got staged.
+          payload = app / "Contents/Resources/EmbeddedServer/tokentracker/dashboard/dist"
+          for banned in ["pet.html", "quota.html"]:
+              assert not (payload / banned).exists(), f"unexpected {banned} in dashboard payload"
+          print("payload verified for", version)
+          PY
+
+      - name: Upload DMG artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: TokenTrackerPersonal-macos-${{ inputs.version }}
+          path: |
+            dist/reviewed/TokenTrackerPersonal-macOS-arm64.dmg
+            dist/reviewed/macos-build.json
+          if-no-files-found: error
