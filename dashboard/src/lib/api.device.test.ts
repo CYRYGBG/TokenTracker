@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   fetchCloudUsageSummary,
+  getProjectUsageSummary,
   fetchAccountDevices,
   getLeaderboard,
   invalidateAccountResponseCache,
@@ -43,6 +44,11 @@ describe("api device filter", () => {
   it("omits device_id when no device is given", async () => {
     await fetchCloudUsageSummary({ from: "2026-06-01", to: "2026-06-30", accessToken: JWT });
     expect(lastFetchUrl().searchParams.get("device_id")).toBeNull();
+  });
+
+  it("keeps local project usage in the same device scope as the overview", async () => {
+    await getProjectUsageSummary({ from: "2026-06-01", to: "2026-06-30", device: "fixture-windows" });
+    expect(lastFetchUrl().searchParams.get("device_id")).toBe("fixture-windows");
   });
 
   it("fetchAccountDevices hits the account-devices slug", async () => {

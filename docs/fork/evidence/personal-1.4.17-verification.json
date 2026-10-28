@@ -1,0 +1,63 @@
+{
+  "checkedAt": "2026-10-28T09:57:59.673630+00:00",
+  "version": "1.4.17",
+  "node": {
+    "total": 3708,
+    "passed": 3691,
+    "skipped": 17,
+    "failed": 0
+  },
+  "dashboard": {
+    "files": 146,
+    "passed": 1273,
+    "failed": 0,
+    "previousAttempt": "one existing leaderboard test timed out under concurrent full-suite/build load; final full suite with two workers passed"
+  },
+  "backendTargeted": {
+    "total": 179,
+    "passed": 178,
+    "skipped": 1,
+    "failed": 0
+  },
+  "bundledNode22": {
+    "passed": 4,
+    "failed": 0
+  },
+  "checks": [
+    "typecheck",
+    "copy",
+    "locale",
+    "ui-hardcode",
+    "guardrails",
+    "versions",
+    "bot-frames",
+    "architecture",
+    "dashboard build"
+  ],
+  "ui": {
+    "fixtureOnly": true,
+    "readOnlyCredentials": true,
+    "draftRetainedDuringIntervalSave": true,
+    "cancelRestoresSavedCredentials": true,
+    "intervalRetainedAfterCancel": true,
+    "allDevicesTokens": 750,
+    "windowsTokens": 600,
+    "macTokensAfterCardClick": 150,
+    "dropdownAndCardShareState": true
+  },
+  "macOS": {
+    "completeReleaseBuild": true,
+    "dmgVerified": true,
+    "mountedBundleMatchesBuild": true,
+    "signatureVerified": true,
+    "notarized": false
+  },
+  "windows": {
+    "crossPublish": true,
+    "installerCompiled": true,
+    "packageMatchesWorkspace": true,
+    "thisReleaseRealMachine": false
+  },
+  "noParserOrHistoryMigration": true,
+  "inAppUpgradeVerified": false
+}

@@ -1193,6 +1193,25 @@ describe("getUsageLimits", () => {
       assert.equal(failed.zcode.primary_window.used_percent, 9);
       assert.equal(failed.zcode.secondary_window.used_percent, 12);
       assert.equal(failed.zcode.plan_label, "Lite");
+      const stored = fs.readFileSync(path.join(trackerDir, "zcode-usage-limits-cache.json"), "utf8");
+      assert.ok(!stored.includes("bigmodel-key"), "cache must not retain credentials");
+      // Switching the configured account/key must not revive the old account's
+      // bars if the first read for the new account fails.
+      fs.writeFileSync(path.join(v2, "config.json"), JSON.stringify({
+        provider: { "builtin:bigmodel-coding-plan": { enabled: true, options: { apiKey: "another-account-key" } } },
+      }));
+      resetUsageLimitsCache();
+      const switched = await getUsageLimits({
+        home: tmp, trackerDir, env: {}, platform: "linux", providerTimeoutMs: 2000,
+        securityRunner: inactiveRunner, commandRunner: inactiveRunner,
+        fetchImpl(url) {
+          if (isQuotaUrl(url)) return Promise.resolve({ ok: false, status: 500, json: async () => ({}) });
+          return pendingUnlessCodexReset(url);
+        },
+      });
+      assert.ok(switched.zcode.error);
+      assert.notEqual(switched.zcode.stale, true);
+      assert.equal(switched.zcode.primary_window, undefined);
     } finally {
       resetUsageLimitsCache();
       fs.rmSync(tmp, { recursive: true, force: true });

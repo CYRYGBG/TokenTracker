@@ -1,7 +1,7 @@
 {
-  "checkedAt": "2026-10-28T02:49:41.011Z",
-  "version": "1.4.13",
-  "upstream": "9dc925d89e7c526c9d5831b689a8bac427e7d8ea",
+  "checkedAt": "2026-10-28T09:51:19.115Z",
+  "version": "1.4.17",
+  "upstream": "b2c2eb8545cee15d517f4fd6e783191c2ba30117",
   "dashboard": "dashboard/dist",
   "embeddedServer": "TokenTrackerBar/EmbeddedServer",
   "architecture": "darwin-arm64",
@@ -9,8 +9,8 @@
   "nodeSha256": "31c9b901f72536e3710fb91381bc9371c5ee7880bdea9a03383a8d6e5d05949c",
   "comparisons": {
     "src": {
-      "files": 133,
-      "sha256": "6de61204959cc581e7d8ebcfbfc99e1a848b37300f8bce5cf5109627e8717f37",
+      "files": 134,
+      "sha256": "7a30d7ae505f092635b09ce5982090d28e824ece124cb2ffed8ff954ade3ed9c",
       "matchesWorkspace": true
     },
     "bin": {
@@ -19,16 +19,16 @@
       "matchesWorkspace": true
     },
     "dashboard/dist": {
-      "files": 178,
-      "sha256": "e8e0d6d3545617d85ae6220bbab3d8305fe5c99c090fd08f61124cc61a1b604d",
+      "files": 175,
+      "sha256": "066871358f39f2631d2701ae164f24457a8bcd38bd53ed3e80f87950eaff493a",
       "matchesWorkspace": true
     },
     "package.json": {
-      "sha256": "9f640b6b5fcb2998a1669b6206b3ae2b885e871016c5bccd83c1730c8906d8c7",
+      "sha256": "3805ced55b33a8f64781b34954f8f997d1c62b771f790be5119138d19f2146d1",
       "matchesWorkspace": true
     },
     "package-lock.json": {
-      "sha256": "c01be4e748a64f42ff36e322c0caa417ccc80156169681dba372e0e382b404f5",
+      "sha256": "87ef3e53b4c033af82f1047be0342223a6fb5726a69bf7c6bb68dda818399b62",
       "matchesWorkspace": true
     }
   },
@@ -51,13 +51,14 @@
   },
   "installers": {
     "TokenTrackerPersonal-macOS-arm64.dmg": {
-      "bytes": 65482667,
-      "sha256": "781260363085cf2823e26cd0d02f1f70699b4cd333df2603f947c143b9a326b0"
+      "bytes": 65164943,
+      "sha256": "606847a0f8eeb11f93c291b2323bc7d8ee57cfad0a224a431a3e2e4145eb04b2"
     },
     "TokenTrackerPersonal-Windows-x64-Setup.exe": {
-      "bytes": 302950801,
-      "sha256": "573fcbbedb9ac705b73b7d69933227b086608577b923693addc08f4c24f9e3ca"
+      "bytes": 304600149,
+      "sha256": "eddb54417117f8f9c694044cf9cfd3f141473b10664f1e7aeb617428ea6c1bba"
     }
   },
-  "windowsRealMachineVerified": false
+  "windowsRealMachineVerified": false,
+  "upstreamMeaning": "latest reviewed checkpoint; selective adoption documented in UPSTREAM.md"
 }

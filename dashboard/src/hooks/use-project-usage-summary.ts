@@ -16,6 +16,7 @@ export function useProjectUsageSummary({
   source,
   timeZone,
   tzOffsetMinutes,
+  deviceId,
 }: any = {}) {
   const [entries, setEntries] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
@@ -34,6 +35,7 @@ export function useProjectUsageSummary({
     source,
     timeZone,
     tzOffsetMinutes,
+    deviceId,
   ]);
 
   const refresh = useCallback(async () => {
@@ -59,6 +61,7 @@ export function useProjectUsageSummary({
         source,
         timeZone,
         tzOffsetMinutes,
+        device: deviceId,
       });
       if (!isCurrent()) return;
       setEntries(Array.isArray(res?.entries) ? res.entries : []);
@@ -70,7 +73,7 @@ export function useProjectUsageSummary({
     } finally {
       if (isCurrent()) setLoading(false);
     }
-  }, [accessToken, baseUrl, from, mockEnabled, source, timeZone, to, tzOffsetMinutes, isLocalMode, beginRequest]);
+  }, [accessToken, baseUrl, from, mockEnabled, source, timeZone, to, tzOffsetMinutes, deviceId, isLocalMode, beginRequest]);
 
   useEffect(() => {
     // 本地模式跳过 token 检查

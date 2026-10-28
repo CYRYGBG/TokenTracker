@@ -4,7 +4,7 @@ import { copy } from "../lib/copy";
 import { localDeviceUsage, LOCAL_USAGE_CHANGED_EVENT } from "../lib/local-usage-transfer";
 import { DeviceUsageCard } from "../ui/dashboard/components/DeviceUsageCard";
 
-export function ForkDeviceUsageCard({ from, to, timeZone, tzOffsetMinutes }) {
+export function ForkDeviceUsageCard({ from, to, timeZone, tzOffsetMinutes, selectedDeviceId = "", onSelectDevice }) {
   const [data, setData] = useState(null);
   const [error, setError] = useState("");
   useEffect(() => {
@@ -26,16 +26,11 @@ export function ForkDeviceUsageCard({ from, to, timeZone, tzOffsetMinutes }) {
     return () => { active = false; clearInterval(timer); window.removeEventListener(LOCAL_USAGE_CHANGED_EVENT, refresh); };
   }, [from, to, timeZone, tzOffsetMinutes]);
 
-  const selected = !data || data.device === "all" ? "" : data.device === "local" ? data.current_device_id : data.device;
+  const selected = selectedDeviceId;
   const usage = localDeviceUsage(data?.devices || [], data?.account_sources || [], selected);
   return <div className="space-y-2">
     <DeviceUsageCard {...usage} showIdleDevices currentDeviceId={data?.current_device_id}
-      selectedDeviceId={selected} onSelectDevice={async (id) => {
-        try {
-          await forkApi("/api/fork/view", { method: "PUT", body: { device: id || "all" } });
-          window.location.reload();
-        } catch (e) { setError(e.message); }
-      }} />
+      selectedDeviceId={selected} onSelectDevice={onSelectDevice} />
     {(error || data?.partial) && <p role="alert" className="px-3 text-xs text-oai-gray-500">
       {copy("fork.devices.incomplete")} {error || data?.last_failure?.code}
     </p>}

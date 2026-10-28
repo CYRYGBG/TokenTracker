@@ -401,6 +401,16 @@ function createWebdavScheduler({ trackerDir, loadPassword, getConfig, machineIdP
       if (!normalized.enabled && !manual) return { ok: true, skipped: "disabled" };
       const state = await readState();
       if(!manual && (state.paused_auth || Number(state.backoff_until_ms||0)>Date.now()))return {ok:true,skipped:"backoff"};
+      const lastAttemptMs = Date.parse(state.last_attempt_at || state.last_success_at || "");
+      const elapsed = Date.now() - lastAttemptMs;
+      if (!manual && Number.isFinite(lastAttemptMs) && elapsed >= 0 && elapsed < intervalMs(config)) {
+        return { ok: true, skipped: "interval" };
+      }
+      // Polling, file-change debounce and restarted processes share the same
+      // cadence. Manual sync bypasses it; Retry-After/auth backoff still applies
+      // to every automatic trigger.
+      state.last_attempt_at = new Date().toISOString();
+      await persistState(state);
       const machineId = await machineIdProvider();
       const password = await loadPassword({ username: normalized.username, trackerDir, url:normalized.url });
       const result = await runSyncCycle({
@@ -491,6 +501,8 @@ function createWebdavScheduler({ trackerDir, loadPassword, getConfig, machineIdP
 
   async function resetRetry() {
     const state=await readState();state.paused_auth=false;state.backoff_until_ms=0;state.backoff_step=0;state.last_failure=null;await persistState(state);
+    // A shorter interval must not wait for the old (possibly 24h) timer.
+    if (timer) start();
   }
 
   async function syncNow() {

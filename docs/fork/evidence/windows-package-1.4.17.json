@@ -1,0 +1,12 @@
+{
+  "version": "1.4.17",
+  "baseCommit": "bbdc06b3396a15dbd8bc9b903ca92f971e52011a",
+  "builtFromWorkingTree": true,
+  "matchedInputs": 312,
+  "packageFiles": 6153,
+  "inventorySha256": "3b0d6d926ed7750ccf2c420d341fdfef62eb75211a7044978f160814951c7497",
+  "fullInventoryStoredLocally": true,
+  "crossPublishPassed": true,
+  "innoCompilePassed": true,
+  "windowsRealMachineThisVersionVerified": false
+}

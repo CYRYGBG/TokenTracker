@@ -291,12 +291,13 @@ export async function getProjectUsageSummary({
   timeZone,
   tzOffsetMinutes,
   accessToken,
+  device,
 }: AnyRecord = {}) {
   if (isMockEnabled()) {
     return getMockProjectUsageSummary({ seed: accessToken, limit });
   }
   const tzParams = buildTimeZoneParams({ timeZone, tzOffsetMinutes });
-  const filterParams = buildFilterParams({ source });
+  const filterParams = buildFilterParams({ source, device });
   const params: AnyRecord = { ...filterParams, ...tzParams };
   if (from) params.from = from;
   if (to) params.to = to;

@@ -1,0 +1,27 @@
+{
+  "checkedAt": "2026-10-28T09:28:39.784281+00:00",
+  "tag": "personal-v1.4.16",
+  "sourceCommit": "bbdc06b3396a15dbd8bc9b903ca92f971e52011a",
+  "assets": [
+    {
+      "name": "SHA256SUMS.txt",
+      "bytes": 212,
+      "sha256": "416b318c33f92cbd59abad384ff99a3ea90669ec05db357db74742c252740118",
+      "githubDigestMatches": true
+    },
+    {
+      "name": "TokenTrackerPersonal-macOS-arm64.dmg",
+      "bytes": 64846745,
+      "sha256": "5e345c3d90b281eed0302b05818f6726ea98f37b31be7d57f8ed81106bdf31c7",
+      "githubDigestMatches": true
+    },
+    {
+      "name": "TokenTrackerPersonal-Windows-x64-Setup.exe",
+      "bytes": 304595117,
+      "sha256": "b220c99cf7685d14cc59b854a28412818d3d50166ef68b80155c79c98b4f44c3",
+      "githubDigestMatches": true
+    }
+  ],
+  "draft": false,
+  "url": "https://github.com/CYRYGBG/TokenTracker/releases/tag/personal-v1.4.16"
+}

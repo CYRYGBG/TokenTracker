@@ -10,16 +10,20 @@ vi.mock('../ui/dashboard/components/DeviceUsageCard',()=>({DeviceUsageCard:p=>{m
 const data={device:'machine-remote',current_device_id:'machine-local',devices:[{id:'machine-local',device_name:'Mac',total_tokens:100,billable_total_tokens:50},{id:'machine-remote',device_name:'Windows',total_tokens:0,billable_total_tokens:0}],account_sources:[]};
 beforeEach(()=>{mock.api.mockReset();mock.card.mockClear();});
 afterEach(()=>vi.restoreAllMocks());
-it('uses WebDAV devices, preserves idle peers and the shared selected scope',async()=>{
+it('uses WebDAV devices and the same per-page selection as the official dropdown',async()=>{
  mock.api.mockResolvedValue(data);
- render(<ForkDeviceUsageCard from="2026-10-01" to="2026-10-31" timeZone="Asia/Shanghai" tzOffsetMinutes={480}/>);
+ const select=vi.fn();
+ const view=render(<ForkDeviceUsageCard from="2026-10-01" to="2026-10-31" timeZone="Asia/Shanghai" tzOffsetMinutes={480} selectedDeviceId="machine-remote" onSelectDevice={select}/>);
  await screen.findByText('Windows');
  expect(mock.api.mock.calls[0][0]).toContain('tz=Asia%2FShanghai');
  const p=mock.card.mock.calls.at(-1)[0];
  expect(p.showIdleDevices).toBe(true);expect(p.selectedDeviceId).toBe('machine-remote');expect(p.currentDeviceId).toBe('machine-local');
  expect(p.devices[0].total_tokens).toBe(100); // selected zero-billable scope uses total consistently
  await p.onSelectDevice('machine-local');
- expect(mock.api).toHaveBeenCalledWith('/api/fork/view',{method:'PUT',body:{device:'machine-local'}});
+ expect(select).toHaveBeenCalledWith('machine-local');
+ expect(mock.api.mock.calls.every(([,options])=>{return !options?.method;})).toBe(true);
+ view.rerender(<ForkDeviceUsageCard from="2026-10-01" to="2026-10-31" selectedDeviceId="machine-local" onSelectDevice={select}/>);
+ expect(mock.card.mock.calls.at(-1)[0].selectedDeviceId).toBe('machine-local');
 });
 it('retains the previous device data and reports a failed refresh',async()=>{
  mock.api.mockResolvedValueOnce(data).mockRejectedValue(new Error('offline'));

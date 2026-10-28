@@ -40,13 +40,17 @@ const statusResponse = {
 };
 
 function primeApi(overrides = {}) {
+  let config = overrides.status?.config || statusResponse.config;
   forkApiMock.mockImplementation(async (path, init) => {
     if (path === "/api/webdav/status") {
-      return { ...statusResponse, ...overrides.status, sync: { ...statusResponse.sync, ...overrides.sync } };
+      return { ...statusResponse, ...overrides.status, config, sync: { ...statusResponse.sync, ...overrides.sync } };
     }
     if (path === "/api/fork/prefs") return { expenses: [], prices: [], aliases: {} };
     if (path === "/api/fork/pricing") return { source: null, version: null, updated_at: null };
-    if (path === "/api/webdav/config" && init?.method === "PUT") return {};
+    if (path === "/api/webdav/config" && init?.method === "PUT") {
+      config = { ...config, ...init.body };
+      return { config };
+    }
     throw new Error(`unexpected forkApi call: ${path} ${init?.method ?? "GET"}`);
   });
 }
@@ -88,7 +92,7 @@ describe("ForkSyncSection", () => {
     await waitFor(() => {
       const putCall = forkApiMock.mock.calls.find(([path, init]) => path === "/api/webdav/config" && init?.method === "PUT");
       expect(putCall[1].body.enabled).toBe(false);
-      expect(putCall[1].body.interval_minutes).toBe(5);
+      expect(putCall[1].body).toEqual({ enabled: false });
     });
 
     fireEvent.change(screen.getByLabelText("Sync interval"), { target: { value: "120" } });
@@ -96,6 +100,33 @@ describe("ForkSyncSection", () => {
       const puts = forkApiMock.mock.calls.filter(([path, init]) => path === "/api/webdav/config" && init?.method === "PUT");
       expect(puts[puts.length - 1][1].body.interval_minutes).toBe(120);
     });
+  });
+
+  it("keeps untested credential drafts out of immediate selection changes and preserves them until Cancel", async () => {
+    renderSection();
+    await waitFor(() => expect(screen.getByTestId("webdav-url-value")).toHaveTextContent(statusResponse.config.url));
+    fireEvent.click(screen.getByRole("button", { name: "Edit" }));
+    fireEvent.change(screen.getByLabelText("Server URL"), { target: { value: "https://draft.example/dav" } });
+    fireEvent.change(screen.getByLabelText("App password"), { target: { value: "fixture-draft-password" } });
+    fireEvent.change(screen.getByLabelText("Sync interval"), { target: { value: "120" } });
+    await waitFor(() => expect(screen.getByRole("button", { name: "Cancel" })).toBeEnabled());
+    const put = forkApiMock.mock.calls.find(([path, init]) => path === "/api/webdav/config" && init?.method === "PUT");
+    expect(put[1].body).toEqual({ interval_minutes: 120 });
+    expect(screen.getByLabelText("Server URL")).toHaveValue("https://draft.example/dav");
+    expect(screen.getByLabelText("App password")).toHaveValue("fixture-draft-password");
+    fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+    expect(screen.getByTestId("webdav-url-value")).toHaveTextContent(statusResponse.config.url);
+    expect(screen.getByLabelText("Sync interval")).toHaveValue("120");
+  });
+
+  it("does not show a failed interval save as applied", async () => {
+    renderSection();
+    await waitFor(() => expect(screen.getByTestId("webdav-url-value")).toHaveTextContent(statusResponse.config.url));
+    const real = forkApiMock.getMockImplementation();
+    forkApiMock.mockImplementation((path, init) => path === "/api/webdav/config" ? Promise.reject(new Error("offline")) : real(path, init));
+    fireEvent.change(screen.getByLabelText("Sync interval"), { target: { value: "120" } });
+    expect(await screen.findByRole("alert")).toHaveTextContent("offline");
+    expect(screen.getByLabelText("Sync interval")).toHaveValue("5");
   });
 
   it("offers minute and hour interval presets and keeps an off-preset saved value selectable", async () => {

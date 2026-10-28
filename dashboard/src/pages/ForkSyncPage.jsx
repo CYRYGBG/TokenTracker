@@ -78,7 +78,7 @@ export default function ForkSyncSection() {
           : `${minutes / 60} ${copy("fork.personal.7b8c9d0e1f")}`,
     }));
   }, [config.interval_minutes]);
-  async function load() {
+  async function load({ preserveDraft = false } = {}) {
     const [s, p, ps] = await Promise.all([
       forkApi("/api/webdav/status"),
       forkApi("/api/fork/prefs"),
@@ -86,7 +86,7 @@ export default function ForkSyncSection() {
     ]);
     setStatus(s);
     if (s.config) {
-      setConfig(s.config);
+      if (!preserveDraft) setConfig(s.config);
       setLoadedConfig(s.config);
     }
     setPrefs(p);
@@ -118,12 +118,23 @@ export default function ForkSyncSection() {
   }
   // Selection-type controls (toggles, interval) apply immediately — they are
   // not part of the credential edit flow and need no 编辑 gate.
-  const applySelection = (next) => {
-    setConfig(next);
-    void run(
-      () => forkApi("/api/webdav/config", { method: "PUT", body: next }),
-      copy("fork.personal.cb84a961b0"),
-    );
+  const applySelection = async (patch) => {
+    if (busy) return;
+    setBusy(true);
+    setError("");
+    setNotice("");
+    try {
+      // Save selection fields only. Credential drafts stay private to Edit
+      // until Save and test, even while a switch is changed.
+      await forkApi("/api/webdav/config", { method: "PUT", body: patch });
+      setConfig((current) => ({ ...current, ...patch }));
+      await load({ preserveDraft: editing });
+      setNotice(copy("fork.personal.cb84a961b0"));
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setBusy(false);
+    }
   };
   const event = (action, target, payload = {}) =>
     forkApi("/api/fork/prefs", {
@@ -218,7 +229,7 @@ export default function ForkSyncSection() {
                 checked={config.enabled}
                 disabled={busy}
                 onChange={() =>
-                  applySelection({ ...config, enabled: !config.enabled })
+                  applySelection({ enabled: !config.enabled })
                 }
                 ariaLabel={copy("fork.personal.5faab6dc38")}
               />
@@ -233,7 +244,7 @@ export default function ForkSyncSection() {
                 value={Number(config.interval_minutes) || 5}
                 disabled={busy}
                 onChange={(e) =>
-                  applySelection({ ...config, interval_minutes: Number(e.target.value) })
+                  applySelection({ interval_minutes: Number(e.target.value) })
                 }
               >
                 {intervalOptions.map(({ value, label }) => (
@@ -252,7 +263,6 @@ export default function ForkSyncSection() {
                 disabled={busy}
                 onChange={() =>
                   applySelection({
-                    ...config,
                     sync_titles: config.sync_titles === false,
                   })
                 }
@@ -380,7 +390,7 @@ export default function ForkSyncSection() {
           {copy("fork.personal.25f08768a8")}
         </Button>
         <p className="text-sm">{copy("fork.personal.1b81c2a94d")}</p>
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+        <div className="divide-y divide-oai-gray-200/60 dark:divide-oai-gray-800/60">
           {[
             ["source", copy("fork.personal.0a62e3efba")],
             ["model", copy("fork.personal.2b7c96b260")],
@@ -389,17 +399,20 @@ export default function ForkSyncSection() {
             ["cache_read", copy("fork.personal.987b1086b2")],
             ["cache_write", copy("fork.personal.732298044d")],
           ].map(([k, label]) => (
-            <label key={k} className="flex min-w-0 flex-col gap-1.5 text-sm">
-              {label}
+            <SettingsRow key={k}
+              label={<label htmlFor={`price-${k}`}>{label}</label>}
+              control={
               <input
-                className={inputClass}
+                id={`price-${k}`}
+                className={inputClass + " sm:w-64"}
                 type={["source", "model"].includes(k) ? "text" : "number"}
                 min="0"
                 step="any"
                 value={price[k]}
                 onChange={(e) => setPrice({ ...price, [k]: e.target.value })}
               />
-            </label>
+              }
+            />
           ))}
         </div>
         <Button
@@ -451,11 +464,11 @@ export default function ForkSyncSection() {
       <SectionCard title={copy("fork.personal.9fd90671cc")}>
         <div className="space-y-4 py-3">
         <p className="text-sm">{copy("fork.personal.bd744b773b")}</p>
-        <div className="grid gap-3 sm:grid-cols-3">
-          <label className="flex min-w-0 flex-col gap-1.5 text-sm">
-            {copy("fork.personal.e4e46c7235")}
+        <div className="divide-y divide-oai-gray-200/60 dark:divide-oai-gray-800/60">
+          <SettingsRow label={<label htmlFor="expense-kind">{copy("fork.personal.e4e46c7235")}</label>} control={
             <select
-              className={inputClass}
+              id="expense-kind"
+              className={inputClass + " sm:w-64"}
               value={expense.kind}
               onChange={(e) => setExpense({ ...expense, kind: e.target.value })}
             >
@@ -467,7 +480,7 @@ export default function ForkSyncSection() {
               </option>
               <option value="topup">{copy("fork.personal.fa03c46253")}</option>
             </select>
-          </label>
+          } />
           {[
             ["provider", copy("fork.personal.0c131e3964")],
             ["amount", copy("fork.personal.34943c40c9")],
@@ -477,10 +490,12 @@ export default function ForkSyncSection() {
             ["period_end", copy("fork.personal.a74fd5004f")],
             ["note", copy("fork.personal.e0361480e3")],
           ].map(([k, label]) => (
-            <label key={k} className="flex min-w-0 flex-col gap-1.5 text-sm">
-              {label}
+            <SettingsRow key={k}
+              label={<label htmlFor={`expense-${k}`}>{label}</label>}
+              control={
               <input
-                className={inputClass}
+                id={`expense-${k}`}
+                className={inputClass + " sm:w-64"}
                 type={
                   k.includes("date") || k.includes("period")
                     ? "date"
@@ -495,7 +510,8 @@ export default function ForkSyncSection() {
                   setExpense({ ...expense, [k]: e.target.value })
                 }
               />
-            </label>
+              }
+            />
           ))}
         </div>
         <Button
@@ -580,22 +596,22 @@ export default function ForkSyncSection() {
       <SectionCard title={copy("fork.personal.1b2a661a92")}>
         <div className="space-y-4 py-3">
         <p className="text-sm">{copy("fork.personal.aacf7b101b")}</p>
-        <label className="flex min-w-0 flex-col gap-1.5 text-sm">
-          {copy("fork.personal.874a561693")}
+        <SettingsRow label={<label htmlFor="alias-from">{copy("fork.personal.874a561693")}</label>} control={
           <input
-            className={inputClass}
+            id="alias-from"
+            className={inputClass + " sm:w-64"}
             value={alias.from}
             onChange={(e) => setAlias({ ...alias, from: e.target.value })}
           />
-        </label>
-        <label className="flex min-w-0 flex-col gap-1.5 text-sm">
-          {copy("fork.personal.4e4e0570a6")}
+        } />
+        <SettingsRow label={<label htmlFor="alias-to">{copy("fork.personal.4e4e0570a6")}</label>} control={
           <input
-            className={inputClass}
+            id="alias-to"
+            className={inputClass + " sm:w-64"}
             value={alias.to}
             onChange={(e) => setAlias({ ...alias, to: e.target.value })}
           />
-        </label>
+        } />
         <Button
           variant="secondary"
           size="sm"

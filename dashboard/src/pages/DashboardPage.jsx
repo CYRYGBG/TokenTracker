@@ -488,7 +488,8 @@ export function DashboardPage({
   ) : null;
 
   if (forkDeviceView) {
-    deviceUsageBlock = <ForkDeviceUsageCard from={from} to={to} timeZone={timeZone} tzOffsetMinutes={tzOffsetMinutes} />;
+    deviceUsageBlock = <ForkDeviceUsageCard from={from} to={to} timeZone={timeZone} tzOffsetMinutes={tzOffsetMinutes}
+      selectedDeviceId={selectedDevice || ""} onSelectDevice={(id) => setSelectedDevice(id || null)} />;
   }
 
   const timeZoneLabel = useMemo(
@@ -609,6 +610,7 @@ export function DashboardPage({
     to,
     timeZone,
     tzOffsetMinutes,
+    deviceId: usageDeviceId,
   });
 
   const shareDailyToTrend = period === "week" || period === "month";

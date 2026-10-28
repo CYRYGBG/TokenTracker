@@ -2764,20 +2764,23 @@ function normalizeZcodeCachedLimits(
   return hasZcodeLimitWindow(cached) ? cached : null;
 }
 
-function readZcodeLimitsCache({ trackerDir, home, nowMs = Date.now() } = {}) {
+function readZcodeLimitsCache({ trackerDir, home, nowMs = Date.now(), scope } = {}) {
   const cachePath = resolveZcodeLimitsCachePath({ trackerDir, home });
   try {
     const parsed = JSON.parse(fs.readFileSync(cachePath, "utf8"));
+    if (!scope || parsed.scope !== scope) return null;
     return normalizeZcodeCachedLimits(parsed?.zcode, { nowMs });
   } catch (_error) {
     return null;
   }
 }
 
-function writeZcodeLimitsCache(limits, { trackerDir, home, nowMs = Date.now() } = {}) {
+function writeZcodeLimitsCache(limits, { trackerDir, home, nowMs = Date.now(), scope } = {}) {
+  if (!scope) return;
   if (!limits?.configured || limits.error || !hasZcodeLimitWindow(limits)) return;
   const cachePath = resolveZcodeLimitsCachePath({ trackerDir, home });
   const payload = {
+    scope,
     zcode: {
       provider_key: limits.provider_key || null,
       plan_kind: limits.plan_kind || null,
@@ -4537,6 +4540,7 @@ async function fetchUsageLimitsUncached({
   // that makes every client drop the ZCode section. A fulfilled `configured: false`
   // means the ZCode CLI is not installed — no cache may resurrect it.
   let zcodeObj;
+  const zcodeScope = require("./fork-zcode-cache-scope").zcodeCacheScope({ home, env });
   if (zcode && zcode.configured === false) {
     zcodeObj = zcode;
   } else if (zcode && !zcode.error && hasZcodeLimitWindow(zcode)) {
@@ -4546,10 +4550,10 @@ async function fetchUsageLimitsUncached({
       cached_at: new Date(nowMs).toISOString(),
     };
     if (cacheGeneration === usageLimitsCacheGeneration) {
-      writeZcodeLimitsCache(zcodeObj, { trackerDir, home, nowMs });
+      writeZcodeLimitsCache(zcodeObj, { trackerDir, home, nowMs, scope: zcodeScope });
     }
   } else {
-    const cached = readZcodeLimitsCache({ trackerDir, home, nowMs });
+    const cached = readZcodeLimitsCache({ trackerDir, home, nowMs, scope: zcodeScope });
     if (cached) {
       zcodeObj = cached;
     } else {
