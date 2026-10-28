@@ -54,6 +54,11 @@ test("personal CLI starts without official config, isolates storage and leaves a
   let output = "";
   child.stdout.on("data", (d) => (output += d));
   child.stderr.on("data", (d) => (output += d));
+  // Attach the exit waiter at spawn time: if the server dies before readiness
+  // (e.g. a Windows port-rebind race on the just-closed probe socket), the
+  // "exit" event has already fired by the time the finally block runs, and a
+  // late events.once() registration would wait forever and wedge the suite.
+  const exited = once(child, "exit");
   try {
     let ready = false;
     for (let i = 0; i < 100; i++) {
@@ -80,7 +85,19 @@ test("personal CLI starts without official config, isolates storage and leaves a
     assert.ok((await fs.readdir(home)).includes(".tokentracker-personal"));
   } finally {
     child.kill("SIGTERM");
-    const [code] = await once(child, "exit");
-    assert.equal(code, 0, output);
+    const [code] = await Promise.race([
+      exited,
+      delay(10_000).then(() => [-1]),
+    ]);
+    // POSIX delivers SIGTERM so the serve's graceful shutdown can exit 0.
+    // Windows maps kill() to TerminateProcess: the exit event reports
+    // code=null + signal SIGTERM (or exit 1), and the graceful-shutdown path
+    // there is owned by the native host's JobObject teardown, not signals.
+    // Either way the process must END within the timeout.
+    if (process.platform === "win32") {
+      assert.notEqual(code, -1, output);
+    } else {
+      assert.equal(code, 0, output);
+    }
   }
 });

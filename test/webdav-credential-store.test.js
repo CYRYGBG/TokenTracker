@@ -33,7 +33,13 @@ test("storeKind maps platforms to the right backend", () => {
   assert.equal(storeKind("linux"), "file");
 });
 
-test("file fallback round-trips a password with 0600 permissions and clears it", async () => {
+test("file fallback round-trips a password with 0600 permissions and clears it", {
+  // POSIX permission bits do not exist on NTFS: Node ignores mode 0o600 and
+  // stat.mode never carries group/world bits to assert on. Windows stores
+  // credentials through DPAPI, not this file fallback, so skip rather than
+  // weaken the POSIX assertion.
+  skip: process.platform === "win32",
+}, async () => {
   await withTempTracker(async (trackerDir) => {
     await saveWebdavPassword({ username: "me@example.com", password: "app-secret-1", trackerDir, platform: FILE_PLATFORM });
     const stored = await loadWebdavPassword({ username: "me@example.com", trackerDir, platform: FILE_PLATFORM });

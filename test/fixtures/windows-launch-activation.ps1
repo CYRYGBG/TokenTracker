@@ -2,7 +2,9 @@ param([Parameter(Mandatory = $true)][string]$SourcePath)
 $ErrorActionPreference = 'Stop'
 
 $source = [IO.File]::ReadAllText($SourcePath)
-$pipeDeclaration = 'private const string PipeName = "TokenTracker.Windows.Tray.DeepLink";'
+# The fork renamed the personal tray pipe (independent identity, AGENTS.md);
+# keep the fixture pinned to the production declaration actually shipped.
+$pipeDeclaration = 'private const string PipeName = "TokenTrackerPersonal.Windows.Tray.DeepLink";'
 if (-not $source.Contains($pipeDeclaration)) {
     throw 'Cannot isolate the production pipe name for the regression test.'
 }
