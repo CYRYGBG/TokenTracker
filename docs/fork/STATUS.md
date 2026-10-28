@@ -58,7 +58,7 @@ ZCode 新增的 512 MiB Codex 解压上限、后台归档回填和缺口台账�
 
 ## 接续
 
-本机可执行的最终 macOS 界面/关窗驻留/正常退出、安装器哈希和包内资源验证已完成；不要使用旧目录产物。后续仅在真实 Windows / 坚果云 / 双机环境补验对应项，不把构建或协议夹具当实机通过。2026-10-27 用户已明确授权在自己的 GitHub fork 发布这两个安装版本；覆盖安装与 npm 发布仍未授权。
+本机可执行的最终 macOS 界面/关窗驻留/正常退出、安装器哈希和包内资源验证已完成；不要使用旧目录产物。后续仅在真实 Windows / 坚果云 / 双机环境补验对应项，不把构建或协议夹具当实机通过。2026-10-27 用户已明确授权在自己的 GitHub fork 发布这两个安装版本；当时尚未授权覆盖安装；2026-10-28 本轮已授权本机个人版覆盖安装，npm 发布仍未授权。
 
 个人 CLI 排查命令 `node bin/personal.js serve --no-open`；日常安装使用上述桌面产物。旧官方数据不会自动写入新目录，可通过已有导出/导入或统计备份恢复；没有日志或历史明细证据时不补造。外部验收步骤见 README.md。
 
@@ -95,3 +95,10 @@ ZCode 新增的 512 MiB Codex 解压上限、后台归档回填和缺口台账�
 2026-10-28 10:14:45（Asia/Shanghai）已公开发布 [personal-v1.4.12](https://github.com/CYRYGBG/TokenTracker/releases/tag/personal-v1.4.12)，并设为 latest。源码标签指向 ee8d3a5979f3d966d2ee6828843c5fb8a485800b。macOS arm64 DMG、Windows x64 Setup、SHA256SUMS.txt 三份附件远端 digest/大小均与本地一致，匿名下载 HEAD 全部 HTTP 200；证据 evidence/release.json。
 
 最终 DMG 的 hdiutil 校验通过；bundled Node 22 执行新的设备卡片与双进程 WebDAV/API 测试共 3 项通过。临时验收应用/夹具与偏好已清理，正式安装的 1.4.11 已恢复打开、后端 HTTP 200，Spotlight 仅返回 Applications 中一份个人版。没有覆盖原安装、删除用户统计目录、修改 main、发布 npm 或写入 upstream。
+
+
+## 本机覆盖安装完成（2026-10-28 用户明确授权）
+
+用户本轮明确要求代为安装后，已从已发布且 SHA-256 匹配的 1.4.12 DMG 覆盖安装 Applications 中的个人版。先通过原生菜单退出 1.4.11，在用户 Library/Application Support 下建立仅本机访问的 .noindex 备份（旧应用以 .app.backup 保存、统计目录及原生偏好），验证源 bundle 身份/版本/签名后完整复制并原子替换。未覆盖官方版，不清理或迁移个人统计目录，Keychain 凭据未修改。
+
+实际安装版启动后核对：版本 1.4.12、签名有效、后端 HTTP 200，首页设备分布出现；统计与项目队列原有字节保留，长期会话身份全部保留，机器配置与 WebDAV 配置一致。session.queue 是会随正常采集重建的上游 sidecar，不用其字节变化判定历史丢失。原生第一个显示位已设为 codex5h，第二个仍为 todayCost；真实额度 API 返回 Codex 已配置且五小时窗口可用、无错误，未记录额度数值或凭据。自动更新保持默认关闭；实际检查个人 GitHub 渠道后显示“1.4.12 已是最新版本”。Spotlight 仅返回 Applications 中一份个人版。安装证据 evidence/local-install.json；含真实配置的备份路径只留本机 gitignored 安装记录，不随源码公开。

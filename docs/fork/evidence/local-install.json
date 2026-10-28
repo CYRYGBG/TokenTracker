@@ -1,0 +1,39 @@
+{
+  "checkedAt": "2026-10-28T02:32:26.516Z",
+  "previousVersion": "1.4.11",
+  "installedVersion": "1.4.12",
+  "installedApp": "/Applications/TokenTrackerPersonal.app",
+  "source": "published personal-v1.4.12 DMG",
+  "publishedDigestMatched": true,
+  "bundleIdentityVerified": true,
+  "signatureVerified": true,
+  "atomicReplacement": true,
+  "localPrivateBackup": {
+    "oldApp": true,
+    "tracker": true,
+    "nativePreferences": true
+  },
+  "profile": {
+    "usageQueuePriorBytesRetained": true,
+    "projectQueuePriorBytesRetained": true,
+    "durablePriorSessionIdentitiesRetained": true,
+    "machineConfigUnchanged": true,
+    "webdavConfigUnchanged": true,
+    "credentialsModified": false
+  },
+  "native": {
+    "versionShown": "1.4.12",
+    "deviceCardVisible": true,
+    "menuBarItems": [
+      "codex5h",
+      "todayCost"
+    ],
+    "codexConfigured": true,
+    "fiveHourWindowAvailable": true,
+    "providerError": false,
+    "autoUpdateEnabled": false,
+    "personalUpdateCheck": "1.4.12 is up to date"
+  },
+  "backendHttp": 200,
+  "spotlightPersonalAppCount": 1
+}
