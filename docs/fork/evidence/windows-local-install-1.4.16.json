@@ -1,0 +1,75 @@
+{
+  "checkedAt": "2026-10-28T22:20:00+08:00",
+  "machine": "Windows 11 x64 (蛟龙16pro), 32GB RAM",
+  "installDistinguishing": {
+    "officialLeftover": {
+      "path": "C:\\Users\\cyr\\AppData\\Local\\Programs\\TokenTracker\\TokenTracker.exe",
+      "version": "1.4.11+cf721ab355928353379925a815f4a7d69301855a",
+      "evidence": "EmbeddedServer CLI package.json 1.4.11, bin/ has no personal.js, data dir ~/.tokentracker, HKCU Run 'TokenTracker' autostart, Codex notify hook targets ~/.tokentracker/bin/notify.cjs",
+      "lastRunning": "2026-10-25 (windows-host.log in %LOCALAPPDATA%\\TokenTracker)",
+      "action": "untouched, reported to user"
+    },
+    "personal": {
+      "path": "D:\\01.软件\\TokenTracker Personal\\TokenTrackerPersonal.exe",
+      "versionBefore": "1.4.14+166e6c2d (CLI 1.4.14, in-app auto-updated from 1.4.12 at 14:37 local)",
+      "versionAfter": "1.4.16+616e142351479f23b65b41f4766d5918ad1ddb35 (CLI 1.4.16)",
+      "dataDir": "~/.tokentracker-personal/tracker",
+      "leakPidConfirmed": "windows-host.log 14:38:03 server process pid=107088 matches the leak report PID"
+    }
+  },
+  "upgrade": {
+    "path": "in-app silent update (user preference UpdateChecker.autoUpdateEnabled was already true; no config changed)",
+    "proxyNote": "WinINET system proxy off; HTTP(S)_PROXY=127.0.0.1:7897 injected at launch so the updater and node child could reach github.com",
+    "logSequence": [
+      "21:57:35 [update] github api status 200",
+      "21:57:36 [update] update available current=1.4.14 latest=1.4.16",
+      "21:58:58 [update] downloaded setup -> TokenTrackerPersonal-Windows-x64-Setup-1.4.16.exe",
+      "21:58:59 [update] sha256 verified b220c99cf7685d14cc59b854a28412818d3d50166ef68b80155c79c98b4f44c3",
+      "21:58:59 [update] silent installer spawned -> relaunch",
+      "21:59:27 [update] up to date current=1.4.16 latest=1.4.16"
+    ],
+    "sha256CrossCheck": "app-verified digest equals the SHA256SUMS.txt downloaded independently from release personal-v1.4.16",
+    "bundleChecks": "CLI package.json 1.4.16; fork-view.js contains device_id scope (bbdc06b3); no 1.4.17 draft changes; served dashboard main-BLk_gXe_.js (17:05 build)"
+  },
+  "verification1DeviceDropdown": {
+    "dropdown": "Token 总数 card top-right combobox 按设备筛选: 全部设备 / 蛟龙16pro (本机) / Mac",
+    "switchToMac": {
+      "tokenTotal": "4.6B / $579 -> 3.7B / $412.22",
+      "dailyRow1028": "105.7M / 699 conv -> 81.7M / 487 conv",
+      "modelBreakdown": "CODEX 55.75% -> 62.81%, rankings reorder",
+      "trendDataSource": "/functions/tokentracker-usage-daily 10-28: all 102,596,842 vs mac 78,640,039",
+      "heatmap": "active_days all 88 vs mac 73; screenshots visibly differ"
+    },
+    "apiExactPartition": {
+      "rolling7d_billable_tokens": { "all": 908432604, "win": 207579733, "mac": 700852871, "win_plus_mac_equals_all": true },
+      "rolling7d_conversations": { "all": 5258, "win": 1235, "mac": 4023 }
+    },
+    "screenshots": [
+      "windows-personal-1.4.16-device-mac.png",
+      "windows-personal-1.4.16-device-all.png"
+    ]
+  },
+  "verification2SyncSettings": {
+    "readOnlyCredentials": "服务地址/用户名/同步目录/设备名称 rendered as plain text; 应用密码 shows 已保存 only, no echo",
+    "editMode": "编辑 reveals input boxes prefilled; password box empty with placeholder 已保存；留空保留; buttons become 保存并测试连接 + 取消; cancel restores read-only view with config untouched",
+    "instantItems": "后台自动同步 toggle (off->on) and 同步间隔 (5->15->5 分钟) apply immediately outside edit mode, each with 设置已保存 toast; backend config.json and /api/webdav/status reflected interval_minutes=15 then back to 5",
+    "finalConfig": "enabled=true, interval_minutes=5, credential_present=true, url/username/directory/device_name unchanged, sync_titles=true",
+    "screenshots": [
+      "windows-personal-1.4.16-sync-edit-mode.png",
+      "windows-personal-1.4.16-sync-readonly.png"
+    ]
+  },
+  "verification3WebdavSync": {
+    "afterUpgrade": "new server synced on start 22:05 (buckets seq 26->27); 立即同步 succeeded 22:12:36Z local display 上次成功 2026-10-28 22:12; Mac：已同步; last_failure=null; backoff_until_ms=0"
+  },
+  "leakContext": {
+    "stderrDuringLeakWindow": [
+      "18:34:04 Session history warning: ZSTD_error_memory_allocation",
+      "18:44:07 Session history warning: ZSTD_error_memory_allocation",
+      "19:04:12 Session history warning: ZSTD_error_memory_allocation"
+    ],
+    "newServerBaseline": "pid 165432 started 21:59:26, WS ~251MB / PM ~346MB at 22:20; 72h stability acceptance still pending"
+  },
+  "packagingObservation": "installed dashboard/dist/assets retains 3 stale main-*.js (index.html references newest 17:05 build; ~2MB dead weight; dashboard:build appears not to empty outDir)",
+  "notDone": "no source changes; no push; no release; official leftover install not uninstalled (needs user authorization)"
+}

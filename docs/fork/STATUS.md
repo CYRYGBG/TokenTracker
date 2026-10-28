@@ -15,6 +15,17 @@
 
 更新时间：2026-10-28。已获用户明确授权，将审核后的 macOS/Windows 安装包发布到自己的 fork；不发布 npm、不向 upstream 写入、不覆盖安装官方应用。发布源快照分支 `codex/personal-release-20261027`，标签 `personal-v1.4.12`。需求入口 REQUIREMENTS.md；验收入口 ACCEPTANCE.md；ZCode 提示词与结果审核见 ZCODE_REVIEW.md。
 
+## 2026-10-28 Windows 实机 1.4.16 应用内升级与三项验证（本轮）
+
+- 本机两套安装并存，已鉴别：官方版残留 `C:\Users\cyr\AppData\Local\Programs\TokenTracker\`（上游 v1.4.11+cf721ab3，无 personal.js，数据在 `~/.tokentracker`，占用 HKCU Run「TokenTracker」自启项，Codex notify hook 仍指向官方 CLI；10/25 后未再运行。本轮未卸载、未改动，是否清除待用户决定）。个人版在 `D:\01.软件\TokenTracker Personal\TokenTrackerPersonal.exe`，升级前 1.4.14+166e6c2d（当日 14:37 由 1.4.12 应用内自动升级而来；泄漏报告中的 server pid=107088 即该 1.4.14 实例，14:38 启动）。
+- 升级走应用自身更新器：未改任何配置（`UpdateChecker.autoUpdateEnabled` 用户此前已开启）；系统 WinINET 代理为关，启动时注入 HTTP(S)_PROXY=127.0.0.1:7897。应用启动静默检查发现 1.4.16 → 下载 → SHA256 校验通过（b220c99c…b4f44c3，与从发布页独立下载的 SHA256SUMS.txt 一致）→ 静默安装 → 自重启 → 「up to date current=1.4.16」。安装后 exe 1.4.16+616e1423，内嵌 CLI 1.4.16（fork-view device_id 代码在位、1.4.17 草稿改动不在），统计目录与 WebDAV 配置未受影响。
+- ① 设备下拉：官方 Token 总数卡片右上角出现「按设备筛选」（全部设备/蛟龙16pro(本机)/Mac）。切 Mac 后 Token 总数 4.6B/$579→3.7B/$412、日明细 10-28 行 105.7M/699→81.7M/487、模型占比与排行、热力图（active_days 88→73）、趋势数据源（daily 10-28 全量 102.6M vs Mac 78.6M）全部联动。API 层精确分区：win 207,579,733 + Mac 700,852,871 = 全量 908,432,604 token（会话 1,235+4,023=5,258）。截图 4 张见 evidence/windows-personal-1.4.16-*.png。
+- ② 同步页：凭据五项默认纯文本（应用密码只显「已保存」不回显），「编辑」才出输入框（密码框空、占位「已保存；留空保留」；按钮变「保存并测试连接/取消」），取消还原且配置未动。「后台自动同步」开关（off→on）与「同步间隔」（5→15→5 分钟）在编辑态外即时保存，每次「设置已保存」，后端 config.json 与 /api/webdav/status 即时反映，结束状态 enabled=true、interval=5，与升级前一致。
+- ③ 升级后同步正常：新 server 起动即同步成功（22:05，buckets seq 26→27），「立即同步」22:12 再成功，状态行「上次成功 2026-10-28 22:12 / Mac：已同步」，last_failure=null、无退避、credential_present=true。
+- 泄漏线索（供下一轮排查）：18:34–19:04 该 serve 进程 node stderr 三次 `Session history warning: ZSTD_error_memory_allocation`，与冲高回落窗口吻合。升级后新 server（pid 165432，21:59 起）基线 WS≈251MB/PM≈346MB；72h 稳定性与游戏同开提交峰值验收仍待观察。
+- 打包小观察（1.4.17 可顺手处理）：已装包 dashboard/dist/assets 残留 3 个旧 main-*.js（index.html 引用最新构建，功能无影响，多约 2MB 体积）；`dashboard:build` 似未清空 outDir。
+- 本轮零源码改动；未推送远端、未发布。结构化证据见 evidence/windows-local-install-1.4.16.json。
+
 ## 当前实现
 
 - 保留上游全部采集器、归一化、去重、价格和分析引擎；网页保留统计、会话、额度、设置、WebDAV/设备和本地年度回顾。官方账号、云/支付、社区、宠物/皮肤/成就/灵动岛与遥测退出产品运行路径。
