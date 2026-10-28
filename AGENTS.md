@@ -19,7 +19,7 @@
 **允许**：本地开发、依赖安装、只读获取 upstream（`git fetch upstream`）、测试、本地构建、本地提交。
 **未经用户明确授权禁止**：推送到任何远端、发布 npm 包、创建正式 Release、向原作者仓库写入、操作官方线上后端、向用户分发更新。上游文档中的发布流程（npm publish / DMG / release workflow / Homebrew）**对本 fork 不适用，不得自动执行**。不创建额外定时任务或后台监控服务。
 
-2026-10-27 单次明确授权：将本轮审核产物（macOS arm64 / Windows x64）及对应源码快照发布到 `CYRYGBG/TokenTracker` 的 GitHub Release。授权不包含 npm、上游仓库写入、官方渠道更新或覆盖安装；发布分支与标签独立，保留本地既有历史。
+2026-10-27 本轮交付及接续修复明确授权：将本轮审核产物（macOS arm64 / Windows x64）及对应源码快照发布到 `CYRYGBG/TokenTracker` 的 GitHub Release。授权不包含 npm、上游仓库写入、官方渠道更新或覆盖安装；发布分支与标签独立，保留本地既有历史。
 
 **跟进 upstream 的规则（重要）**：
 
@@ -138,4 +138,4 @@ React → useNativeSettings() 订阅
 
 ## 8. 上游发布流程的关系（必读）
 
-上游 `CLAUDE.md`（现仅作上游历史参考，见根目录指针文件）描述的 npm publish + release workflow + Homebrew 流程属于**官方分发渠道**，本 fork **永不自动执行**。个人版更新渠道已切断（更新器指向官方 repo 的路径已移除/禁用，见 UPSTREAM.md 改动地图），本地构建供个人使用即可。
+上游 `CLAUDE.md`（现仅作上游历史参考，见根目录指针文件）描述的 npm publish + release workflow + Homebrew 流程属于**官方分发渠道**，本 fork **永不自动执行**。官方更新渠道已切断。2026-10-28 用户要求恢复应用内更新：个人版只允许 CYRYGBG/TokenTracker 的 personal-vX.Y.Z 稳定发布，严格匹配平台安装包并校验 SHA256SUMS.txt。默认不自动更新，用户可主动开启；应用存活期间的检查计时器不创建外部后台服务。旧 1.4.11 需先手动覆盖安装一次。

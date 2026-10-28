@@ -1,126 +1,110 @@
 {
-  "checkedAt": "2026-10-27T11:13:38.968Z",
-  "logDir": "<local-log>/tt-fork-verification-D0dWGb",
+  "checkedAt": "2026-10-27T16:54:39.310Z",
+  "logDir": "<local-temp>/tt-fork-verification-NjkPpg",
   "results": [
     {
       "name": "node-tests",
       "exitCode": 0,
       "signal": null,
-      "durationMs": 53670,
-      "log": "<local-log>/node-tests.log",
+      "durationMs": 373621,
+      "log": "<local-temp>/tt-fork-verification-NjkPpg/node-tests.log",
       "summary": [
-        "✔ the model dictionary is built in first-appearance order and emitted with the rows (0.137125ms)",
-        "  ✔ marks done without a rebuild when the #187 repair rebuilt in the same sync (1.771166ms)",
-        "ℹ tests 3700",
-        "ℹ pass 3683",
+        "✔ the model dictionary is built in first-appearance order and emitted with the rows (0.257083ms)",
+        "  ✔ marks done without a rebuild when the #187 repair rebuilt in the same sync (19.494375ms)",
+        "ℹ tests 3702",
+        "ℹ pass 3685",
         "ℹ fail 0",
         "ℹ cancelled 0",
         "ℹ skipped 17",
-        "ℹ duration_ms 53596.254416"
+        "ℹ duration_ms 373555.363833"
       ]
     },
     {
       "name": "dashboard-tests",
       "exitCode": 0,
       "signal": null,
-      "durationMs": 46135,
-      "log": "<local-log>/dashboard-tests.log",
+      "durationMs": 347928,
+      "log": "<local-temp>/tt-fork-verification-NjkPpg/dashboard-tests.log",
       "summary": [
-        " Test Files  144 passed (144)",
-        "      Tests  1256 passed (1256)",
-        "   Duration  45.44s (transform 1.61s, setup 3.87s, collect 24.21s, tests 21.04s, environment 21.35s, prepare 3.52s)"
+        " Test Files  145 passed (145)",
+        "      Tests  1260 passed (1260)",
+        "   Duration  346.99s (transform 3.64s, setup 9.76s, collect 524.37s, tests 45.28s, environment 57.42s, prepare 15.34s)"
       ]
     },
     {
       "name": "typecheck",
       "exitCode": 0,
       "signal": null,
-      "durationMs": 1212,
-      "log": "<local-log>/typecheck.log",
+      "durationMs": 2109,
+      "log": "<local-temp>/tt-fork-verification-NjkPpg/typecheck.log",
       "summary": []
     },
     {
       "name": "validate-copy",
       "exitCode": 0,
       "signal": null,
-      "durationMs": 231,
-      "log": "<local-log>/validate-copy.log",
+      "durationMs": 413,
+      "log": "<local-temp>/tt-fork-verification-NjkPpg/validate-copy.log",
       "summary": []
     },
     {
       "name": "validate-locale",
       "exitCode": 0,
       "signal": null,
-      "durationMs": 261,
-      "log": "/tmp/tt-final-validate-locale.log",
-      "summary": [
-        "zh: 2228/2228 copy keys localized (100.0%).",
-        "zh-TW: 2228/2228 copy keys localized (100.0%)."
-      ],
-      "recheckedAt": "2026-10-27T11:13:35.186Z"
+      "durationMs": 307,
+      "log": "<local-temp>/tt-fork-verification-NjkPpg/validate-locale.log",
+      "summary": []
     },
     {
       "name": "validate-guardrails",
       "exitCode": 0,
       "signal": null,
-      "durationMs": 254,
-      "log": "<local-log>/validate-guardrails.log",
+      "durationMs": 382,
+      "log": "<local-temp>/tt-fork-verification-NjkPpg/validate-guardrails.log",
       "summary": []
     },
     {
       "name": "validate-versions",
       "exitCode": 0,
       "signal": null,
-      "durationMs": 159,
-      "log": "<local-log>/validate-versions.log",
+      "durationMs": 247,
+      "log": "<local-temp>/tt-fork-verification-NjkPpg/validate-versions.log",
       "summary": []
     },
     {
       "name": "validate-ui-hardcode",
       "exitCode": 0,
       "signal": null,
-      "durationMs": 220,
-      "log": "<local-log>/validate-ui-hardcode.log",
+      "durationMs": 351,
+      "log": "<local-temp>/tt-fork-verification-NjkPpg/validate-ui-hardcode.log",
       "summary": []
     },
     {
       "name": "validate-bot-frames",
       "exitCode": 0,
       "signal": null,
-      "durationMs": 396,
-      "log": "<local-log>/validate-bot-frames.log",
+      "durationMs": 435,
+      "log": "<local-temp>/tt-fork-verification-NjkPpg/validate-bot-frames.log",
       "summary": []
     },
     {
       "name": "dashboard-build",
       "exitCode": 0,
       "signal": null,
-      "durationMs": 3778,
-      "log": "/tmp/tt-final-dashboard-build.log",
+      "durationMs": 6483,
+      "log": "<local-temp>/tt-fork-verification-NjkPpg/dashboard-build.log",
       "summary": [
-        "✓ built in 3.27s"
-      ],
-      "recheckedAt": "2026-10-27T11:13:38.967Z"
+        "✓ built in 5.85s"
+      ]
     }
   ],
   "previousAttempts": [
     {
-      "name": "validate-locale",
-      "exitCode": 1,
-      "signal": null,
-      "durationMs": 175,
-      "log": "<local-log>/validate-locale.log",
-      "summary": []
-    },
-    {
-      "name": "dashboard-build",
-      "exitCode": 0,
-      "signal": null,
-      "durationMs": 3934,
-      "log": "<local-log>/dashboard-build.log",
-      "summary": [
-        "✓ built in 3.46s"
-      ]
+      "description": "Initial run: stale source-pattern assertions, version/UI guard failures and timeout/performance failures during an interrupted long run. Relevant assertions updated for the requested personal channel; targeted retry and full retry passed.",
+      "nodeFailures": 5,
+      "nodeCancelled": 1,
+      "dashboardFailures": 1,
+      "retryPassed": true
     }
   ]
 }

@@ -57,6 +57,7 @@ function MenuBarDisplayControls({ settings, setSetting }) {
       hint={copy("settings.menubar.showStatsHint")}
       control={<ToggleSwitch checked={showStats} onChange={() => setSetting("showStats", !showStats)} ariaLabel={copy("settings.menubar.showStats")} />}
     />
+    <p className="px-4 py-2 text-xs text-oai-gray-500">{copy("fork.menubar.five_hour_hint")}</p>
     {[0, 1].map((slot) => {
       const label = copy(slot === 0 ? "menubar.slot.primary" : "menubar.slot.secondary");
       const value = selected[slot] || MENU_BAR_NONE_ID;
@@ -129,6 +130,18 @@ export function MenuBarSection() {
           }
         />
       ) : null}
+      <SettingsRow
+        label={copy("settings.menubar.autoUpdate")}
+        hint={copy("fork.updates.channel_hint")}
+        control={<ToggleSwitch checked={Boolean(settings?.autoUpdateEnabled)}
+          onChange={() => setSetting("autoUpdateEnabled", !settings?.autoUpdateEnabled)}
+          ariaLabel={copy("settings.menubar.autoUpdate")} />}
+      />
+      <SettingsRow label={copy("settings.menubar.checkUpdates")}
+        hint={settings?.updateStatus || settings?.version}
+        control={<Button variant="secondary" size="sm" disabled={Boolean(settings?.updateBusy)}
+          onClick={() => runAction("checkForUpdates")}>{copy("settings.menubar.checkUpdates")}</Button>}
+      />
       <SettingsRow
         label={copy("settings.menubar.syncNow")}
         hint={copy("settings.menubar.syncNowHint")}

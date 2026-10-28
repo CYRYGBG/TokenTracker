@@ -2228,3 +2228,7 @@ fork.backup.restore,fork,Personal,Backup,restore,Restore missing records from ba
 fork.backup.exported,fork,Personal,Backup,exported,Backup exported,,active
 fork.backup.restored,fork,Personal,Backup,restored,Missing records restored,,active
 fork.backup.too_large,fork,Personal,Backup,too_large,Backup exceeds 64 MB,,active
+fork.devices.incomplete,ui,DashboardPage,ForkDeviceUsageCard,incomplete,Device data may be incomplete.,,active
+fork.devices.updated,ui,DashboardPage,ForkDeviceUsageCard,updated,Synced {{time}},,active
+fork.menubar.five_hour_hint,ui,SettingsPage,MenuBarSection,five_hour_hint,Choose Codex 5h or Claude 5h in either slot. A dash means the limit is unavailable; sign in to the provider and refresh Limits. Provider visibility settings also apply.,,active
+fork.updates.channel_hint,ui,SettingsPage,MenuBarSection,channel_hint,Updates come only from CYRYGBG/TokenTracker personal releases. Disabled by default; enable to download and install updates automatically.,,active

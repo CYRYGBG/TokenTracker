@@ -108,8 +108,9 @@ public sealed class NativeReturnUriTests
     public void EntryPointOnlyFindsTheOrdinaryProductScheme()
     {
         Assert.Null(NativeReturnUri.FindArgument(["--startup", "tokentracker-qa-auth://auth/callback?insforge_code=sample"]));
-        Assert.Equal(Billing, NativeReturnUri.FindArgument(["--startup", Billing]));
-        Assert.Equal("TOKENtracker://AUTH/callback?insforge_code=sample",
-            NativeReturnUri.FindArgument(["TOKENtracker://AUTH/callback?insforge_code=sample"]));
+        Assert.Null(NativeReturnUri.FindArgument(["--startup", Billing]));
+        Assert.Null(NativeReturnUri.FindArgument(["tokentracker://auth/callback?insforge_code=sample"]));
+        Assert.Equal("TOKENtracker-personal://dashboard",
+            NativeReturnUri.FindArgument(["TOKENtracker-personal://dashboard"]));
     }
 }

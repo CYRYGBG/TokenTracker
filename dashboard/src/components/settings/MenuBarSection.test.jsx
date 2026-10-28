@@ -84,9 +84,29 @@ describe("MenuBarSection limit-reset feedback", () => {
     }
   });
 
-  it("omits official update controls from personal settings", () => {
+  it("exposes personal updates and manual checks even when automatic updates are off", async () => {
+    const user = userEvent.setup();
     render(<MemoryRouter><MenuBarSection/></MemoryRouter>);
-    expect(screen.queryByRole("switch",{name:"settings.menubar.autoUpdate"})).toBeNull();
-    expect(screen.queryByRole("button",{name:/settings\.menubar\.checkUpdates/})).toBeNull();
+    await user.click(screen.getByRole("switch", {name:"settings.menubar.autoUpdate"}));
+    expect(nativeSettingsMock.setSetting).toHaveBeenCalledWith("autoUpdateEnabled", false);
+    await user.click(screen.getByRole("button", {name:"settings.menubar.checkUpdates"}));
+    expect(nativeSettingsMock.runAction).toHaveBeenCalledWith("checkForUpdates");
+    expect(screen.getByText("fork.updates.channel_hint")).toBeInTheDocument();
+  });
+
+  it("can choose a five-hour indicator directly in settings", async () => {
+    const user = userEvent.setup();
+    render(<MemoryRouter><MenuBarSection/></MemoryRouter>);
+    await user.click(screen.getByRole("combobox", {name:"menubar.slot.primary"}));
+    await user.click(await screen.findByRole("option", {name:"menubar.metric.codex_5h"}));
+    expect(nativeSettingsMock.setSetting).toHaveBeenCalledWith("menuBarItems", ["codex5h", "todayCost"]);
+  });
+
+  it("blocks duplicate manual checks while native update work is in progress", () => {
+    nativeSettingsMock.settings.updateBusy = true;
+    try {
+      render(<MemoryRouter><MenuBarSection/></MemoryRouter>);
+      expect(screen.getByRole("button", {name:"settings.menubar.checkUpdates"})).toBeDisabled();
+    } finally { delete nativeSettingsMock.settings.updateBusy; }
   });
 });

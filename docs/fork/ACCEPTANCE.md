@@ -50,3 +50,16 @@
 2026-10-27 解锁后补验：真实 macOS Keychain 的临时测试凭据写入/读取、URL 隔离和清理通过，见 `evidence/keychain-check.json`；DPAPI 未实测。原生设置的小组件死链与退出残留已修复并重建最终包，见 `native-checks.json` 与 `native-app-settings.png`。
 
 2026-10-27 用户授权 GitHub 分发已完成：`personal-v1.4.11` Release 正式公开，macOS/Windows 两附件和校验和远端 digest 一致，匿名下载均 HTTP 200，见 `evidence/release.json`。发布不改变未实测的平台/真实网盘验收状态。
+
+
+## 1.4.12 新增验收
+
+| 项目 | 结果 |
+|---|---|
+| WebDAV 左列设备卡 | 原生三设备合计 750，远端 600，清除恢复 750，空闲设备保留；真实 API 回归通过 |
+| 账号级用量 | 卡片与合并桶总量一致，Cursor 跨设备 MAX 不相加 |
+| 五小时指标 | 无凭据仍可选择 Codex 五小时，原生偏好保存 codex5h；不伪造额度 |
+| 更新校验 | macOS 精确 URL/标签、SHA、真实签名 bundle 原子替换及拒绝坏包；Windows 172 项通过 |
+| 原生桥 | 自动更新 on/off 保存并恢复关闭，检查中按钮禁用 |
+| 完整回归 | Node 3685 pass / 17 skip，Dashboard 1260 pass，发布前检查通过 |
+| 实机边界 | Windows 升级、真实坚果云/物理双机、未来发布的无人值守升级尚未实测 |

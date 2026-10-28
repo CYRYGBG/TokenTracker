@@ -1069,6 +1069,14 @@ function createLocalApiHandler({ queuePath, serverVersion = null, trackerDataDir
           } else if(req.method!=='GET'){json(res,{code:'method_not_allowed'},405);return true;}
           const state=await durable.read(path.join(trackerDataDir,'webdav','state.json'),{});
           json(res,{device:await view.scope(trackerDataDir),devices:await view.devices(trackerDataDir),partial:Boolean(state.last_failure||state.partial),last_failure:state.last_failure||null});
+        } else if(p==='/api/fork/device-usage' && req.method==='GET') {
+          const from=url.searchParams.get('from')||'';
+          const to=url.searchParams.get('to')||'';
+          const context=getTimeZoneContext(url);
+          json(res,await view.deviceUsage(trackerDataDir,(row)=>{
+            const day=rowDayKey(row,context);
+            return day&&(!from||day>=from)&&(!to||day<=to);
+          }));
         } else if(p==='/api/fork/prefs') {
           if(req.method==='POST') {
             const body=JSON.parse((await readBodyLimited(req,16384)).toString());

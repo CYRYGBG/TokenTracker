@@ -196,7 +196,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
 
         _menu.Items.Add(CreateSeparator());
         _menu.Items.Add(_startupItem);
-
+        _menu.Items.Add(_checkUpdatesItem);
 
         _menu.Items.Add(CreateSeparator());
         _menu.Items.Add(_quitItem);
@@ -255,6 +255,9 @@ internal sealed class TrayApplicationContext : ApplicationContext
         _updateChecker.IntegrityCheckFailed += () => PostToUi(() =>
             _trayIcon.ShowBalloonTip(8000, _updateStrings.IntegrityErrorTitle,
                 _updateStrings.IntegrityErrorMessage, ToolTipIcon.Warning));
+        _updateCheckTimer.Tick += (_, _) => _ = _updateChecker.CheckAsync(silent: true);
+        _updateCheckTimer.Start();
+        _ = _updateChecker.CheckAsync(silent: true);
     }
 
     private void UpdateLimitsPolling() => _poller.IncludeLimits = _petWindow?.IsVisible == true || _quotaWindow?.Enabled == true;

@@ -6,8 +6,8 @@ final class UpdateChecker {
 
     static let shared = UpdateChecker()
 
-    private let repo = "CYRYGBG/TokenTracker"
-    private let releaseURL: String = "https://github.com/xiufengsun/TokenTracker/releases/latest"
+    private let repo = PersonalUpdateChannel.repository
+    private let releaseURL: String = "https://github.com/CYRYGBG/TokenTracker/releases/latest"
 
     /// Observable status for menu item display
     private(set) var statusText: String? = nil {
@@ -42,8 +42,45 @@ final class UpdateChecker {
     }
 
     func check(silent: Bool = false) {
-        // Personal builds are updated through reviewed local builds.
-        return
+        guard !isBusy else { return }
+
+        // Auto-update toggle: silent checks are exclusively launch-time background
+        // checks whose success path downloads and installs without prompting, so the
+        // toggle short-circuits them before any network call. Manual (non-silent)
+        // checks stay available regardless of the toggle.
+        if silent, !AutoUpdatePolicy.isEnabled() {
+            Swift.print("[UpdateChecker] Skipping silent update check: auto-update is disabled")
+            return
+        }
+
+        // Developer / Debug path guard:
+        // Skip automatic silent background checks if the application is running from outside
+        // the standard Applications directories (e.g., from Xcode DerivedData).
+        // This prevents developer builds from being replaced by personal GitHub releases.
+        if silent {
+            let path = Bundle.main.bundlePath
+            let inStandardApps = path.hasPrefix("/Applications/") || path.hasPrefix("/Users/\(NSUserName())/Applications/")
+            if !inStandardApps {
+                Swift.print("[UpdateChecker] Skipping silent update check: running from non-standard path \(path)")
+                return
+            }
+        }
+
+        isBusy = true
+        statusText = Strings.updateChecking
+
+        Task.detached { [self] in
+            let result: Result<GitHubRelease, Error>
+            do {
+                result = .success(try await self.fetchLatestRelease())
+            } catch {
+                result = .failure(error)
+            }
+
+            await MainActor.run {
+                self.handleResult(result, silent: silent)
+            }
+        }
     }
 
     // MARK: - GitHub API (URLSession — respects system proxy)
@@ -54,6 +91,9 @@ final class UpdateChecker {
         let body: String?
         let html_url: String
         let assets: [Asset]
+        let draft: Bool?
+        let prerelease: Bool?
+        var expectedDigest: String?
 
         struct Asset: Decodable {
             let name: String
@@ -62,7 +102,7 @@ final class UpdateChecker {
         }
 
         var tagVersion: String {
-            tag_name.hasPrefix("v") ? String(tag_name.dropFirst()) : tag_name
+            PersonalUpdateChannel.version(tag_name) ?? ""
         }
 
         var dmgAsset: Asset? {
@@ -75,9 +115,7 @@ final class UpdateChecker {
                 return machine == "arm64"
             }()
             let suffix = isArm64 ? "arm64.dmg" : "x64.dmg"
-            // Prefer arch-specific DMG, fall back to any .dmg
-            return assets.first { $0.name.hasSuffix(suffix) }
-                ?? assets.first { $0.name.hasSuffix(".dmg") }
+            return assets.first { $0.name == "TokenTrackerPersonal-macOS-\(suffix)" }
         }
     }
 
@@ -93,7 +131,19 @@ final class UpdateChecker {
             throw UpdateError.curlFailed((response as? HTTPURLResponse)?.statusCode ?? -1)
         }
         guard !data.isEmpty else { throw UpdateError.emptyResponse }
-        return try JSONDecoder().decode(GitHubRelease.self, from: data)
+        var release = try JSONDecoder().decode(GitHubRelease.self, from: data)
+        guard release.draft != true, release.prerelease != true,
+              PersonalUpdateChannel.version(release.tag_name) != nil,
+              let asset = release.dmgAsset,
+              PersonalUpdateChannel.assetURL(asset.browser_download_url, tag: release.tag_name, name: asset.name) != nil,
+              let checksums = release.assets.first(where: { $0.name == PersonalUpdateChannel.checksumsAsset }),
+              let checksumURL = PersonalUpdateChannel.assetURL(checksums.browser_download_url, tag: release.tag_name, name: checksums.name) else { throw UpdateError.noRelease }
+        let (checksumData, checksumResponse) = try await URLSession.shared.data(from: checksumURL)
+        guard (checksumResponse as? HTTPURLResponse)?.statusCode == 200, checksumData.count <= 65536,
+              let body = String(data: checksumData, encoding: .utf8),
+              let digest = PersonalUpdateChannel.digest(body, name: asset.name) else { throw UpdateError.noRelease }
+        release.expectedDigest = digest
+        return release
     }
 
     // MARK: - Result Handling
@@ -116,19 +166,21 @@ final class UpdateChecker {
                         return
                     }
                     // Silent auto-update: download and install without prompting
-                    startDownloadAndInstall(dmg, targetVersion: release.tagVersion, interactive: false)
+                    startDownloadAndInstall(dmg, expectedDigest: release.expectedDigest ?? "", targetVersion: release.tagVersion, interactive: false)
                 } else {
                     promptUpdate(release: release, currentVersion: current)
                 }
             } else {
                 finishUpdate()
                 if !silent {
+                    statusText = Strings.upToDateMessage(current)
                     showAlert(title: Strings.upToDateTitle, message: Strings.upToDateMessage(current), style: .informational)
                 }
             }
         case .failure(let error):
             finishUpdate()
             if !silent {
+                statusText = "\(Strings.updateCheckFailedTitle): \(error.localizedDescription)"
                 showAlert(
                     title: Strings.updateCheckFailedTitle,
                     message: "\(error.localizedDescription)\n\n\(Strings.manualCheckHint)",
@@ -217,7 +269,7 @@ final class UpdateChecker {
         presentAlert(alert) { response in
             if response == .alertFirstButtonReturn {
                 if let dmg = release.dmgAsset {
-                    self.startDownloadAndInstall(dmg, targetVersion: release.tagVersion, interactive: true)
+                    self.startDownloadAndInstall(dmg, expectedDigest: release.expectedDigest ?? "", targetVersion: release.tagVersion, interactive: true)
                 } else if let url = URL(string: release.html_url) {
                     NSWorkspace.shared.open(url)
                 }
@@ -235,7 +287,7 @@ final class UpdateChecker {
 
     // MARK: - Download + Install (URLSession for proxy support)
 
-    private func startDownloadAndInstall(_ asset: GitHubRelease.Asset, targetVersion: String, interactive: Bool) {
+    private func startDownloadAndInstall(_ asset: GitHubRelease.Asset, expectedDigest: String, targetVersion: String, interactive: Bool) {
         isBusy = true
         let totalSize = Int64(asset.size)
         let totalMB = Double(totalSize) / 1_048_576
@@ -260,7 +312,7 @@ final class UpdateChecker {
             in: .userDomainMask,
             appropriateFor: nil,
             create: true
-        ))?.appendingPathComponent("TokenTrackerBar/updates", isDirectory: true)
+        ))?.appendingPathComponent("TokenTrackerPersonal/updates", isDirectory: true)
             ?? FileManager.default.temporaryDirectory
         if !FileManager.default.fileExists(atPath: supportDir.path) {
             try? FileManager.default.createDirectory(at: supportDir, withIntermediateDirectories: true)
@@ -331,7 +383,7 @@ final class UpdateChecker {
                 case .success(let dmgURL):
                     self.statusText = Strings.installing
                     self.progressPanel?.setIndeterminate(detail: Strings.installing)
-                    self.performInstallAsync(dmgURL, targetVersion: targetVersion)
+                    self.performInstallAsync(dmgURL, expectedDigest: expectedDigest, targetVersion: targetVersion)
                 case .failure(let error):
                     self.finishUpdate()
                     self.showAlert(
@@ -348,12 +400,16 @@ final class UpdateChecker {
         delegate.start(url: url)
     }
 
-    private func performInstallAsync(_ dmgURL: URL, targetVersion: String) {
+    private func performInstallAsync(_ dmgURL: URL, expectedDigest: String, targetVersion: String) {
         let dmgPath = dmgURL.path
         Task.detached { [self] in
             let result: Result<URL, Error>
             do {
-                result = .success(try self.mountCopyRelaunch(dmgPath: dmgPath))
+                guard try PersonalUpdateChannel.verifies(dmgURL, digest: expectedDigest) else {
+                    try? FileManager.default.removeItem(at: dmgURL)
+                    throw UpdateError.installFailed("Downloaded update failed SHA-256 verification")
+                }
+                result = .success(try self.mountCopyRelaunch(dmgPath: dmgPath, targetVersion: targetVersion))
             } catch {
                 result = .failure(error)
             }
@@ -367,9 +423,6 @@ final class UpdateChecker {
                     self.relaunch(appURL: appURL)
                 case .failure(let error):
                     self.finishUpdate()
-                    if FileManager.default.fileExists(atPath: dmgPath) {
-                        NSWorkspace.shared.open(dmgURL)
-                    }
                     self.showAlert(
                         title: Strings.installationFailedTitle,
                         message: "\(error.localizedDescription)\n\n\(Strings.manualInstallHint)",
@@ -382,7 +435,7 @@ final class UpdateChecker {
 
     // MARK: - Install Logic
 
-    nonisolated private func mountCopyRelaunch(dmgPath: String) throws -> URL {
+    nonisolated private func mountCopyRelaunch(dmgPath: String, targetVersion: String) throws -> URL {
         // 1. Mount
         let mount = Process()
         mount.executableURL = URL(fileURLWithPath: "/usr/bin/hdiutil")
@@ -413,48 +466,14 @@ final class UpdateChecker {
         // 2. Find .app
         let fm = FileManager.default
         let contents = try fm.contentsOfDirectory(atPath: mountPoint)
-        guard let appName = contents.first(where: { $0.hasSuffix(".app") }) else {
+        guard let appName = contents.first(where: { $0 == "TokenTrackerPersonal.app" }) else {
             throw UpdateError.installFailed("No .app found in DMG")
         }
 
         let appsDir = URL(fileURLWithPath: "/Applications", isDirectory: true)
         let sourceApp = URL(fileURLWithPath: mountPoint).appendingPathComponent(appName)
         let destApp = appsDir.appendingPathComponent(appName)
-
-        // 3. Stage the new bundle next to the old one, then swap.
-        //
-        // Never delete the installed app before its replacement is fully on disk.
-        // The previous code removed /Applications/TokenTracker.app and copied into
-        // that same path, so a copy that died partway destroyed the install: one
-        // such failure on macOS 27 left 15 of 671 files behind, and the only way
-        // out was downloading the DMG and dragging it by hand.
-        //
-        // The staging name carries no `.app` extension, so the destination is not
-        // a recognisable app bundle until every file has landed. The swap is then
-        // one directory-entry rewrite in /Applications instead of 671 writes into
-        // a path the system already treats as an installed, running application.
-        let stagingName = ".\((appName as NSString).deletingPathExtension)-update-\(ProcessInfo.processInfo.processIdentifier)"
-        let stagingURL = appsDir.appendingPathComponent(stagingName)
-        Self.removeStaleStagingDirectories(in: appsDir, appName: appName, keeping: stagingName)
-        try? fm.removeItem(at: stagingURL)
-
-        do {
-            try fm.copyItem(at: sourceApp, to: stagingURL)
-        } catch {
-            try? fm.removeItem(at: stagingURL)
-            throw UpdateError.installFailed(Self.describe(error))
-        }
-
-        do {
-            if fm.fileExists(atPath: destApp.path) {
-                _ = try fm.replaceItemAt(destApp, withItemAt: stagingURL)
-            } else {
-                try fm.moveItem(at: stagingURL, to: destApp)
-            }
-        } catch {
-            try? fm.removeItem(at: stagingURL)
-            throw UpdateError.installFailed(Self.describe(error))
-        }
+        try PersonalUpdateInstaller.install(source: sourceApp, destination: destApp, version: targetVersion)
 
         // 4. Cleanup DMG
         try? fm.removeItem(atPath: dmgPath)
@@ -462,46 +481,10 @@ final class UpdateChecker {
         return destApp
     }
 
-    /// Clears staging directories orphaned by an earlier crash, so a failed install
-    /// cannot leave a few hundred MB behind in /Applications.
-    nonisolated private static func removeStaleStagingDirectories(
-        in appsDir: URL,
-        appName: String,
-        keeping currentName: String
-    ) {
-        let prefix = ".\((appName as NSString).deletingPathExtension)-update-"
-        guard let entries = try? FileManager.default.contentsOfDirectory(
-            at: appsDir,
-            includingPropertiesForKeys: nil,
-            options: [.skipsSubdirectoryDescendants]
-        ) else { return }
-        for entry in entries where entry.lastPathComponent.hasPrefix(prefix)
-            && entry.lastPathComponent != currentName {
-            try? FileManager.default.removeItem(at: entry)
-        }
-    }
-
-    /// Keeps the error domain, code and underlying POSIX errno in the message.
-    /// Without them a permission denial and a disk-full failure are indistinguishable
-    /// in a user's screenshot — both read only as "X couldn't be copied to Y".
-    nonisolated private static func describe(_ error: Error) -> String {
-        let nsError = error as NSError
-        var parts = [nsError.localizedDescription]
-        if let reason = nsError.localizedFailureReason { parts.append(reason) }
-        var code = "\(nsError.domain) \(nsError.code)"
-        if let underlying = nsError.userInfo[NSUnderlyingErrorKey] as? NSError {
-            code += " / \(underlying.domain) \(underlying.code)"
-        }
-        parts.append("[\(code)]")
-        let message = parts.joined(separator: " ")
-        Swift.print("[UpdateChecker] Install failed: \(message)")
-        return message
-    }
-
     private func relaunch(appURL: URL) {
         let process = Process()
-        process.executableURL = URL(fileURLWithPath: "/usr/bin/open")
-        process.arguments = ["-n", appURL.path]
+        process.executableURL = URL(fileURLWithPath: "/bin/sh")
+        process.arguments = ["-c", "i=0; while kill -0 \"$1\" 2>/dev/null; do i=$((i+1)); [ \"$i\" -lt 200 ] || exit 1; sleep 0.1; done; exec /usr/bin/open -n \"$2\"", "personal-update", String(ProcessInfo.processInfo.processIdentifier), appURL.path]
         process.standardOutput = Pipe()
         process.standardError = Pipe()
         do {

@@ -1,6 +1,6 @@
 # STATUS — 个人同步版事实状态
 
-更新时间：2026-10-27。已获用户明确授权，将审核后的 macOS/Windows 安装包发布到自己的 fork；不发布 npm、不向 upstream 写入、不覆盖安装官方应用。发布源快照分支 `codex/personal-release-20261027`，标签 `personal-v1.4.11`。需求入口 REQUIREMENTS.md；验收入口 ACCEPTANCE.md；ZCode 提示词与结果审核见 ZCODE_REVIEW.md。
+更新时间：2026-10-28。已获用户明确授权，将审核后的 macOS/Windows 安装包发布到自己的 fork；不发布 npm、不向 upstream 写入、不覆盖安装官方应用。发布源快照分支 `codex/personal-release-20261027`，标签 `personal-v1.4.11`。需求入口 REQUIREMENTS.md；验收入口 ACCEPTANCE.md；ZCode 提示词与结果审核见 ZCODE_REVIEW.md。
 
 ## 当前实现
 
@@ -75,3 +75,16 @@ ZCode 新增的 512 MiB Codex 解压上限、后台归档回填和缺口台账�
 已通过菜单退出旧副本，注销三个开发路径的 Launch Services 登记。旧 app 与临时副本保留为 dist/app-copies.noindex 内的 .app.backup，可恢复；当前解包产物转入 dist/personal-build.noindex。系统 Spotlight 查询只返回 /Applications/TokenTrackerPersonal.app。安装版二进制与已审核发布版一致，已从 Finder 启动，原生统计窗口正常、个人后端 HTTP 200；没有删除/重置统计目录，没有退出官方版小组件。
 
 构建脚本今后将解包 app 放入 .noindex 构建目录，DMG 创建后清理临时 staging；校验脚本按 manifest 的 appPath 找产物。已验证脚本语法、迁移后的包内资源/签名/隔离 CLI，以及既有 DMG/Setup 的 SHA256SUMS。没有改动已发布安装包；本轮只改构建工具，未重新发布。证据见 evidence/app-deduplication.json。
+
+
+## 1.4.12 接续修复（2026-10-28）
+
+- 首页官方 DeviceUsageCard 原本保留但没接 WebDAV；现显示同步设备的名称、平台、日期范围用量及同步时间，保留零用量设备。点击切换持久化全局范围，账号级用量沿用原去重。
+- 恢复 macOS/Windows 个人版更新入口及可选自动更新，默认关闭；应用存活时启动及每六小时检查。只接受 CYRYGBG/TokenTracker 的 personal-vX.Y.Z 稳定发布、精确平台资产与 SHA256SUMS.txt。macOS 还校验 bundle ID、版本、签名，完整复制再替换，旧进程退出后启动；Windows 保持个人安装 GUID。
+- 五小时查询和渲染未删除，但配置被实时可用性过滤。现 Codex/Claude 五小时项可预先选择，暂无额度显示横线；真实数据仍用原百分比、显示模式和倒计时，尊重隐藏厂商设置。
+- Node 全量 3702 项：3685 通过、17 跳过、0 失败/取消；Dashboard 145 文件、1260 项通过；类型/文案/翻译/架构/受管版本/UI hardcode/bot frames/生产构建通过。Windows 原生 172 项通过。初次超时/性能失败与旧源码断言修正后，针对性和全量重跑通过；保留重跑说明。
+- macOS 完整 CLT Release、Windows 自包含 publish / Inno 安装器重建为 1.4.12。临时目录真实签名 bundle 的 SHA/原子替换、拒绝错版本/损坏签名通过，失败保留旧安装。
+- 独立 bundle ID、临时 HOME 原生验收：三设备合计 750，Windows 600、Mac 150、空闲 0；点击 Windows 后顶部范围与汇总为 600，再点恢复 750。Codex 五小时选择实际保存，自动更新开关 on/off 保存后恢复关闭，检查中按钮禁用。截图只含夹具。未配置完整 WebDAV 的夹具如实显示 partial，仍保留设备统计。
+- 现有 Applications 1.4.11 未覆盖，个人统计目录未删除/迁移。旧版需先按 README 手动覆盖安装一次 1.4.12，之后应用内更新。Windows 实机升级、真实坚果云、物理双机仍未验证。
+
+最终二进制再次原生复验：重启后 Codex 五小时选择保持；应用实际读取个人 GitHub 最新发布及校验文件，显示“1.4.12 已是最新版本”，关闭提示后设置仍保留结果。证据 personal-update-check.png / personal-device-card.png / personal-native-settings.png。没有发起真实覆盖安装或伪造未来升级。

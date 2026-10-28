@@ -8,13 +8,13 @@ namespace TokenTrackerWin;
 
 /// <summary>
 /// Resolves a release without downloading or executing an installer. A throttled
-/// REST API falls back to the official release redirect, with both assets pinned
+/// REST API falls back to the personal release redirect, with both assets pinned
 /// to that tag. Kept UI-free so the HTTP flow can be tested without an app install.
 /// </summary>
 internal sealed class UpdateReleaseClient(HttpClient http, Func<DateTimeOffset>? utcNow = null)
 {
     internal const string ReleasePageUrl = "https://github.com/CYRYGBG/TokenTracker/releases/latest";
-    internal const string SetupAssetName = "TokenTrackerPersonal-Setup.exe";
+    internal const string SetupAssetName = "TokenTrackerPersonal-Windows-x64-Setup.exe";
     private const string ApiUrl = "https://api.github.com/repos/CYRYGBG/TokenTracker/releases/latest";
     private const string TagPath = "/CYRYGBG/TokenTracker/releases/tag/";
     private const string DownloadBase = "https://github.com/CYRYGBG/TokenTracker/releases/download/";
@@ -55,7 +55,7 @@ internal sealed class UpdateReleaseClient(HttpClient http, Func<DateTimeOffset>?
         }
 
         UsedFallback = true;
-        Diag.Log("update", "checking official release page (api cooldown)");
+        Diag.Log("update", "checking personal release page (api cooldown)");
         return await ReadReleasePageAsync(cancellationToken);
     }
 
@@ -66,6 +66,9 @@ internal sealed class UpdateReleaseClient(HttpClient http, Func<DateTimeOffset>?
         var root = doc.RootElement;
         var tag = root.TryGetProperty("tag_name", out var t) ? t.GetString() ?? "" : "";
         var version = ParseVersion(tag);
+        if ((root.TryGetProperty("draft", out var draft) && draft.ValueKind == JsonValueKind.True)
+            || (root.TryGetProperty("prerelease", out var pre) && pre.ValueKind == JsonValueKind.True))
+            throw new InvalidDataException("Not a stable published personal release.");
         string? setupUrl = null;
         long setupSize = 0;
         string? checksumsUrl = null;
@@ -87,6 +90,9 @@ internal sealed class UpdateReleaseClient(HttpClient http, Func<DateTimeOffset>?
 
         if (string.IsNullOrWhiteSpace(setupUrl) || setupSize <= 0)
             throw new InvalidDataException("The release has no usable Windows installer asset.");
+        if (checksumsUrl != DownloadBase + tag + "/" + UpdateIntegrity.ChecksumsAssetName
+            || setupUrl != DownloadBase + tag + "/" + SetupAssetName)
+            throw new InvalidDataException("Update assets must belong to the same personal release.");
         return new ReleaseInfo(version, setupUrl, setupSize, checksumsUrl);
     }
 
@@ -102,7 +108,7 @@ internal sealed class UpdateReleaseClient(HttpClient http, Func<DateTimeOffset>?
             || !uri.Host.Equals("github.com", StringComparison.OrdinalIgnoreCase) || !uri.IsDefaultPort
             || uri.UserInfo.Length != 0 || uri.Query.Length != 0 || uri.Fragment.Length != 0
             || !uri.AbsolutePath.StartsWith(TagPath, StringComparison.Ordinal))
-            throw new InvalidDataException("The release page did not resolve to the official version tag.");
+            throw new InvalidDataException("The release page did not resolve to the personal version tag.");
 
         var tag = uri.AbsolutePath[TagPath.Length..];
         var version = ParseVersion(tag);
@@ -123,7 +129,7 @@ internal sealed class UpdateReleaseClient(HttpClient http, Func<DateTimeOffset>?
         if (UpdateIntegrity.FindDigest(checksums, SetupAssetName) is null)
             throw new InvalidDataException("The release has no usable Windows installer checksum.");
 
-        Diag.Log("update", $"official release page resolved version={version}");
+        Diag.Log("update", $"personal release page resolved version={version}");
         return new ReleaseInfo(version, setupUrl, setupSize, checksumsUrl);
     }
 
@@ -148,7 +154,9 @@ internal sealed class UpdateReleaseClient(HttpClient http, Func<DateTimeOffset>?
 
     private static string ParseVersion(string tag)
     {
-        var version = tag.StartsWith('v') ? tag[1..] : tag;
+        if (!tag.StartsWith("personal-v", StringComparison.Ordinal))
+            throw new InvalidDataException("Not a personal release tag.");
+        var version = tag["personal-v".Length..];
         if (!Version.TryParse(version, out var parsed) || parsed.Build < 0 || parsed.Revision >= 0)
             throw new InvalidDataException("The release tag is not a stable three-part version.");
         return version;

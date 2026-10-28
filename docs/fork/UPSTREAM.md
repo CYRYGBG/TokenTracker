@@ -42,7 +42,7 @@
 | 估值 / 价格 | fork-costs.js；pricing/index.js 新 reload/自定义规则与版本；litellm-fetcher 的 TTL=0 修复及获取时间 | 同进程刷新、离线缓存、历史依据 |
 | 元数据备份 | fork-backup.js / /api/fork/backup；浏览器及原生本地导出桥 | 白名单、自身/其他设备恢复、保留现有行 |
 | 网页精简 | App、Sidebar、SettingsPage；移除官方 SDK/遥测依赖、云预加载、实验卡 | Dashboard 全量、UI 冒烟、生产构建 |
-| 原生精简 | 两端 OAuth 注册/深链/宠物入口断开；Widget target 排除；更新检查禁用 | CLT 完整 Swift 构建、Windows 自包含 publish、安装器编译；实机层级见 STATUS |
+| 原生精简 | 两端 OAuth 注册/深链/宠物入口断开；Widget target 排除；个人 GitHub 更新渠道（默认自动更新关闭） | CLT 完整 Swift 构建、Windows 自包含 publish、安装器编译；实机层级见 STATUS |
 
 热点统计引擎保留：rollout.js 复用原解析器，增加既有项目解析导出、归档读取诊断与上游 Qoder 格式兼容；sync.js 接入长期明细与首次后台归档回填；session-analytics.js 导出已有 fragment merge，并保留 fork 已保存的会话费用依据；pricing 保留上游匹配、Token 归一化、长上下文/速度/DeepSeek 规则。未重写采集器。
 
@@ -96,3 +96,9 @@
 - 解锁后原生验收修复：菜单栏指标设置退出已移除的小组件页，直接使用官方 SettingsRow/Select 和既有指标归一化；退出时对自有 Node 显式 SIGTERM 并限时等待，最终 DMG 复验宿主/子进程/端口均结束。再次 fetch 仍为上述 SHA。
 
 - 2026-10-27 本机重复图标清理前再次 fetch：upstream/main 仍为 9dc925d89e7c526c9d5831b689a8bac427e7d8ea，无新增主线提交。本轮仅调整构建目录/临时产物清理和对应校验路径，不改采集或已发布二进制。
+
+## 2026-10-28 接续交付
+
+本轮开始再次 fetch，upstream/main 仍为 `9dc925d89e7c526c9d5831b689a8bac427e7d8ea`，没有新主线修复需要移植。复用上游 DeviceUsageCard、菜单栏指标和原生下载/安装流程，增加独立 PersonalUpdateChannel / PersonalUpdateInstaller。首页设备分布此前读取旧手动导入通道而没有接 WebDAV，本轮经 fork-view/local-api 的独立 device-usage 适配恢复。没有改采集器、去重和迁移。
+
+用户明确要求应用内更新后恢复自己的发布渠道：仅 CYRYGBG/TokenTracker、personal-vX.Y.Z 稳定标签、精确资产和必须的 SHA-256。macOS 替换前检查个人 bundle 身份/版本/签名；Windows 复用既有安装 GUID，校验失败不启动安装器。状态栏 Codex/Claude 五小时指标可在未取得额度时配置，不再因可用性筛选而找不到入口。

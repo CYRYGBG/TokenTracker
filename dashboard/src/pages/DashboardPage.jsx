@@ -1,3 +1,4 @@
+import { ForkDeviceUsageCard } from "../components/ForkDeviceUsageCard.jsx";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useAccountView } from "../contexts/AccountViewContext.jsx";
 import { useActivityHeatmap } from "../hooks/use-activity-heatmap.js";
@@ -403,7 +404,8 @@ export function DashboardPage({
     [accountDeviceSources],
   );
   // Dropdown filter: choosing between devices needs 2+ of them.
-  const showDeviceFilter = activeDevices.length >= 2;
+  const forkDeviceView = isLocalDashboardHost() && !publicMode && !mockEnabled;
+  const showDeviceFilter = !forkDeviceView && activeDevices.length >= 2;
   // Breakdown card: needs 2+ rows; account-level sources count as rows.
   const showDeviceCard = (accountView || activeDevices.length >= 2) && activeDevices.length + accountSourceRows.length >= 2;
   // Reset the filter when no selector is visible, or when the selected device
@@ -433,7 +435,7 @@ export function DashboardPage({
 
   const deviceUsageData = accountView ? { devices: activeDevices, accountSources: accountSourceRows }
     : localDeviceUsage(activeDevices, accountSourceRows, selectedDevice);
-  const deviceUsageBlock = showDeviceCard ? (
+  let deviceUsageBlock = showDeviceCard ? (
     <DeviceUsageCard
       devices={deviceUsageData.devices}
       accountSources={deviceUsageData.accountSources}
@@ -447,6 +449,10 @@ export function DashboardPage({
       } : undefined}
     />
   ) : null;
+
+  if (forkDeviceView) {
+    deviceUsageBlock = <ForkDeviceUsageCard from={from} to={to} timeZone={timeZone} tzOffsetMinutes={tzOffsetMinutes} />;
+  }
 
   const timeZoneLabel = useMemo(
     () => formatTimeZoneLabel({ timeZone, offsetMinutes: tzOffsetMinutes }),

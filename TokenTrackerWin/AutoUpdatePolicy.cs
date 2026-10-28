@@ -5,10 +5,8 @@ namespace TokenTrackerWin;
 
 /// <summary>
 /// Persists the Windows automatic-update preference alongside the other native
-/// settings. A missing value intentionally means DISABLED in this fork: the
-/// fork has no release channel of its own and the bundled updater's URLs still
-/// point at the upstream repo, so a silent launch check could overwrite this
-/// fork with the official build. Manual "Check for Updates" is never gated.
+/// settings. Missing means disabled; manual checks remain available. Only the
+/// personal GitHub release channel is accepted.
 /// </summary>
 internal static class AutoUpdatePolicy
 {

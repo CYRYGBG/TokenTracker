@@ -918,5 +918,9 @@
   "fork.backup.restore": "从备份补回缺失记录",
   "fork.backup.exported": "备份已导出",
   "fork.backup.restored": "已补回缺失记录",
-  "fork.backup.too_large": "备份超过 64 MB"
+  "fork.backup.too_large": "备份超过 64 MB",
+  "fork.devices.incomplete": "裝置資料可能不完整。",
+  "fork.devices.updated": "同步於 {{time}}",
+  "fork.menubar.five_hour_hint": "在任一顯示位置選擇 Codex 5h 或 Claude 5h。橫線表示暫時無法取得額度，請登入對應工具後重新整理額度頁；額度頁的工具顯示設定同樣生效。",
+  "fork.updates.channel_hint": "僅從 CYRYGBG/TokenTracker 的個人版發佈取得更新。預設關閉，開啟後自動下載並安裝更新。"
 }

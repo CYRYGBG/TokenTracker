@@ -8,9 +8,9 @@ namespace TokenTrackerWin.Tests;
 
 public sealed class UpdateReleaseClientTests
 {
-    private const string ApiUrl = "https://api.github.com/repos/xiufengsun/TokenTracker/releases/latest";
-    private const string TagUrl = "https://github.com/xiufengsun/TokenTracker/releases/tag/v1.3.9";
-    private const string AssetBase = "https://github.com/xiufengsun/TokenTracker/releases/download/v1.3.9/";
+    private const string ApiUrl = "https://api.github.com/repos/CYRYGBG/TokenTracker/releases/latest";
+    private const string TagUrl = "https://github.com/CYRYGBG/TokenTracker/releases/tag/personal-v99.3.9";
+    private const string AssetBase = "https://github.com/CYRYGBG/TokenTracker/releases/download/personal-v99.3.9/";
     private static readonly DateTimeOffset Now = new(2026, 10, 12, 8, 0, 0, TimeSpan.Zero);
 
     [Fact]
@@ -22,10 +22,10 @@ public sealed class UpdateReleaseClientTests
 
         var release = await resolver.FetchLatestAsync();
 
-        Assert.Equal("1.3.9", release.Version);
+        Assert.Equal("99.3.9", release.Version);
         Assert.Equal(900, release.SetupSize);
-        Assert.Equal(AssetBase + "TokenTracker-Setup.exe", release.SetupUrl);
-        Assert.Equal(AssetBase + "SHA256SUMS", release.ChecksumsUrl);
+        Assert.Equal(AssetBase + "TokenTrackerPersonal-Windows-x64-Setup.exe", release.SetupUrl);
+        Assert.Equal(AssetBase + "SHA256SUMS.txt", release.ChecksumsUrl);
         Assert.Equal([ApiUrl], calls);
         Assert.False(resolver.UsedFallback);
         Assert.Null(resolver.ApiRetryAt);
@@ -47,8 +47,8 @@ public sealed class UpdateReleaseClientTests
         Assert.True(resolver.UsedFallback);
         Assert.Equal(Now.AddHours(1), resolver.ApiRetryAt);
         Assert.Equal(900, release.SetupSize);
-        Assert.Equal(AssetBase + "TokenTracker-Setup.exe", release.SetupUrl);
-        Assert.Equal(AssetBase + "SHA256SUMS", release.ChecksumsUrl);
+        Assert.Equal(AssetBase + "TokenTrackerPersonal-Windows-x64-Setup.exe", release.SetupUrl);
+        Assert.Equal(AssetBase + "SHA256SUMS.txt", release.ChecksumsUrl);
         Assert.Equal(new[] {
             (HttpMethod.Get, ApiUrl),
             (HttpMethod.Head, UpdateReleaseClient.ReleasePageUrl),
@@ -179,12 +179,12 @@ public sealed class UpdateReleaseClientTests
     }
 
     [Theory]
-    [InlineData("https://example.test/xiufengsun/TokenTracker/releases/tag/v1.3.9")]
-    [InlineData("http://github.com/xiufengsun/TokenTracker/releases/tag/v1.3.9")]
-    [InlineData("https://github.com/another/repo/releases/tag/v1.3.9")]
-    [InlineData("https://github.com/xiufengsun/TokenTracker/releases/latest")]
-    [InlineData("https://github.com/xiufengsun/TokenTracker/releases/tag/v1.3.9-rc.1")]
-    [InlineData("https://github.com/xiufengsun/TokenTracker/releases/tag/v1.3.9/extra")]
+    [InlineData("https://example.test/CYRYGBG/TokenTracker/releases/tag/personal-v99.3.9")]
+    [InlineData("http://github.com/CYRYGBG/TokenTracker/releases/tag/personal-v99.3.9")]
+    [InlineData("https://github.com/another/repo/releases/tag/personal-v99.3.9")]
+    [InlineData("https://github.com/CYRYGBG/TokenTracker/releases/latest")]
+    [InlineData("https://github.com/CYRYGBG/TokenTracker/releases/tag/personal-v99.3.9-rc.1")]
+    [InlineData("https://github.com/CYRYGBG/TokenTracker/releases/tag/personal-v99.3.9/extra")]
     public async Task FallbackRejectsUnexpectedRedirectsAndInvalidTags(string redirect)
     {
         var calls = 0;
@@ -204,12 +204,12 @@ public sealed class UpdateReleaseClientTests
         using var http = Http(request =>
         {
             if (IsApi(request)) return RateLimited();
-            if (request.RequestUri!.AbsoluteUri.EndsWith("TokenTracker-Setup.exe"))
+            if (request.RequestUri!.AbsoluteUri.EndsWith("TokenTrackerPersonal-Windows-x64-Setup.exe"))
             {
                 if (failure == "installer-missing") return new HttpResponseMessage(HttpStatusCode.NotFound);
                 if (failure == "size-missing") return new HttpResponseMessage(HttpStatusCode.OK);
             }
-            if (request.RequestUri.AbsoluteUri.EndsWith("SHA256SUMS"))
+            if (request.RequestUri.AbsoluteUri.EndsWith("SHA256SUMS.txt"))
             {
                 if (failure == "checksums-missing") return new HttpResponseMessage(HttpStatusCode.NotFound);
                 if (failure == "checksum-entry-missing") return new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent(new string('a', 64) + "  other.exe") };
@@ -269,8 +269,8 @@ public sealed class UpdateReleaseClientTests
     public async Task ExistingVersionStillReportsUpToDate()
     {
         using var http = Http(_ => new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent(JsonSerializer.Serialize(new {
-            tag_name = "v0.0.0",
-            assets = new[] { new { name = "TokenTracker-Setup.exe", browser_download_url = "https://github.com/xiufengsun/TokenTracker/releases/download/v0.0.0/TokenTracker-Setup.exe", size = 900 } },
+            tag_name = "personal-v0.0.0",
+            assets = new[] { new { name = "TokenTrackerPersonal-Windows-x64-Setup.exe", browser_download_url = "https://github.com/CYRYGBG/TokenTracker/releases/download/personal-v0.0.0/TokenTrackerPersonal-Windows-x64-Setup.exe", size = 900 }, new { name = "SHA256SUMS.txt", browser_download_url = "https://github.com/CYRYGBG/TokenTracker/releases/download/personal-v0.0.0/SHA256SUMS.txt", size = 200 } },
         })) });
         var checker = new UpdateChecker(http);
         Assert.Equal(UpdateChecker.CheckOutcome.UpToDate, await checker.CheckAsync(silent: false));
@@ -291,7 +291,7 @@ public sealed class UpdateReleaseClientTests
         checker.QuitRequested += () => quitRequested = true;
         Assert.Equal(UpdateChecker.CheckOutcome.UpdateAvailable, await checker.CheckAsync(silent: false));
         Assert.Equal(UpdateChecker.UpdateState.UpdateAvailable, checker.State);
-        Assert.Equal("1.3.9", checker.LatestVersion);
+        Assert.Equal("99.3.9", checker.LatestVersion);
         Assert.Equal(new[] { HttpMethod.Get, HttpMethod.Head, HttpMethod.Head, HttpMethod.Get }, calls);
         Assert.False(quitRequested);
     }
@@ -318,14 +318,34 @@ public sealed class UpdateReleaseClientTests
         Assert.Equal(1, calls);
     }
 
+    [Theory]
+    [InlineData("upstream")]
+    [InlineData("wrong-tag")]
+    [InlineData("checksum-missing")]
+    [InlineData("prerelease")]
+    public async Task ApiRejectsAssetsOutsideTheStablePersonalRelease(string failure)
+    {
+        using var http = Http(_ => {
+            var original = ApiRelease().Content.ReadAsStringAsync().GetAwaiter().GetResult();
+            var body = failure switch {
+                "upstream" => original.Replace("CYRYGBG/TokenTracker", "xiufengsun/TokenTracker"),
+                "wrong-tag" => original.Replace("download/personal-v99.3.9/", "download/personal-v99.3.8/"),
+                "checksum-missing" => original.Replace("SHA256SUMS.txt", "OTHER"),
+                _ => original.Replace("{", "{\"prerelease\":true,", StringComparison.Ordinal),
+            };
+            return new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent(body) };
+        });
+        await Assert.ThrowsAsync<InvalidDataException>(() => new UpdateReleaseClient(http).FetchLatestAsync());
+    }
+
     private static bool IsApi(HttpRequestMessage request) => request.RequestUri!.Host == "api.github.com";
 
     private static HttpResponseMessage ApiRelease(bool includeInstaller = true)
         => new(HttpStatusCode.OK) { Content = new StringContent(JsonSerializer.Serialize(new {
-            tag_name = "v1.3.9",
+            tag_name = "personal-v99.3.9",
             assets = includeInstaller ? new[] {
-                new { name = "TokenTracker-Setup.exe", browser_download_url = AssetBase + "TokenTracker-Setup.exe", size = 900 },
-                new { name = "SHA256SUMS", browser_download_url = AssetBase + "SHA256SUMS", size = 90 },
+                new { name = "TokenTrackerPersonal-Windows-x64-Setup.exe", browser_download_url = AssetBase + "TokenTrackerPersonal-Windows-x64-Setup.exe", size = 900 },
+                new { name = "SHA256SUMS.txt", browser_download_url = AssetBase + "SHA256SUMS.txt", size = 90 },
             } : [],
         })) };
 
@@ -341,14 +361,14 @@ public sealed class UpdateReleaseClientTests
     {
         if (request.RequestUri!.AbsoluteUri == UpdateReleaseClient.ReleasePageUrl)
             return new HttpResponseMessage(HttpStatusCode.OK) { RequestMessage = new HttpRequestMessage(HttpMethod.Head, redirect) };
-        if (request.RequestUri.AbsoluteUri == AssetBase + "TokenTracker-Setup.exe")
+        if (request.RequestUri.AbsoluteUri == AssetBase + "TokenTrackerPersonal-Windows-x64-Setup.exe")
         {
             var response = new HttpResponseMessage(HttpStatusCode.OK);
             response.Content.Headers.ContentLength = 900;
             return response;
         }
-        if (request.RequestUri.AbsoluteUri == AssetBase + "SHA256SUMS")
-            return new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent(new string('a', 64) + "  TokenTracker-Setup.exe\n") };
+        if (request.RequestUri.AbsoluteUri == AssetBase + "SHA256SUMS.txt")
+            return new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent(new string('a', 64) + "  TokenTrackerPersonal-Windows-x64-Setup.exe\n") };
         throw new InvalidOperationException("Unexpected test request: " + request.RequestUri.AbsolutePath);
     }
 

@@ -61,8 +61,8 @@ test("NativeBridge settings fingerprint tracks available menu items", () => {
     "fingerprint should use the same available ids as the settings payload without building full dictionaries",
   );
   assert.doesNotMatch(
-    source,
-    /availableItemsFingerprint[\s\S]*?availableItemsPayload\([\s\S]*?compactMap\s*\{\s*\$0\["id"\]\s*\}/,
+    source.slice(source.indexOf("private static func availableItemsFingerprint"), source.indexOf("// MARK: - Message dispatch")),
+    /availableItemsPayload\(/,
     "fingerprint should not construct full available item payload dictionaries",
   );
   assert.doesNotMatch(
@@ -75,11 +75,8 @@ test("NativeBridge settings fingerprint tracks available menu items", () => {
 test("NativeBridge self-heals saved menu bar selections against available items", () => {
   const source = fs.readFileSync(nativeBridgePath, "utf8");
 
-  assert.match(
-    source,
-    /let\s+availableItemIDs\s*=\s*MenuBarDisplayPreferences\.availableItemIDs\(\s*for:\s*viewModel\?\.usageLimits,\s*keepingSelected:\s*menuBarItems,\s*hiddenProviders:\s*hiddenProviders\s*\)/,
-    "pushSettings should compute the current selectable ids from usage limits and hidden providers",
-  );
+  assert.match(source, /let settingsItems = MenuBarDisplayPreferences\.availableItemsPayload\([\s\S]*?allowPendingFiveHour: true/);
+  assert.match(source, /let availableItemIDs = settingsItems\.compactMap/);
   assert.match(
     source,
     /let\s+normalizedMenuBarItems\s*=\s*MenuBarDisplayPreferences\.normalize\(\s*menuBarItems,\s*allowedIDs:\s*Set\(availableItemIDs\)\s*\)/,

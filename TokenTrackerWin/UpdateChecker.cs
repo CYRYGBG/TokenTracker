@@ -9,7 +9,7 @@ namespace TokenTrackerWin;
 /// Windows counterpart of <c>TokenTrackerBar/Services/UpdateChecker.swift</c>.
 ///
 /// Checks the GitHub "latest release" for a newer version, downloads the
-/// <c>TokenTracker-Setup.exe</c> asset, and runs it fully silently. Because a
+/// <c>TokenTrackerPersonal-Windows-x64-Setup.exe</c> asset, and runs it fully silently. Because a
 /// silent Inno install does not relaunch the app (its <c>[Run]</c> postinstall is
 /// <c>skipifsilent</c>), we drive the close → install → relaunch sequence
 /// ourselves: a small detached <c>cmd</c> runs the installer and then restarts
@@ -27,9 +27,9 @@ internal sealed class UpdateChecker
     public enum UpdateState { Idle, Checking, UpdateAvailable, Downloading, Installing }
     public enum CheckOutcome { UpToDate, UpdateAvailable, Failed, Skipped }
 
-    // The release uploads a stable, version-less "TokenTracker-Setup.exe"
+    // The release uploads a stable, version-less "TokenTrackerPersonal-Windows-x64-Setup.exe"
     // (release-windows.yml renames the versioned Inno output before upload), and
-    // the publish job lists that exact name in SHA256SUMS.
+    // the publish job lists that exact name in SHA256SUMS.txt.
     private const string SetupAssetName = UpdateReleaseClient.SetupAssetName;
 
     // External host (github.com): keep the DEFAULT proxy behaviour so CN proxy/VPN
@@ -83,8 +83,53 @@ internal sealed class UpdateChecker
     /// </summary>
     public async Task<CheckOutcome> CheckAsync(bool silent)
     {
-        await Task.CompletedTask;
-        return CheckOutcome.Skipped;
+        if (State is UpdateState.Checking or UpdateState.Downloading or UpdateState.Installing)
+            return CheckOutcome.Skipped;
+        if (silent && !AutoUpdatePolicy.IsEnabled())
+        {
+            Diag.Log("update", "silent check skipped: automatic updates disabled");
+            return CheckOutcome.Skipped;
+        }
+        if (silent && !IsInstalledBuild())
+        {
+            Diag.Log("update", "silent check skipped: not an installed build");
+            return CheckOutcome.Skipped;
+        }
+
+        SetState(UpdateState.Checking);
+        try
+        {
+            using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(20));
+            var release = await _releaseClient.FetchLatestAsync(cts.Token);
+            var latest = release.Version;
+            if (CompareVersions(CurrentVersion, latest) < 0)
+            {
+                LatestVersion = latest;
+                _setupUrl = release.SetupUrl;
+                _setupSize = release.SetupSize;
+                _checksumsUrl = release.ChecksumsUrl;
+                SetState(UpdateState.UpdateAvailable);
+                Diag.Log("update", $"update available current={CurrentVersion} latest={latest}");
+                if (silent && AutoUpdatePolicy.IsEnabled())
+                {
+                    // The launch-time check is the unattended path. Start the same
+                    // resumable installer flow used by the tray action; it asks the
+                    // tray to quit only after the download is complete.
+                    _ = DownloadAndInstallAsync();
+                }
+                return CheckOutcome.UpdateAvailable;
+            }
+
+            SetState(UpdateState.Idle);
+            Diag.Log("update", $"up to date current={CurrentVersion} latest={latest}");
+            return CheckOutcome.UpToDate;
+        }
+        catch (Exception ex)
+        {
+            Diag.Log("update", $"check failed: {ex.Message}");
+            SetState(UpdateState.Idle);
+            return CheckOutcome.Failed;
+        }
     }
 
     /// <summary>Whether launch-time checks may download and install releases.</summary>
@@ -150,12 +195,12 @@ internal sealed class UpdateChecker
     {
         var dir = Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-            "TokenTracker", "updates");
+            "TokenTrackerPersonal", "updates");
         Directory.CreateDirectory(dir);
         var safeVersion = string.Concat(version.Select(c => char.IsAsciiLetterOrDigit(c) || c is '.' or '-' ? c : '_'));
-        var dest = Path.Combine(dir, $"TokenTracker-Setup-{safeVersion}.exe");
-        try { File.Delete(Path.Combine(dir, "TokenTracker-Setup.exe")); } catch { }
-        foreach (var stalePath in Directory.EnumerateFiles(dir, "TokenTracker-Setup-*"))
+        var dest = Path.Combine(dir, $"TokenTrackerPersonal-Windows-x64-Setup-{safeVersion}.exe");
+        try { File.Delete(Path.Combine(dir, "TokenTrackerPersonal-Windows-x64-Setup.exe")); } catch { }
+        foreach (var stalePath in Directory.EnumerateFiles(dir, "TokenTrackerPersonal-Windows-x64-Setup-*"))
         {
             if (string.Equals(stalePath, dest, StringComparison.OrdinalIgnoreCase)
                 || string.Equals(stalePath, dest + ".part", StringComparison.OrdinalIgnoreCase)
@@ -188,7 +233,7 @@ internal sealed class UpdateChecker
     // ── Integrity ──────────────────────────────────────────────────────
 
     /// <summary>
-    /// Gate the downloaded installer on the release's <c>SHA256SUMS</c> before we
+    /// Gate the downloaded installer on the release's <c>SHA256SUMS.txt</c> before we
     /// execute it. Until now the only check was the byte count, which a resumed
     /// download cannot fail even when the pieces were stitched together wrong — the
     /// length is right by construction. The digest is the real gate.
@@ -196,20 +241,16 @@ internal sealed class UpdateChecker
     /// It always runs on the FINAL assembled file (<see cref="ResumableDownloader"/>
     /// has already moved <c>.part</c> into place), never on a chunk.
     ///
-    /// Back-compat: releases published before the checksum asset existed carry no
-    /// <c>SHA256SUMS</c>. Refusing to install from them would strand every user on an
-    /// older build, so a release WITHOUT the asset logs a line and installs exactly as
-    /// it does today. A release WITH the asset must produce a matching digest — and if
-    /// the file is there but unreadable/unparsable we fail rather than fall back,
-    /// because that path is retryable and strands nobody. Once no supported release
-    /// predates the asset, the missing-asset branch can be tightened to fail closed.
+    /// Missing, unreadable or mismatched checksums always block installation.
     /// </summary>
     private async Task<bool> VerifySetupIntegrityAsync(string setupPath)
     {
         if (_checksumsUrl is null)
         {
-            Diag.Log("update", $"no {UpdateIntegrity.ChecksumsAssetName} asset on this release — installing unverified (legacy release)");
-            return true;
+            Diag.Log("update", "personal release checksum missing; refusing installation");
+            DiscardDownload(setupPath);
+            IntegrityCheckFailed?.Invoke();
+            return false;
         }
 
         string? expected;
@@ -292,7 +333,7 @@ internal sealed class UpdateChecker
         // cmd /c ""<setup>" /VERYSILENT ... & start "" "<app>""
         // The setup runs inline (cmd waits for it); then `start` relaunches the app detached.
         var arguments =
-            $"/c \"\"{setupPath}\" /VERYSILENT /SUPPRESSMSGBOXES /NORESTART & start \"\" \"{appExe}\"\"";
+            $"/c \"\"{setupPath}\" /VERYSILENT /SUPPRESSMSGBOXES /NORESTART && start \"\" \"{appExe}\"\"";
 
         var psi = new ProcessStartInfo
         {

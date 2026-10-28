@@ -1,0 +1,40 @@
+{
+  "checkedAt": "2026-10-28T02:05:20.439Z",
+  "version": "1.4.12",
+  "isolation": {
+    "temporaryHome": true,
+    "separateBundleIdentifier": true,
+    "realUserProfileModified": false,
+    "installedAppReplaced": false
+  },
+  "deviceCard": {
+    "total": 750,
+    "remoteSelected": 600,
+    "clearRestores": 750,
+    "idleDeviceVisible": true,
+    "style": "upstream DeviceUsageCard"
+  },
+  "menuBar": {
+    "codexFiveHourSelectableWithoutCredentials": true,
+    "persistedAfterRestart": true,
+    "providerQuotaFabricated": false
+  },
+  "updates": {
+    "autoUpdateDefault": false,
+    "toggleRoundTrip": true,
+    "busyDisablesButton": true,
+    "realGitHubCheck": "up-to-date 1.4.12",
+    "macInstallerHelper": "signed temporary bundle replacement; rejects wrong version and damaged signature",
+    "windowsNativeTests": 172,
+    "windowsPhysicalUpgradeVerified": false,
+    "unattendedFutureReleaseVerified": false
+  },
+  "tests": {
+    "nodeTotal": 3702,
+    "nodePass": 3685,
+    "nodeSkip": 17,
+    "dashboardFiles": 145,
+    "dashboardPass": 1260,
+    "windowsNativePass": 172
+  }
+}

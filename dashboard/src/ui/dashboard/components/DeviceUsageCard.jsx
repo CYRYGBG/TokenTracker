@@ -24,7 +24,7 @@ function isCurrentDevice(device, currentDeviceId) {
   return currentDeviceId === device?.id || device?.isCurrent === true;
 }
 
-export function DeviceUsageCard({ devices = [], accountSources = [], currentDeviceId = "", selectedDeviceId = "", onSelectDevice, onRenameDevice }) {
+export function DeviceUsageCard({ devices = [], accountSources = [], currentDeviceId = "", selectedDeviceId = "", onSelectDevice, onRenameDevice, showIdleDevices = false }) {
   const { formatTokens, formatTokensTooltip } = useTokenFormat();
   const [editingId, setEditingId] = useState("");
   const [draft, setDraft] = useState("");
@@ -47,9 +47,9 @@ export function DeviceUsageCard({ devices = [], accountSources = [], currentDevi
   const ranked = useMemo(
     () =>
       devices
-        .filter((d) => (Number(d.total_tokens) || 0) > 0 || d.id === selectedDeviceId)
+        .filter((d) => showIdleDevices || (Number(d.total_tokens) || 0) > 0 || d.id === selectedDeviceId)
         .sort((a, b) => (Number(b.total_tokens) || 0) - (Number(a.total_tokens) || 0)),
-    [devices, selectedDeviceId],
+    [devices, selectedDeviceId, showIdleDevices],
   );
 
   function beginEdit(d) {
@@ -244,6 +244,11 @@ export function DeviceUsageCard({ devices = [], accountSources = [], currentDevi
                       </span>
                     </div>
 
+                    {d.last_synced_at && Number.isFinite(Date.parse(d.last_synced_at)) && (
+                      <p className="mt-1 text-[10px] text-oai-gray-400 dark:text-oai-gray-500">
+                        {copy("fork.devices.updated", { time: new Date(d.last_synced_at).toLocaleString() })}
+                      </p>
+                    )}
                     {/* Row 2: usage bar. */}
                     <div className="mt-1.5 h-[2px] bg-oai-gray-100 dark:bg-oai-gray-800 rounded-full overflow-hidden">
                       <div

@@ -174,6 +174,14 @@ test("settings → real WebDAV → isolated peer API: details, prefs, privacy, f
       "/functions/tokentracker-usage-summary?from=2026-10-01&to=2026-10-31",
     );
     assert.equal(Number(total.totals.total_tokens), 300, JSON.stringify(total));
+    const card = await api.request('/api/fork/device-usage?from=2026-10-01&to=2026-10-31&tz=Asia/Shanghai');
+    assert.equal(card.devices.length, 2);
+    assert.equal(card.devices.reduce((n,d)=>n+d.total_tokens,0),300);
+    assert.equal(card.devices.filter(d=>d.isCurrent).length,1);
+    assert.ok(card.devices.every(d=>d.last_synced_at));
+    const emptyCard=await api.request('/api/fork/device-usage?from=2026-09-01&to=2026-09-30');
+    assert.equal(emptyCard.devices.length,2);
+    assert.ok(emptyCard.devices.every(d=>d.total_tokens===0));
     const projects = await api.request(
       "/functions/tokentracker-project-usage-summary",
     );

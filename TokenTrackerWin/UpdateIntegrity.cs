@@ -18,7 +18,7 @@ namespace TokenTrackerWin;
 internal static class UpdateIntegrity
 {
     /// <summary>Name of the checksum asset the publish job attaches to every release it flips live.</summary>
-    public const string ChecksumsAssetName = "SHA256SUMS";
+    public const string ChecksumsAssetName = "SHA256SUMS.txt";
 
     /// <summary>
     /// Pull one file's digest out of a <c>sha256sum</c>-format body:

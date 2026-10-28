@@ -77,3 +77,13 @@ powershell -File TokenTrackerWin/scripts/bundle-node.ps1
 ## 避免本机出现重复应用图标
 
 安装后日常只从 /Applications/TokenTrackerPersonal.app 启动。构建脚本将未安装的 .app 保留在 dist/personal-build.noindex，交付目录 dist/reviewed 只保留安装器与报告；DMG 临时目录完成后自动清理。不要从旧 dist/personal 目录运行。已有旧开发副本可先正常退出、注销对应应用登记，再移入不参与索引的备份目录；不要删除统计数据目录。
+
+## 1.4.12 及后续更新
+
+1. 从自己的 [GitHub Releases](https://github.com/CYRYGBG/TokenTracker/releases/latest) 下载：Apple Silicon Mac 用 `TokenTrackerPersonal-macOS-arm64.dmg`，Windows x64 用 `TokenTrackerPersonal-Windows-x64-Setup.exe`。
+2. 1.4.11 首次升级：先在状态栏/托盘菜单正常退出。Mac 打开 DMG，将个人版拖进 Applications 并选择替换，随后弹出镜像、从 Applications 打开；Windows 运行新版 Setup，安装至原个人版目录。无需先卸载，不删除个人数据目录。
+3. 从 1.4.12 开始，在「设置 → App → 检查更新」或原生菜单中检查；自动更新默认关闭，可在同页开启，启用后在启动及运行中每六小时检查。只接受自己的个人稳定发布，不进入官方更新渠道。网络、校验或权限失败时保留安装及数据，可重试或用同一发布页手动覆盖安装。
+4. 自己继续开发时，递增版本并同步受管版本文件，测试/构建后发布 `personal-vX.Y.Z`（非草稿、非预发布）。每个发布同时附上上述两个固定文件名和 `SHA256SUMS.txt`；其中按标准 sha256sum 格式列出安装包哈希。设置为 latest。不要覆盖已发布标签或遗漏校验文件，否则更新器会拒绝安装。
+5. 五小时额度：在「设置 → App」开启菜单栏统计，为第一个或第二个位置选择「Codex 5 小时限额」或「Claude 5 小时限额」；也可在状态栏右键菜单配置。横线表示本机无法取得对应账号额度，先在对应工具登录后刷新限额页；额度页中被主动隐藏的工具不会展示。
+
+macOS 当前为 ad-hoc 签名、未公证；Windows 安装包未签名。Windows 实机升级、真实坚果云和物理双机仍需对应环境验证。

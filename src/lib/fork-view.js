@@ -317,15 +317,43 @@ async function sessions(trackerDir, url, { home, scan = true } = {}) {
 }
 async function devices(trackerDir) {
   const machineId = getOrCreateMachineId(path.join(trackerDir, "queue.jsonl"));
+  const config = await durable.read(path.join(trackerDir, "webdav", "config.json"), {});
   return [
-    { id: machineId, name: "本机", local: true },
-    ...(await remote(trackerDir)).map((d) => ({
-      id: d.machineId,
-      ...d.info,
-      local: false,
-    })),
+    { id: machineId, name: config.deviceName || config.device_name || require("node:os").hostname(), platform: process.platform, local: true },
+    ...(await remote(trackerDir)).filter((d) => d.machineId !== machineId)
+      .map((d) => ({ ...d.info, id: d.machineId, local: false })),
   ];
 }
+
+// Match the official card's device/account split, using the same merged rows
+// and account-level deduplication as the dashboard itself.
+async function deviceUsage(trackerDir, inRange) {
+  const { isAccountLevelSource } = require("./source-metadata");
+  const known = await devices(trackerDir);
+  const state = await durable.read(path.join(trackerDir, "webdav", "state.json"), {});
+  const selected = await scope(trackerDir);
+  const totals = (rows) => rows.filter(inRange).reduce((sum, row) => ({
+    total_tokens: sum.total_tokens + (Number(row.total_tokens) || 0),
+    billable_total_tokens: sum.billable_total_tokens + (Number(row.billable_total_tokens ?? row.total_tokens) || 0),
+  }), { total_tokens: 0, billable_total_tokens: 0 });
+  const forDevice = (id) => ({ searchParams: new URLSearchParams({ device: id }) });
+  const rows = await Promise.all(known.map(async (device) => ({
+    id: device.id, machine_id: device.id, device_name: device.name || device.id,
+    platform: device.platform, isCurrent: device.local,
+    last_synced_at: device.local ? state.last_success_at || null : device.updated_at || null,
+    ...totals((await buckets(trackerDir, forDevice(device.id))).filter((row) => !isAccountLevelSource(row.source))),
+  })));
+  const accounts = new Map();
+  for (const row of await buckets(trackerDir, forDevice("all"))) {
+    if (!isAccountLevelSource(row.source) || !inRange(row)) continue;
+    const previous = accounts.get(row.source) || [];
+    previous.push(row); accounts.set(row.source, previous);
+  }
+  return { device: selected, current_device_id: known[0].id, devices: rows,
+    account_sources: [...accounts].map(([source, values]) => ({ source, ...totals(values) })),
+    partial: Boolean(state.last_failure || state.partial), last_failure: state.last_failure || null };
+}
+
 module.exports = {
   remote,
   preferences,
@@ -335,4 +363,5 @@ module.exports = {
   collectSessions,
   sessions,
   devices,
+  deviceUsage,
 };

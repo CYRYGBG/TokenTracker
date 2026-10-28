@@ -309,7 +309,8 @@ enum MenuBarDisplayPreferences {
     static func availableItemsPayload(
         for limits: UsageLimitsResponse? = nil,
         keepingSelected selected: [String] = [],
-        hiddenProviders: Set<String> = []
+        hiddenProviders: Set<String> = [],
+        allowPendingFiveHour: Bool = false
     ) -> [[String: String]] {
         let noneEntry: [String: String] = [
             "id": noneID,
@@ -317,7 +318,17 @@ enum MenuBarDisplayPreferences {
             "shortLabel": "",
             "category": "none",
         ]
-        return [noneEntry] + availableItemIDs(for: limits, keepingSelected: selected, hiddenProviders: hiddenProviders)
+        var ids = availableItemIDs(for: limits, keepingSelected: selected, hiddenProviders: hiddenProviders)
+        // Let users choose the common five-hour indicators before authentication
+        // or while a provider is unavailable. Rendering still requires real data.
+        if allowPendingFiveHour {
+            for metric in [MenuBarDisplayMetric.codex5h, .claude5h] {
+                if !hiddenProviders.contains(metric.providerKey ?? ""), !ids.contains(metric.rawValue) {
+                    ids.append(metric.rawValue)
+                }
+            }
+        }
+        return [noneEntry] + ids
             .compactMap { MenuBarDisplayMetric(rawValue: $0) }
             .map {
                 [

@@ -10,6 +10,8 @@ public sealed class ChildProcessProxyTests
     public void AcceptsProcessStartInfoChildEnvironment()
     {
         var startInfo = new ProcessStartInfo { UseShellExecute = false };
+        foreach (var key in new[] { "HTTP_PROXY", "HTTPS_PROXY", "ALL_PROXY", "http_proxy", "https_proxy", "all_proxy" })
+            startInfo.Environment.Remove(key);
         var proxy = new StubProxy(_ => new Uri("http://127.0.0.1:7897"));
 
         var source = ChildProcessProxy.Configure(startInfo.Environment, proxy);

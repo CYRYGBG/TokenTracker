@@ -477,7 +477,9 @@ final class StatusBarController: NSObject {
             case .claude5h:
                 guard let window = viewModel.usageLimits?.claude.fiveHour,
                       viewModel.usageLimits?.claude.configured == true,
-                      viewModel.usageLimits?.claude.error == nil else { return nil }
+                      viewModel.usageLimits?.claude.error == nil else {
+                    return MenuBarDisplayValue(id: id, label: metric.menuLabel, value: "—")
+                }
                 return MenuBarDisplayValue(id: id, label: metric.menuLabel, value: formatLimitWithReset(window.utilization, resetIso: window.resetsAt))
             case .claude7d:
                 guard let window = viewModel.usageLimits?.claude.sevenDay,
@@ -486,6 +488,7 @@ final class StatusBarController: NSObject {
                 return MenuBarDisplayValue(id: id, label: metric.menuLabel, value: formatLimitWithReset(window.utilization, resetIso: window.resetsAt))
             case .codex5h:
                 return codexLimitValue(id: id, metric: metric, window: viewModel.usageLimits?.codex.primaryWindow)
+                    ?? MenuBarDisplayValue(id: id, label: metric.menuLabel, value: "—")
             case .codex7d:
                 return codexLimitValue(id: id, metric: metric, window: viewModel.usageLimits?.codex.secondaryWindow)
             case .codexCredits:
@@ -1195,7 +1198,8 @@ final class StatusBarController: NSObject {
             let payload = MenuBarDisplayPreferences.availableItemsPayload(
                 for: viewModel.usageLimits,
                 keepingSelected: selectedIDs,
-                hiddenProviders: LimitsSettingsStore.shared.hiddenProviders
+                hiddenProviders: LimitsSettingsStore.shared.hiddenProviders,
+                allowPendingFiveHour: true
             )
             for slot in 0..<MenuBarDisplayPreferences.maxVisibleItems {
                 let currentID = slot < selectedIDs.count ? selectedIDs[slot] : nil
@@ -1250,6 +1254,11 @@ final class StatusBarController: NSObject {
         let aboutItem = NSMenuItem(title: "TokenTracker v\(version)", action: #selector(openAbout), keyEquivalent: "")
         aboutItem.target = self
         menu.addItem(aboutItem)
+
+        let updateItem = NSMenuItem(title: Strings.menuCheckForUpdates, action: #selector(checkForUpdates), keyEquivalent: "")
+        updateItem.target = self
+        updateItem.tag = Self.updateMenuItemTag
+        menu.addItem(updateItem)
 
         let starItem = NSMenuItem(title: Strings.menuStarOnGitHub, action: #selector(openGitHub), keyEquivalent: "")
         starItem.target = self

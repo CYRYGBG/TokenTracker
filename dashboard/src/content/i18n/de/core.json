@@ -629,5 +629,9 @@
   "settings.local_data.error.too_many_devices": "Importgrenze erreicht. Zuerst eine ungenutzte Quelle entfernen.",
   "settings.local_data.error.unknown_device": "Diese importierte Quelle ist nicht mehr vorhanden.",
   "settings.local_data.error.transfer_failed": "Übertragung fehlgeschlagen. Datei und lokale App prüfen und erneut versuchen.",
-  "settings.local_data.local_history_only": "Offline-Snapshots enthalten keine Sitzungen. Für die Kontextanalyse dieses Gerät auswählen. Projekt-, Sitzungs- und Ergebnisanalysen verwenden immer nur Aufzeichnungen dieses Geräts."
+  "settings.local_data.local_history_only": "Offline-Snapshots enthalten keine Sitzungen. Für die Kontextanalyse dieses Gerät auswählen. Projekt-, Sitzungs- und Ergebnisanalysen verwenden immer nur Aufzeichnungen dieses Geräts.",
+  "fork.devices.incomplete": "Gerätedaten sind möglicherweise unvollständig.",
+  "fork.devices.updated": "Synchronisiert: {{time}}",
+  "fork.menubar.five_hour_hint": "Wähle Codex 5h oder Claude 5h als Anzeige. Ein Strich bedeutet, dass das Limit nicht verfügbar ist. Beim Anbieter anmelden und Limits aktualisieren. Ausgeblendete Anbieter bleiben ausgeblendet.",
+  "fork.updates.channel_hint": "Updates stammen nur aus persönlichen Releases von CYRYGBG/TokenTracker. Standardmäßig deaktiviert. Aktivieren, um Updates automatisch herunterzuladen und zu installieren."
 }

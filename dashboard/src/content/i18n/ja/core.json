@@ -632,5 +632,9 @@
   "settings.local_data.error.too_many_devices": "インポート上限です。不要な端末を先に除外してください。",
   "settings.local_data.error.unknown_device": "このインポート元は存在しません。",
   "settings.local_data.error.transfer_failed": "転送に失敗しました。ファイルとローカルアプリを確認してください。",
-  "settings.local_data.local_history_only": "オフラインスナップショットにセッション記録は含まれません。コンテキスト内訳はこの端末を選択してください。プロジェクト、セッション、成果の分析は常にこの端末の記録のみを使用します。"
+  "settings.local_data.local_history_only": "オフラインスナップショットにセッション記録は含まれません。コンテキスト内訳はこの端末を選択してください。プロジェクト、セッション、成果の分析は常にこの端末の記録のみを使用します。",
+  "fork.devices.incomplete": "デバイスのデータが不完全な可能性があります。",
+  "fork.devices.updated": "同期: {{time}}",
+  "fork.menubar.five_hour_hint": "表示項目に Codex 5h または Claude 5h を選択できます。ダッシュは上限を取得できない状態です。ツールにログインして使用上限を更新してください。非表示のツールは表示されません。",
+  "fork.updates.channel_hint": "CYRYGBG/TokenTracker の個人版リリースのみから更新します。初期設定はオフです。有効にすると自動でダウンロード・インストールします。"
 }

@@ -131,7 +131,7 @@ final class NativeBridge {
               let type = dict["type"] as? String else { return }
 
         if ["getPetSettings", "setPetSetting", "refreshPetCatalog"].contains(type) { return }
-        if let key = dict["key"] as? String, ["dynamicIslandEnabled", "hideMenuBarIcon", "autoUpdateEnabled"].contains(key) { return }
+        if let key = dict["key"] as? String, ["dynamicIslandEnabled", "hideMenuBarIcon"].contains(key) { return }
         switch type {
         case "getSettings":
             pushSettings()
@@ -302,31 +302,19 @@ final class NativeBridge {
         let limitsSettings = LimitsSettingsStore.shared
         let hiddenProviders = limitsSettings.hiddenProviders
         let menuBarItems = MenuBarDisplayPreferences.read()
-        let availableItemIDs = MenuBarDisplayPreferences.availableItemIDs(
-            for: viewModel?.usageLimits,
-            keepingSelected: menuBarItems,
-            hiddenProviders: hiddenProviders
+        // Availability must never erase the saved metric selection.
+        let settingsItems = MenuBarDisplayPreferences.availableItemsPayload(
+            for: viewModel?.usageLimits, keepingSelected: menuBarItems,
+            hiddenProviders: hiddenProviders, allowPendingFiveHour: true
         )
-        // Filter the PAYLOAD against currently-available ids, but never persist
-        // the pruned list. Availability is transient state: a single 4xx from a
-        // provider (e.g. Codex wham during token refresh) yields a "healthy but
-        // windowless" response, and persisting the prune permanently erased the
-        // user's saved metric selection — it never came back when the provider
-        // recovered. Junk/duplicate ids are still self-healed by
-        // MenuBarDisplayPreferences.read(), which normalizes against the full
-        // metric universe; rendering defensively skips unavailable metrics.
+        let availableItemIDs = settingsItems.compactMap { $0["id"] }
         let normalizedMenuBarItems = MenuBarDisplayPreferences.normalize(
-            menuBarItems,
-            allowedIDs: Set(availableItemIDs)
+            menuBarItems, allowedIDs: Set(availableItemIDs)
         )
         let payload: [String: Any] = [
             "showStats": UserDefaults.standard.object(forKey: "MenuBarShowStats") as? Bool ?? true,
             "menuBarItems": normalizedMenuBarItems,
-            "menuBarAvailableItems": MenuBarDisplayPreferences.availableItemsPayload(
-                for: viewModel?.usageLimits,
-                keepingSelected: normalizedMenuBarItems,
-                hiddenProviders: hiddenProviders
-            ),
+            "menuBarAvailableItems": settingsItems,
             "menuBarMaxItems": MenuBarDisplayPreferences.maxVisibleItems,
             "menuBarIconStyle": MenuBarIconStyle.current().rawValue,
             // Legacy field kept so an older bundled dashboard still renders a

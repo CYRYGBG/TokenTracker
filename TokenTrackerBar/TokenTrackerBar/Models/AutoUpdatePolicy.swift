@@ -7,11 +7,8 @@ import Foundation
 /// `UpdateChecker`. The checker reads this before every silent launch check;
 /// manual "Check for Updates" is never gated by it.
 enum AutoUpdatePolicy {
-    /// UserDefaults key backing the toggle. Missing value means DISABLED in this
-    /// fork: the fork has no release channel of its own and the bundled
-    /// updater's URLs still point at the upstream repo, so a silent launch check
-    /// could overwrite this fork with the official build (M5 will remove those
-    /// URLs; until then default-off is the guard).
+    /// Missing preference means disabled. Manual checks remain available;
+    /// only the personal GitHub release channel is accepted.
     static let enabledKey = "UpdateChecker.autoUpdateEnabled"
 
     static func isEnabled(_ defaults: UserDefaults = .standard) -> Bool {

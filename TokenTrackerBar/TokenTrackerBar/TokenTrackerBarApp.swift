@@ -21,7 +21,7 @@ struct TokenTrackerBarApp: App {
                         NSApp.activate(ignoringOtherApps: true)
                         NSApp.orderFrontStandardAboutPanel(nil)
                     }
-
+                    Button(Strings.menuCheckForUpdates) { UpdateChecker.shared.check() }
                 }
                 CommandGroup(replacing: .appSettings) {
                     Button(Strings.menuSettings + "…") {
@@ -74,6 +74,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     private var statusBarController: StatusBarController?
     private var lastWakeCatchUpAttemptAt: Date?
+    private var updateCheckTimer: Timer?
     private lazy var viewModel = DashboardViewModel()
     private lazy var serverManager = ServerManager()
     private lazy var launchAtLoginManager = LaunchAtLoginManager()
@@ -170,14 +171,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 await viewModel.syncThenLoad()
             }
             viewModel.startAutoRefresh()
-
-
+            UpdateChecker.shared.check(silent: true)
+            updateCheckTimer = Timer.scheduledTimer(withTimeInterval: 6 * 60 * 60, repeats: true) { _ in
+                Task { @MainActor in UpdateChecker.shared.check(silent: true) }
+            }
         }
     }
 
     func applicationWillTerminate(_ notification: Notification) {
         DashboardPresentationCoordinator.shared.prepareForTermination()
         if NativeQAProfile.current != nil { return }
+        updateCheckTimer?.invalidate()
         NSWorkspace.shared.notificationCenter.removeObserver(self)
         serverManager.stopServer()
     }

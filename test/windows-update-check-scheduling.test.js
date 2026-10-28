@@ -11,10 +11,13 @@ function readTrayContext() {
     .replace(/\r\n/g, "\n");
 }
 
-test("personal Windows tray never starts the official updater timer", () => {
+test("personal Windows tray schedules guarded personal update checks", () => {
   const source=readTrayContext();
-  assert.doesNotMatch(source, /_updateCheckTimer\.Start\(\)/);
-  assert.doesNotMatch(source, /_ = _updateChecker\.CheckAsync\(silent: true\)/);
+  assert.match(source, /_updateCheckTimer\.Start\(\)/);
+  assert.match(source, /_updateCheckTimer\.Tick.*CheckAsync\(silent: true\)/);
+  assert.match(source, /_ = _updateChecker\.CheckAsync\(silent: true\)/);
+  const checker = fs.readFileSync(path.join(repoRoot, "TokenTrackerWin/UpdateChecker.cs"), "utf8");
+  assert.match(checker, /silent && !AutoUpdatePolicy\.IsEnabled\(\)/);
 });
 
 test("periodic update check timer is disposed with the tray context", () => {
