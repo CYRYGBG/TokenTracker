@@ -1117,6 +1117,124 @@ describe("getUsageLimits", () => {
     }
   });
 
+  it("serves the last successful ZCode read from disk cache when a later quota fetch fails", async () => {
+    resetUsageLimitsCache();
+    const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "tokentracker-limits-zcode-stale-"));
+    try {
+      const v2 = path.join(tmp, ".zcode", "v2");
+      fs.mkdirSync(v2, { recursive: true });
+      fs.writeFileSync(path.join(v2, "config.json"), JSON.stringify({
+        provider: {
+          "builtin:bigmodel-coding-plan": { enabled: true, options: { apiKey: "bigmodel-key" } },
+        },
+      }));
+      const trackerDir = path.join(tmp, "tracker");
+      const futureMs = Date.now() + 6 * 60 * 60 * 1000;
+      const quotaBody = () => ({
+        code: 200,
+        msg: "Operation successful",
+        success: true,
+        data: {
+          level: "lite",
+          limits: [
+            { type: "TOKENS_LIMIT", unit: 3, number: 5, percentage: 9, nextResetTime: futureMs },
+            { type: "TOKENS_LIMIT", unit: 6, number: 1, percentage: 12, nextResetTime: futureMs + 6 * 60 * 60 * 1000 },
+          ],
+        },
+      });
+      const isQuotaUrl = (url) => String(url).includes("/api/monitor/usage/quota/limit");
+
+      const ok = await getUsageLimits({
+        home: tmp,
+        trackerDir,
+        env: {},
+        platform: "linux",
+        providerTimeoutMs: 2000,
+        securityRunner: inactiveRunner,
+        commandRunner: inactiveRunner,
+        fetchImpl(url) {
+          if (isQuotaUrl(url)) {
+            return Promise.resolve({ ok: true, status: 200, json: async () => quotaBody() });
+          }
+          return pendingUnlessCodexReset(url);
+        },
+      });
+      assert.equal(ok.zcode.configured, true);
+      assert.equal(ok.zcode.error, null);
+      assert.equal(ok.zcode.primary_window.used_percent, 9);
+      assert.equal(ok.zcode.secondary_window.used_percent, 12);
+      assert.equal(ok.zcode.plan_label, "Lite");
+      assert.notEqual(ok.zcode.stale, true);
+      assert.ok(fs.existsSync(path.join(trackerDir, "zcode-usage-limits-cache.json")), "a live read must seed the disk cache");
+
+      // Drop the in-memory cache so the next call actually re-fetches and hits the failure branch.
+      resetUsageLimitsCache();
+
+      const failed = await getUsageLimits({
+        home: tmp,
+        trackerDir,
+        env: {},
+        platform: "linux",
+        providerTimeoutMs: 2000,
+        securityRunner: inactiveRunner,
+        commandRunner: inactiveRunner,
+        fetchImpl(url) {
+          if (isQuotaUrl(url)) {
+            return Promise.resolve({ ok: false, status: 500, json: async () => ({}) });
+          }
+          return pendingUnlessCodexReset(url);
+        },
+      });
+      // Bars stay visible from disk cache instead of a top-level error that
+      // makes every client drop the whole ZCode section.
+      assert.equal(failed.zcode.configured, true);
+      assert.equal(failed.zcode.error, null);
+      assert.equal(failed.zcode.stale, true);
+      assert.equal(failed.zcode.primary_window.used_percent, 9);
+      assert.equal(failed.zcode.secondary_window.used_percent, 12);
+      assert.equal(failed.zcode.plan_label, "Lite");
+    } finally {
+      resetUsageLimitsCache();
+      fs.rmSync(tmp, { recursive: true, force: true });
+    }
+  });
+
+  it("does not resurrect ZCode from disk cache when the CLI is not installed", async () => {
+    resetUsageLimitsCache();
+    const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "tokentracker-limits-zcode-gone-"));
+    try {
+      const trackerDir = path.join(tmp, "tracker");
+      fs.mkdirSync(trackerDir, { recursive: true });
+      fs.writeFileSync(path.join(trackerDir, "zcode-usage-limits-cache.json"), JSON.stringify({
+        zcode: {
+          plan_kind: "coding-plan",
+          plan_label: "Lite",
+          primary_window: { used_percent: 9, reset_at: new Date(Date.now() + 3_600_000).toISOString() },
+          cached_at: new Date().toISOString(),
+        },
+      }));
+
+      const result = await getUsageLimits({
+        home: tmp,
+        trackerDir,
+        env: {},
+        platform: "linux",
+        providerTimeoutMs: 2000,
+        securityRunner: inactiveRunner,
+        commandRunner: inactiveRunner,
+        fetchImpl() {
+          return new Promise(() => {});
+        },
+      });
+      // No ZCode CLI credentials means no ZCode section — a leftover cache file
+      // from a removed install must not fabricate one.
+      assert.equal(result.zcode?.configured, false);
+    } finally {
+      resetUsageLimitsCache();
+      fs.rmSync(tmp, { recursive: true, force: true });
+    }
+  });
+
   it("maps Codex Spark windows by duration when their slots are reversed", async () => {
     resetUsageLimitsCache();
     const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "tokentracker-limits-codex-spark-reversed-"));

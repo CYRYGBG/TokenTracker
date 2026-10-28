@@ -443,6 +443,34 @@ describe("ZCode reset-card inventory", () => {
   } });
   const emptyGrantsBody = () => ({ code: 0, data: { balances: [] } });
 
+  it("allows a slow reset host within the provider budget without losing quota", async () => {
+    await withZcodePlanSettings({
+      providerFamilyDomain: "bigmodel",
+      modelProviderFamilySelectedKeys: { bigmodel: "coding-plan:builtin:bigmodel-coding-plan" },
+    }, async (home, v2) => {
+      writeZcodeCredentials(v2, home, {
+        "oauth:active_provider": "bigmodel", zcodejwttoken: "fixture-jwt",
+        "oauth:bigmodel:access_token": "fixture-login",
+        "oauth:bigmodel:user_info": JSON.stringify({ id: "reset-owner" }),
+        "account-provider:coding-plan:account:bigmodel-individual-coding-plan:account:reset-owner:api-key": "bigmodel-key",
+      });
+      const result = await fetchZcodeLimits({
+        home, env: {}, providerTimeoutMs: 8000,
+        fetchImpl: async (url) => {
+          if (url.endsWith("/reset/status")) {
+            await new Promise((resolve) => setTimeout(resolve, 2200));
+            return { ok: true, async json() { return resetBody(); } };
+          }
+          if (url.includes("/billing/balance")) return { ok: true, async json() { return emptyGrantsBody(); } };
+          return { ok: true, async json() { return codingPlanQuotaBody(); } };
+        },
+      });
+      assert.equal(result.error, null);
+      assert.ok(result.primary_window);
+      assert.equal(result.reset_credits.five_hour.length, 1);
+    });
+  });
+
   for (const family of ["bigmodel", "zai"]) {
     it(`reads ${family} reset cards with that family's login token`, async () => {
       await withZcodePlanSettings({

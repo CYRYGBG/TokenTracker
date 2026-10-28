@@ -111,3 +111,19 @@ ZCode 新增的 512 MiB Codex 解压上限、后台归档回填和缺口台账�
 已改为独立 LocalServerHealth，通过上游 CLI 已使用的 /api/local-auth JSON 握手检查非空 token 和与 app 一致的 serverVersion，拒绝网页 HTML、404、字段缺失与错版本。没有恢复官方账号接口，也没有重写采集器。离线提示改为应用内置服务，不再指导另装官方 CLI。Windows 健康检查不使用已删账号接口，本轮只同步版本与打包。
 
 真实本地 API + Swift 帮助模块回归，以及原生端口/设置桥/更新校验/真实 serve 重装相关测试共 22 项通过；另含本地化定向 12 项通过，受管版本一致，dashboard 生产构建通过。macOS 完整编译、Windows publish 已通过；安装器与实际应用内升级/状态栏面板验收在接续步骤记录。
+
+
+## 1.4.14 ZCode 面板可见性修复（2026-10-28 本轮）
+
+用户报告 macOS 状态栏限额区只剩 Codex、ZCode 整段消失。诊断：API 侧 ZCode 数据健康（真实抓取成功），但 ZCode 是唯一没有磁盘缓存兜底的限额 provider——配额端点一次瞬时失败（5xx/超时）就产生顶层 error，Swift 按官方"隐藏出错厂商"的设计整段不渲染（当时 Claude 也因 token 过期被隐藏，故只剩 Codex）。Claude/Codex/OpenCode Go 均有 7 天磁盘缓存的 stale 兜底，ZCode 缺席。
+
+修复（沿用同仓库既有模式）：
+- `usage-limits.js`：新增 `zcode-usage-limits-cache.json` 磁盘缓存（trackerDir 优先，同 OpenCode Go；7 天上限；过期窗口/桶剔除；未安装不得凭缓存复活）。抓取成功写缓存并标 `stale:false`，失败读缓存标 `stale:true`，无缓存才落回错误。
+- Swift `ZcodeLimits` 解码 `stale`/`cached_at`，面板按 Codex 同款透传数据年龄；不再静默消失而是显示旧数据+过期标记。
+- 顺带修复工作树遗留的编译错误：上轮 Grok 剩余模式移植删了 `limitRow` 的 `productPool` 参数但漏改 Start-plan 授权区块调用点（上游 #904 已同步清理，本轮对齐）。
+
+验证：新增 2 项 node 集成测试（失败后从缓存恢复+标 stale；未安装时缓存不得复活）；usage-limits 172 项全过（171 过 1 跳过）；zcode-limits/reset-credits 77 项全过；node 全量 3706 项 0 失败；dashboard vitest 1261 项全过（首轮 1 项超时抖动，复跑两轮全绿，同 STATUS 既有记录的重跑模式）；macOS 完整 CLT Release 构建通过并产出 DMG。upstream 核对见 UPSTREAM.md（#904 已等价落地、#899 不适用）。
+
+尚未做：本轮修复只进了源码与本地构建产物，未提交 GitHub 发布、未覆盖安装本机应用（等用户对发布安排的授权）；Windows publish 与真实发布校验在发布步骤执行。
+
+补充：`ci:local` 首跑卡在 ui-hardcode——上轮 `/devices` 重定向把 JSX 三元换行成 `) : Page ? (` 独立行，被扫描器当作裸文本节点（与上游 #904 提交说明里提到的同类误报）。已把 App.jsx 的嵌套三元改为提前计算 `content`（重定向逻辑不变），扫描器归零；guardrails/versions/bot-frames/架构测试/dashboard 生产构建全部通过，App+SettingsPage 前端测试 21 项通过。

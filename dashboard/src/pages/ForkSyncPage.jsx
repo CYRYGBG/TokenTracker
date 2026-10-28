@@ -3,15 +3,14 @@ import { copy } from "../lib/copy";
 import React, { useEffect, useState } from "react";
 import { forkApi } from "../lib/fork-api";
 import { Button } from "../ui/components/Button.jsx";
-import { Card } from "../ui/components";
 import {
+  SectionCard,
   SETTINGS_INPUT_CLASS,
   SettingsRow,
   ToggleSwitch,
 } from "../components/settings/Controls.jsx";
 const inputClass = SETTINGS_INPUT_CLASS;
-const buttonClass = "";
-export default function ForkSyncPage() {
+export default function ForkSyncSection() {
   const [config, setConfig] = useState({
     url: "",
     username: "",
@@ -89,54 +88,52 @@ export default function ForkSyncPage() {
       body: { action, target, payload },
     });
   return (
-    <main className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-6 px-4 pb-12 pt-8 font-oai text-oai-black dark:text-white sm:px-6 sm:pt-10">
-      <h1 className="mb-1 text-3xl font-semibold tracking-tight sm:text-4xl">
-        {copy("fork.personal.3651670662")}
-      </h1>
+    <div className="space-y-4">
       {error && (
         <p role="alert" className="text-red-600">
           {error}
         </p>
       )}
       {notice && <p role="status">{notice}</p>}
-      <Card bodyClassName="space-y-5">
-        <h2 className="text-sm font-medium uppercase tracking-wide text-oai-gray-500 dark:text-oai-gray-300">
-          {copy("fork.personal.webdav")}
-        </h2>
+      <SectionCard title={copy("fork.personal.webdav")}>
+        <div className="space-y-4 py-3">
         <p className="text-sm text-oai-gray-500">
           {copy("fork.personal.bfb9248299")}
         </p>
-        <div className="grid gap-3 sm:grid-cols-2">
+        <div className="divide-y divide-oai-gray-200/60 dark:divide-oai-gray-800/60">
           {[
             ["url", copy("fork.personal.86e118291e")],
             ["username", copy("fork.personal.a1aaf352cb")],
             ["directory", copy("fork.personal.663d0b2057")],
             ["device_name", copy("fork.personal.4433eb13be")],
-          ].map(([k, label]) => (
-            <label key={k} className="flex min-w-0 flex-col gap-1.5 text-sm">
-              {label}
-              <input
-                className={inputClass}
-                value={config[k] || ""}
-                onChange={(e) => setConfig({ ...config, [k]: e.target.value })}
-              />
-            </label>
-          ))}
-          <label className="flex min-w-0 flex-col gap-1.5 text-sm">
-            {copy("fork.personal.ae66366412")}
-            <input
-              className={inputClass}
-              type="password"
-              autoComplete="new-password"
-              value={password}
-              placeholder={
-                status?.credential_present
-                  ? copy("fork.personal.8a57844ddf")
-                  : copy("fork.personal.63595e95b7")
+          ].map(([key, label]) => (
+            <SettingsRow
+              key={key}
+              label={<label htmlFor={`webdav-${key}`}>{label}</label>}
+              control={
+                <input
+                  id={`webdav-${key}`}
+                  className={inputClass + " sm:w-64"}
+                  value={config[key] || ""}
+                  onChange={(e) => setConfig({ ...config, [key]: e.target.value })}
+                />
               }
-              onChange={(e) => setPassword(e.target.value)}
             />
-          </label>
+          ))}
+          <SettingsRow
+            label={<label htmlFor="webdav-password">{copy("fork.personal.ae66366412")}</label>}
+            control={
+              <input
+                id="webdav-password"
+                className={inputClass + " sm:w-64"}
+                type="password"
+                autoComplete="new-password"
+                value={password}
+                placeholder={status?.credential_present ? copy("fork.personal.8a57844ddf") : copy("fork.personal.63595e95b7")}
+                onChange={(e) => setPassword(e.target.value)}
+              />
+            }
+          />
         </div>
         <div className="divide-y divide-oai-gray-200/60 dark:divide-oai-gray-800/60">
           <SettingsRow
@@ -171,7 +168,6 @@ export default function ForkSyncPage() {
           <Button
             variant="secondary"
             size="sm"
-            className={buttonClass}
             disabled={busy}
             onClick={() => run(save, copy("fork.personal.cb84a961b0"))}
           >
@@ -180,7 +176,6 @@ export default function ForkSyncPage() {
           <Button
             variant="secondary"
             size="sm"
-            className={buttonClass}
             disabled={busy}
             onClick={() =>
               run(async () => {
@@ -194,7 +189,6 @@ export default function ForkSyncPage() {
           <Button
             variant="secondary"
             size="sm"
-            className={buttonClass}
             disabled={busy}
             onClick={() =>
               run(async () => {
@@ -221,11 +215,10 @@ export default function ForkSyncPage() {
             </li>
           ))}
         </ul>
-      </Card>
-      <Card bodyClassName="space-y-5">
-        <h2 className="text-sm font-medium uppercase tracking-wide text-oai-gray-500 dark:text-oai-gray-300">
-          {copy("fork.personal.bf9c6bfe0c")}
-        </h2>
+        </div>
+      </SectionCard>
+      <SectionCard title={copy("fork.personal.bf9c6bfe0c")}>
+        <div className="space-y-4 py-3">
         <p className="text-sm">
           {copy("fork.personal.64b3b59a15")}
           {priceStatus?.source || copy("fork.personal.09ceea7644")}
@@ -238,8 +231,7 @@ export default function ForkSyncPage() {
         <Button
           variant="secondary"
           size="sm"
-          className={buttonClass}
-          disabled={busy}
+                    disabled={busy}
           onClick={() =>
             run(
               () => forkApi("/api/fork/pricing", { method: "POST" }),
@@ -252,8 +244,7 @@ export default function ForkSyncPage() {
         <Button
           variant="secondary"
           size="sm"
-          className={buttonClass}
-          disabled={busy}
+                    disabled={busy}
           onClick={() =>
             run(
               () => forkApi("/api/fork/reestimate", { method: "POST" }),
@@ -289,8 +280,7 @@ export default function ForkSyncPage() {
         <Button
           variant="secondary"
           size="sm"
-          className={buttonClass}
-          disabled={busy}
+                    disabled={busy}
           onClick={() =>
             run(
               () =>
@@ -331,11 +321,10 @@ export default function ForkSyncPage() {
             </li>
           ))}
         </ul>
-      </Card>
-      <Card bodyClassName="space-y-5">
-        <h2 className="text-sm font-medium uppercase tracking-wide text-oai-gray-500 dark:text-oai-gray-300">
-          {copy("fork.personal.9fd90671cc")}
-        </h2>
+        </div>
+      </SectionCard>
+      <SectionCard title={copy("fork.personal.9fd90671cc")}>
+        <div className="space-y-4 py-3">
         <p className="text-sm">{copy("fork.personal.bd744b773b")}</p>
         <div className="grid gap-3 sm:grid-cols-3">
           <label className="flex min-w-0 flex-col gap-1.5 text-sm">
@@ -387,8 +376,7 @@ export default function ForkSyncPage() {
         <Button
           variant="secondary"
           size="sm"
-          className={buttonClass}
-          disabled={busy}
+                    disabled={busy}
           onClick={() =>
             run(
               () =>
@@ -439,7 +427,7 @@ export default function ForkSyncPage() {
                       variant="secondary"
                       size="sm"
                       className="p-2"
-                      onClick={() => setExpense(e)}
+            onClick={() => setExpense(e)}
                     >
                       {copy("fork.personal.a7f814c0a4")}
                     </Button>
@@ -447,7 +435,7 @@ export default function ForkSyncPage() {
                       variant="secondary"
                       size="sm"
                       className="p-2"
-                      onClick={() =>
+            onClick={() =>
                         run(
                           () => event("expense_remove", e.id),
                           copy("fork.personal.35f8fd8c02"),
@@ -462,11 +450,10 @@ export default function ForkSyncPage() {
             </tbody>
           </table>
         </div>
-      </Card>
-      <Card bodyClassName="space-y-5">
-        <h2 className="text-sm font-medium uppercase tracking-wide text-oai-gray-500 dark:text-oai-gray-300">
-          {copy("fork.personal.1b2a661a92")}
-        </h2>
+        </div>
+      </SectionCard>
+      <SectionCard title={copy("fork.personal.1b2a661a92")}>
+        <div className="space-y-4 py-3">
         <p className="text-sm">{copy("fork.personal.aacf7b101b")}</p>
         <label className="flex min-w-0 flex-col gap-1.5 text-sm">
           {copy("fork.personal.874a561693")}
@@ -487,8 +474,7 @@ export default function ForkSyncPage() {
         <Button
           variant="secondary"
           size="sm"
-          className={buttonClass}
-          onClick={() =>
+                    onClick={() =>
             run(
               () =>
                 event("project_alias_add", alias.from, { alias_to: alias.to }),
@@ -517,17 +503,15 @@ export default function ForkSyncPage() {
             </li>
           ))}
         </ul>
-      </Card>
-      <Card bodyClassName="space-y-5">
-        <h2 className="text-sm font-medium uppercase tracking-wide text-oai-gray-500 dark:text-oai-gray-300">
-          {copy("fork.backup.title")}
-        </h2>
+        </div>
+      </SectionCard>
+      <SectionCard title={copy("fork.backup.title")}>
+        <div className="space-y-4 py-3">
         <p className="text-sm">{copy("fork.backup.hint")}</p>
         <Button
           variant="secondary"
           size="sm"
-          className={buttonClass}
-          disabled={busy}
+                    disabled={busy}
           onClick={() =>
             run(async () => {
               const data = await forkApi("/api/fork/backup");
@@ -574,7 +558,8 @@ export default function ForkSyncPage() {
             }}
           />
         </label>
-      </Card>
-    </main>
+        </div>
+      </SectionCard>
+    </div>
   );
 }

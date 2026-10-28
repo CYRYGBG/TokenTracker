@@ -139,6 +139,12 @@ const CODEX_LIMITS_CACHE_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
 const OPENCODE_GO_LIMITS_CACHE_FILE = "opencode-go-usage-limits-cache.json";
 const OPENCODE_GO_LIMITS_CACHE_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
 const OPENCODE_GO_LOCAL_ESTIMATE_CACHE_MAX_AGE_MS = 60 * 60 * 1000;
+// ZCode rides the same stale-fallback contract as Codex / OpenCode Go: its quota
+// endpoint is a remote host with no local CLI cooldown, so one transient 5xx /
+// timeout previously flipped the payload to a top-level error and every client
+// dropped the whole ZCode section until the next successful poll.
+const ZCODE_LIMITS_CACHE_FILE = "zcode-usage-limits-cache.json";
+const ZCODE_LIMITS_CACHE_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
 // A 429 from the usage endpoint carries a long `retry-after` (often 20+ minutes). Persist
 // the cooldown so every surface — this process, the menu bar app's embedded server, a later
 // restart — stops calling until it expires. Hammering during the cooldown just renews the
@@ -2697,6 +2703,103 @@ function writeOpencodeGoLimitsCache(limits, { trackerDir, home, nowMs = Date.now
   } catch (_error) {}
 }
 
+function resolveZcodeLimitsCachePath({ trackerDir, home } = {}) {
+  const dir =
+    typeof trackerDir === "string" && trackerDir.trim()
+      ? trackerDir.trim()
+      : path.join(home || os.homedir(), ".tokentracker", "tracker");
+  return path.join(dir, ZCODE_LIMITS_CACHE_FILE);
+}
+
+// A coding-plan read fills the three windows; a start-plan read leaves them null
+// and carries the rows in `buckets` (rendered via labeled buckets). Either shape
+// counts as usable bars.
+function hasZcodeLimitWindow(limits) {
+  return Boolean(
+    limits?.primary_window
+    || limits?.secondary_window
+    || limits?.tertiary_window
+    || (Array.isArray(limits?.buckets) && limits.buckets.length > 0),
+  );
+}
+
+function isZcodeCacheWindowUsable(window, { nowMs }) {
+  if (!window || typeof window !== "object") return false;
+  const resetAtMs = parseTimeMs(window.reset_at);
+  if (resetAtMs === null) return true;
+  return resetAtMs > nowMs;
+}
+
+function normalizeZcodeCachedLimits(
+  raw,
+  { nowMs = Date.now(), maxAgeMs = ZCODE_LIMITS_CACHE_MAX_AGE_MS } = {},
+) {
+  const cachedAtMs = parseTimeMs(raw?.cached_at);
+  if (!Number.isFinite(cachedAtMs)) return null;
+  if (cachedAtMs > nowMs + 60_000) return null;
+  if (nowMs - cachedAtMs > maxAgeMs) return null;
+
+  const windowOr = (w) => (isZcodeCacheWindowUsable(w, { nowMs }) ? w : null);
+  // Expired bucket windows read as endless "reset in the past" rows, so drop
+  // them the same way codex drops its expired windows.
+  const buckets = Array.isArray(raw?.buckets)
+    ? raw.buckets.filter((b) => isZcodeCacheWindowUsable(b?.window, { nowMs }))
+    : null;
+  const cached = {
+    configured: true,
+    error: null,
+    provider_key: typeof raw?.provider_key === "string" ? raw.provider_key : null,
+    plan_kind: typeof raw?.plan_kind === "string" ? raw.plan_kind : null,
+    plan_id: typeof raw?.plan_id === "string" ? raw.plan_id : null,
+    plan_label: typeof raw?.plan_label === "string" ? raw.plan_label : null,
+    primary_window: windowOr(raw?.primary_window),
+    secondary_window: windowOr(raw?.secondary_window),
+    tertiary_window: windowOr(raw?.tertiary_window),
+    buckets: buckets,
+    reset_credits: raw?.reset_credits ?? null,
+    start_plan: raw?.start_plan ?? null,
+    stale: true,
+    cached_at: raw.cached_at,
+  };
+  return hasZcodeLimitWindow(cached) ? cached : null;
+}
+
+function readZcodeLimitsCache({ trackerDir, home, nowMs = Date.now() } = {}) {
+  const cachePath = resolveZcodeLimitsCachePath({ trackerDir, home });
+  try {
+    const parsed = JSON.parse(fs.readFileSync(cachePath, "utf8"));
+    return normalizeZcodeCachedLimits(parsed?.zcode, { nowMs });
+  } catch (_error) {
+    return null;
+  }
+}
+
+function writeZcodeLimitsCache(limits, { trackerDir, home, nowMs = Date.now() } = {}) {
+  if (!limits?.configured || limits.error || !hasZcodeLimitWindow(limits)) return;
+  const cachePath = resolveZcodeLimitsCachePath({ trackerDir, home });
+  const payload = {
+    zcode: {
+      provider_key: limits.provider_key || null,
+      plan_kind: limits.plan_kind || null,
+      plan_id: limits.plan_id || null,
+      plan_label: limits.plan_label || null,
+      primary_window: limits.primary_window || null,
+      secondary_window: limits.secondary_window || null,
+      tertiary_window: limits.tertiary_window || null,
+      buckets: Array.isArray(limits.buckets) ? limits.buckets : null,
+      reset_credits: limits.reset_credits || null,
+      start_plan: limits.start_plan || null,
+      cached_at: new Date(nowMs).toISOString(),
+    },
+  };
+  try {
+    fs.mkdirSync(path.dirname(cachePath), { recursive: true });
+    const tmpPath = `${cachePath}.${process.pid}.tmp`;
+    fs.writeFileSync(tmpPath, JSON.stringify(payload, null, 2), { encoding: "utf8", mode: 0o600 });
+    fs.renameSync(tmpPath, cachePath);
+  } catch (_error) {}
+}
+
 function resolveClaudeRateLimitPath({ home } = {}) {
   return path.join(home || os.homedir(), ".tokentracker", "tracker", CLAUDE_RATE_LIMIT_FILE);
 }
@@ -4429,6 +4532,31 @@ async function fetchUsageLimitsUncached({
     }
   }
 
+  // ZCode: persist the last successful quota read so a transient bigmodel/monitor
+  // failure serves stale bars (marked `stale: true`) instead of a top-level error
+  // that makes every client drop the ZCode section. A fulfilled `configured: false`
+  // means the ZCode CLI is not installed — no cache may resurrect it.
+  let zcodeObj;
+  if (zcode && zcode.configured === false) {
+    zcodeObj = zcode;
+  } else if (zcode && !zcode.error && hasZcodeLimitWindow(zcode)) {
+    zcodeObj = {
+      ...zcode,
+      stale: false,
+      cached_at: new Date(nowMs).toISOString(),
+    };
+    if (cacheGeneration === usageLimitsCacheGeneration) {
+      writeZcodeLimitsCache(zcodeObj, { trackerDir, home, nowMs });
+    }
+  } else {
+    const cached = readZcodeLimitsCache({ trackerDir, home, nowMs });
+    if (cached) {
+      zcodeObj = cached;
+    } else {
+      zcodeObj = zcode || { configured: true, error: "Unknown error" };
+    }
+  }
+
   // CommandCode: official windows straight from the API — nothing to cache on
   // disk beyond the shared 2-minute in-memory cache, so keep the assembly
   // simple. A fulfilled `configured: false` means no apiKey found; a rejected
@@ -4492,7 +4620,7 @@ async function fetchUsageLimitsUncached({
     // unconfigured branches never carry plan_label, so the panel still falls
     // back to the bare brand name.
     grok,
-    zcode: withPlanLabel(zcode, zcode.plan_label, "ZCode"),
+    zcode: withPlanLabel(zcodeObj, zcodeObj.plan_label, "ZCode"),
     opencodeGo: withPlanLabel(opencodeGo, opencodeGo?.plan_label, "OpenCode Go"),
     // CommandCode tiers are acronym brands (GOAT/Pro/Max) — the fetcher already
     // maps plan ids to the CLI's exact display strings, so skip the shared

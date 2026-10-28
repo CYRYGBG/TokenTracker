@@ -23,7 +23,10 @@ const profileSettingsMock = vi.hoisted(() => ({
   hook: vi.fn(), accountReceived: null, cloudReceived: null, cloudActive: null, navigate: null,
 }));
 
+vi.mock("./ForkSyncPage.jsx", () => ({ default: () => <div data-testid="sync-content" /> }));
+
 const LABELS = {
+  "fork.personal.3651670662": "Sync & devices",
   "settings.page.title": "Settings",
   "settings.page.subtitle": "Manage your preferences",
   "settings.nav.group.personal": "Personal",
@@ -198,6 +201,17 @@ describe("SettingsPage category navigation", () => {
     expect(container.querySelector('[data-settings-panel="appearance"]')).toHaveAttribute('hidden');
     expect(container.querySelector('[data-settings-panel="limits"]')).not.toHaveAttribute('hidden');
     expect(screen.getByTestId('appearance-content')).toBeInTheDocument();
+  });
+
+  it("opens sync inside settings and only mounts its form when selected", async () => {
+    const user = userEvent.setup();
+    renderSettings("/settings?app=1");
+    expect(screen.queryByTestId("sync-content")).toBeNull();
+    await user.click(screen.getByRole("button", { name: "Sync & devices" }));
+    expect(screen.getByTestId("sync-content")).toBeVisible();
+    expect(screen.getByTestId("location")).toHaveTextContent("/settings?app=1&section=sync");
+    await user.click(screen.getByRole("button", { name: "Appearance" }));
+    expect(screen.queryByTestId("sync-content")).toBeNull();
   });
 
   it("omits the network category when the local proxy API is unavailable", () => {

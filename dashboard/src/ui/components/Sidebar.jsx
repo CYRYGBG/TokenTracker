@@ -38,7 +38,6 @@ export function getNavGroups() {
     {id:'usage',to:'/dashboard',icon:BarChart3,label:copy('nav.usage')},
     {id:'sessions',to:'/sessions',icon:History,label:copy('nav.sessions')},
     {id:'limits',to:'/limits',icon:Gauge,label:copy('nav.limits')},
-    {id:'devices',to:'/devices',icon:Cloud,label:copy("fork.personal.3651670662")},
     {id:'settings',to:'/settings',icon:SettingsIcon,label:copy('nav.settings')},
   ]}];
 }

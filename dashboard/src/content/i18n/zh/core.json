@@ -164,6 +164,7 @@
   "limits.label.grok_imagine": "Imagine",
   "limits.label.grok_voice": "语音",
   "limits.label.grok_cursor": "Cursor",
+  "limits.grok.shares_are_used": "各产品百分比是已用部分的份额。",
   "limits.provider.claude": "Claude",
   "limits.provider.codex": "Codex",
   "limits.provider.cursor": "Cursor",
@@ -981,5 +982,6 @@
   "fork.devices.incomplete": "设备数据可能不完整。",
   "fork.devices.updated": "同步于 {{time}}",
   "fork.menubar.five_hour_hint": "在任一显示位选择 Codex 5h 或 Claude 5h。横线表示暂时无法获取额度，请登录对应工具后刷新额度页；额度页的工具显示设置同样生效。",
-  "fork.updates.channel_hint": "仅从 CYRYGBG/TokenTracker 的个人版发布获取更新。默认关闭，开启后自动下载并安装更新。"
+  "fork.updates.channel_hint": "仅从 CYRYGBG/TokenTracker 的个人版发布获取更新。默认关闭，开启后自动下载并安装更新。",
+  "limits.zcode.reset_bank.unavailable": "暂时无法查询重置权益，刷新后重试。"
 }

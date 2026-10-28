@@ -1,4 +1,5 @@
 import React from "react";
+import ForkSyncSection from "./ForkSyncPage.jsx";
 import { Cloud, FlaskConical, Gauge, Globe, Monitor, Palette, Settings, UserRound } from "lucide-react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { LimitsSettingsPanel } from "../components/LimitsSettingsPanel.jsx";
@@ -27,6 +28,7 @@ import { Button } from "../ui/components/Button.jsx";
 
 const SETTINGS_SECTION_IDS = {
   APPEARANCE: "appearance",
+  SYNC: "sync",
   NATIVE_APP: "native-app",
   NETWORK: "network",
   LOCAL_DATA: "local-data",
@@ -76,7 +78,8 @@ export function SettingsPage() {
     Object.values(SETTINGS_SECTION_IDS).includes(requestedSection) &&
     (requestedSection !== SETTINGS_SECTION_IDS.NATIVE_APP || nativeSettingsAvailable) &&
     (requestedSection !== SETTINGS_SECTION_IDS.NETWORK || proxySettingsAvailable) &&
-    (requestedSection !== SETTINGS_SECTION_IDS.LOCAL_DATA || isLocalDashboardHost());
+    (requestedSection !== SETTINGS_SECTION_IDS.LOCAL_DATA || isLocalDashboardHost()) &&
+    (requestedSection !== SETTINGS_SECTION_IDS.SYNC || isLocalDashboardHost());
   const activeSection = requestedSectionAvailable
     ? requestedSection
     : SETTINGS_SECTION_IDS.APPEARANCE;
@@ -92,6 +95,13 @@ export function SettingsPage() {
   };
 
   const sections = [
+    ...(isLocalDashboardHost() ? [{
+      id: SETTINGS_SECTION_IDS.SYNC,
+      label: copy("fork.personal.3651670662"),
+      group: SETTINGS_GROUP_IDS.APP,
+      Icon: Cloud,
+      content: activeSection === SETTINGS_SECTION_IDS.SYNC ? <ForkSyncSection /> : null,
+    }] : []),
     {
       id: SETTINGS_SECTION_IDS.APPEARANCE,
       label: copy("settings.section.appearance"),

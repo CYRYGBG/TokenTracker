@@ -122,6 +122,18 @@ enum Strings {
             return trimmed.isEmpty ? product : trimmed
         }
     }
+
+    /// Shown under the product legend in Remaining mode. The shares are points
+    /// of the amount used, so they do not add up to the remaining headline.
+    static var grokSharesAreUsed: String {
+        t(
+            "Product shares are portions of the amount used.",
+            "各产品百分比是已用部分的份额。",
+            "各產品百分比是已用部分的份額。",
+            "各製品の割合は、使用した分の内訳です。",
+            "제품별 비율은 사용한 양의 몫입니다."
+        )
+    }
     static var limitResetNow: String { t("now", "现在", "現在", "今", "지금") }
     static func kimiParallelLabel(_ count: Int) -> String {
         t("Parallel: \(count)", "并发：\(count)", "併發：\(count)", "並列：\(count)", "병렬: \(count)")
@@ -131,6 +143,9 @@ enum Strings {
     }
     static var zcodeResetBankSectionTitle: String {
         t("Quota resets", "额度重置", "額度重設", "使用枠のリセット", "한도 초기화")
+    }
+    static var zcodeResetBankUnavailable: String {
+        t("Reset credits unavailable. Refresh to retry.", "暂时无法查询重置权益，刷新后重试。", "暫時無法查詢重設權益，重新整理後重試。", "リセット権利を取得できません。更新して再試行してください。", "초기화 권한을 확인할 수 없습니다. 새로고침해 다시 시도하세요.")
     }
     static func zcodeResetBankCount(_ count: Int) -> String {
         t("\(count) available", "\(count) 次可用", "\(count) 次可用", "\(count) 回利用可能", "\(count)회 사용 가능")

@@ -107,3 +107,15 @@
 ## 2026-10-28 状态栏故障前核对
 
 再次 fetch 到 upstream/main 0c279d967169232b0cc92d7f170c290f5ebe710a。相对 9dc925d8 仅 #899：让官方账号云视图慢请求在后台完成并填充缓存。个人版已移除官方账号云读取路径，本轮不采纳，未涉及采集/定价/迁移修复。当前故障为 fork 移除账号接口后遗漏修改 macOS 健康检查，已在独立 LocalServerHealth 及 APIClient 最小接线修复，不恢复官方端点。
+
+
+## 2026-10-28 ZCode 面板修复前核对
+
+再次 fetch，upstream/main 前进到 `4cf3e212`（v1.4.15 发布提交）。相对上次记录 `0c279d96` 新增两项：
+
+- `34397349` fix(limits): Grok 配额池跟随剩余模式（#904，#885 维护者跟进）——上一轮会话已在本工作树独立实现同一修复（provider-specs、web 面板、Swift 视图、五语文案 `limits.grok.shares_are_used`），本轮与上游逐文件比对：实现与文案键**逐字一致**，差异仅为 fork 有意保留的增量（离线提示去官方 CLI 引用、ZCode 重置权益文案、设置页个人版措辞）。无需再合并；后续合并该区域冲突时应以双方同源为准。工作树遗留的一处 `limitRow(productPool:)` 旧签名调用（Start-plan 授权区块）本轮已按上游清理。
+- `4cf3e212` 仅 v1.4.15 发布提交，不采纳。
+
+`0c279d96`（#899 官方账号云视图后台完成）维持上轮"不采纳"结论：fork 已无该代码路径。
+
+本轮新增 fork 修复：ZCode 限额磁盘缓存兜底（`zcode-usage-limits-cache.json`，trackerDir 优先同 OpenCode Go）——ZCode 配额端点瞬时失败不再使整个分区从状态栏消失，改为显示上次成功数据并带 `stale` 标记；Swift `ZcodeLimits` 解码 `stale`/`cached_at` 并如 Codex 一样透传数据年龄。未动采集器、去重与迁移。

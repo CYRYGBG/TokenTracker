@@ -27,7 +27,7 @@ function normalizeZcodeResetCredits(body, { nowMs = Date.now() } = {}) {
 
 /** Read inventory only; send the two login tokens exclusively to ZCode's fixed status endpoint. */
 async function fetchZcodeResetCredits({
-  zcodeToken, codingPlanToken, teamContext, fetchImpl = fetch, nowMs = Date.now(), timeoutMs = 2000,
+  zcodeToken, codingPlanToken, teamContext, fetchImpl = fetch, nowMs = Date.now(), timeoutMs = 6000,
 }) {
   const headers = {
     Authorization: /^Bearer\s/i.test(zcodeToken) ? zcodeToken : `Bearer ${zcodeToken}`,

@@ -1080,6 +1080,9 @@ async function fetchZcodeLimits({ home, env, fetchImpl = fetch, nowMs = Date.now
             result.start_plan = { configured: true, error: "ZCode start plan grants: provider time budget exhausted" };
           } else {
             const timeoutMs = Math.min(2000, remainingMs);
+            // A separate host/connection can exceed two seconds even while quota
+            // succeeds. Use available provider budget without extending its deadline.
+            const resetTimeoutMs = Math.min(6000, remainingMs);
             // Reset cards additionally need the region's login token; without
             // it the status endpoint cannot identify a coding plan, so the
             // inventory stays absent instead of surfacing a blocking error.
@@ -1091,7 +1094,7 @@ async function fetchZcodeLimits({ home, env, fetchImpl = fetch, nowMs = Date.now
                     teamContext: auth.teamContext,
                     fetchImpl,
                     nowMs,
-                    timeoutMs,
+                    timeoutMs: resetTimeoutMs,
                   })
                 : Promise.resolve(null)
               ).then(

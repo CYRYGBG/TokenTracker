@@ -529,9 +529,14 @@ struct ZcodeLimits: Codable, Equatable {
     let resetCredits: ZcodeResetCredits?
     /// Separate Start-plan grant payload (dashboard `start_plan`).
     let startPlan: ZcodeStartPlan?
+    /// Set when the payload comes from the server's stale disk-cache fallback
+    /// (the live quota read failed). Missing on responses from older servers,
+    /// which reads as fresh.
+    let cachedAt: String?
+    let stale: Bool?
 
     enum CodingKeys: String, CodingKey {
-        case configured, error, buckets
+        case configured, error, buckets, stale
         case planLabel = "plan_label"
         case planKind = "plan_kind"
         case primaryWindow = "primary_window"
@@ -539,6 +544,7 @@ struct ZcodeLimits: Codable, Equatable {
         case tertiaryWindow = "tertiary_window"
         case resetCredits = "reset_credits"
         case startPlan = "start_plan"
+        case cachedAt = "cached_at"
     }
 }
 

@@ -159,6 +159,7 @@
   "limits.label.grok_imagine": "Imagine",
   "limits.label.grok_voice": "음성",
   "limits.label.grok_cursor": "Cursor",
+  "limits.grok.shares_are_used": "제품별 비율은 사용한 양의 몫입니다.",
   "limits.provider.claude": "Claude",
   "limits.provider.codex": "Codex",
   "limits.provider.cursor": "Cursor",
@@ -636,5 +637,6 @@
   "fork.devices.incomplete": "기기 데이터가 불완전할 수 있습니다.",
   "fork.devices.updated": "동기화: {{time}}",
   "fork.menubar.five_hour_hint": "표시 항목에서 Codex 5h 또는 Claude 5h를 선택하세요. 대시는 한도를 가져올 수 없음을 뜻합니다. 도구에 로그인하고 한도를 새로고침하세요. 숨긴 도구는 표시되지 않습니다.",
-  "fork.updates.channel_hint": "CYRYGBG/TokenTracker의 개인용 릴리스에서만 업데이트합니다. 기본값은 꺼짐이며 켜면 자동으로 다운로드하고 설치합니다."
+  "fork.updates.channel_hint": "CYRYGBG/TokenTracker의 개인용 릴리스에서만 업데이트합니다. 기본값은 꺼짐이며 켜면 자동으로 다운로드하고 설치합니다.",
+  "limits.zcode.reset_bank.unavailable": "초기화 권한을 확인할 수 없습니다. 새로고침해 다시 시도하세요."
 }

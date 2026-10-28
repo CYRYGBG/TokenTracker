@@ -21,19 +21,29 @@ const SettingsPage = lazy(() =>
   import("./pages/SettingsPage.jsx").then((m) => ({ default: m.SettingsPage })),
 );
 const WrappedPage = lazy(() => import("./pages/WrappedPage.jsx"));
-const SyncPage = lazy(() => import("./pages/ForkSyncPage.jsx"));
 export default function App() {
-  const path = useLocation().pathname.replace(/\/+$/, "") || "/";
+  const location = useLocation();
+  const path = location.pathname.replace(/\/+$/, "") || "/";
   const pages = {
     "/": DashboardPage,
     "/dashboard": DashboardPage,
     "/sessions": SessionsPage,
     "/limits": LimitsPage,
     "/settings": SettingsPage,
-    "/devices": SyncPage,
     "/wrapped": WrappedPage,
   };
   const Page = pages[path];
+  // The old /devices page moved into Settings; send legacy links to its section.
+  let content;
+  if (path === "/devices") {
+    const settingsQuery = new URLSearchParams(location.search);
+    settingsQuery.set("section", "sync");
+    content = <Navigate to={`/settings?${settingsQuery.toString()}`} replace />;
+  } else if (Page) {
+    content = <Page baseUrl="" signedIn auth={null} publicMode={false} />;
+  } else {
+    content = <Navigate to="/dashboard" replace />;
+  }
   return (
     <ErrorBoundary>
       <ThemeProvider>
@@ -45,11 +55,7 @@ export default function App() {
                 <p className="p-6">{copy("fork.personal.300ee3dee4")}</p>
               }
             >
-              {Page ? (
-                <Page baseUrl="" signedIn auth={null} publicMode={false} />
-              ) : (
-                <Navigate to="/dashboard" replace />
-              )}
+              {content}
             </Suspense>
           </AppLayout>
         </ToastProvider>

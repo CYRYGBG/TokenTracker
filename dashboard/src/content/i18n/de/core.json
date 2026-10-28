@@ -413,6 +413,7 @@
   "limits.label.grok_imagine": "Imagine",
   "limits.label.grok_voice": "Voice",
   "limits.label.grok_cursor": "Cursor",
+  "limits.grok.shares_are_used": "Die Produktanteile sind Anteile der verbrauchten Menge.",
   "limits.label.opencode_go_5h": "5h",
   "limits.label.opencode_go_monthly": "Monatlich",
   "limits.label.qoder_credits": "Credits",
@@ -633,5 +634,6 @@
   "fork.devices.incomplete": "Gerätedaten sind möglicherweise unvollständig.",
   "fork.devices.updated": "Synchronisiert: {{time}}",
   "fork.menubar.five_hour_hint": "Wähle Codex 5h oder Claude 5h als Anzeige. Ein Strich bedeutet, dass das Limit nicht verfügbar ist. Beim Anbieter anmelden und Limits aktualisieren. Ausgeblendete Anbieter bleiben ausgeblendet.",
-  "fork.updates.channel_hint": "Updates stammen nur aus persönlichen Releases von CYRYGBG/TokenTracker. Standardmäßig deaktiviert. Aktivieren, um Updates automatisch herunterzuladen und zu installieren."
+  "fork.updates.channel_hint": "Updates stammen nur aus persönlichen Releases von CYRYGBG/TokenTracker. Standardmäßig deaktiviert. Aktivieren, um Updates automatisch herunterzuladen und zu installieren.",
+  "limits.zcode.reset_bank.unavailable": "Zurücksetzungen derzeit nicht verfügbar. Zum Wiederholen aktualisieren."
 }

@@ -164,6 +164,7 @@
   "limits.label.grok_imagine": "Imagine",
   "limits.label.grok_voice": "語音",
   "limits.label.grok_cursor": "Cursor",
+  "limits.grok.shares_are_used": "各產品百分比是已用部分的份額。",
   "limits.provider.claude": "Claude",
   "limits.provider.codex": "Codex",
   "limits.provider.cursor": "Cursor",
@@ -922,5 +923,6 @@
   "fork.devices.incomplete": "裝置資料可能不完整。",
   "fork.devices.updated": "同步於 {{time}}",
   "fork.menubar.five_hour_hint": "在任一顯示位置選擇 Codex 5h 或 Claude 5h。橫線表示暫時無法取得額度，請登入對應工具後重新整理額度頁；額度頁的工具顯示設定同樣生效。",
-  "fork.updates.channel_hint": "僅從 CYRYGBG/TokenTracker 的個人版發佈取得更新。預設關閉，開啟後自動下載並安裝更新。"
+  "fork.updates.channel_hint": "僅從 CYRYGBG/TokenTracker 的個人版發佈取得更新。預設關閉，開啟後自動下載並安裝更新。",
+  "limits.zcode.reset_bank.unavailable": "暫時無法查詢重設權益，重新整理後重試。"
 }

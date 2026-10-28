@@ -61,7 +61,7 @@ it.each([
   ["/sessions", "Session details"],
   ["/limits", "Provider limits"],
   ["/settings", "Local settings"],
-  ["/devices", "WebDAV setup"],
+  ["/devices?app=1", "Local settings"],
 ])("retains %s in the local shell", async (route, title) => {
   render(
     <MemoryRouter initialEntries={[route]}>
