@@ -136,3 +136,18 @@ ZCode 新增的 512 MiB Codex 解压上限、后台归档回填和缺口台账�
 构建链：macOS CLT Release 重新构建（含本轮全部源码与最新 dashboard，挂载验证版本/资源）；Windows 走 `EnableWindowsTargeting` 自包含 publish + `verify-windows-package.cjs`（311 项嵌入文件与源码逐字节一致）+ CrossOver win10 bottle 内 ISCC 6.7.3 编译 + Wine 冒烟（bundled node 22.22.2 加载真实 CLI 模块）。本轮工具链事实：本机原 Inno bottle 已不存在；CrossOver `cxbottle --create` 不指定模板时是 win98，会导致 Inno 6.7.x 安装器报 Error 120（Call not implemented），必须用 `--template win10`（或 win10_64 跑 64 位 node）。`verify-windows-package.cjs` 已对齐 fork 实际产物名（TokenTrackerPersonal.exe、无 pet/quota 页）。
 
 personal-v1.4.13 草稿（含旧附件）已按授权删除，由 1.4.14 取代；1.4.13 本地安装版会被本版的应用内更新直接覆盖升级。未做：Windows 实机升级验证、本机应用内更新动作（用户侧手动检查更新即可验证）。npm 未发布、main 未改动。
+
+
+## 1.4.15 同步设置页优化（2026-10-28 用户反馈驱动）
+
+用户对"同步与设备"页提出三点：参数易误改、保存/保存并测试重叠、状态行机器码与 UTC 秒级时间难读；并要求间隔可选（坚果云免费版请求配额考虑）。
+
+实现：
+- WebDAV 卡片全部参数默认只读（字段 readOnly、开关与间隔禁用），"编辑"解锁；编辑态为"保存并测试"（合并原有两个重叠按钮，保存必测）+ "取消"（还原并回锁）。"立即同步"保持常驻。
+- 新增同步间隔选择：5/15/30 分钟、1/2/6/12/24 小时（interval_minutes 存量非预设值保留可选）；调度器每轮重读配置，改动对下一轮即时生效；默认仍 5 分钟。坚果云免费版约 600 请求/30 分钟，5 分钟间隔约 42-66 次/30 分钟（≈7-11%），24 小时间隔更进一步降低。
+- 状态区：上次同步时间本地化到分钟（YYYY-MM-DD HH:mm）；导入设备显示 device.json 里的名称（后端 /api/webdav/status 新增 device_names，失败不影响状态返回）；同步失败单独一行、附错误代码。
+- 新增 ForkSyncPage 专项测试 7 项（锁定/解锁、保存并测试、取消还原、间隔预设与存量值、时间格式、设备名、失败行）；删除孤儿文案键 fork.personal.fadf24dbc5，新增 6 键五语言全覆盖。
+
+验证：dashboard 1268 项全过（首轮 1 项超时抖动复跑全绿，同既有记录）；node 全量 0 失败；copy/locale/ui-hardcode/guardrails/versions/bot-frames/架构全部通过；双平台构建 + 包校验（311 文件逐字节一致）。
+
+发布：personal-v1.4.15 已公开发布并设 latest，标签 29098132，远端 digest 与本地一致、匿名下载 HTTP 200（证据 release.json）。1.4.13/1.4.14 用户可应用内更新直接升级。未做：本机应用内更新动作（用户手动触发即验证）、Windows 实机升级。

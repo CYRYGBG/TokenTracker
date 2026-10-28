@@ -1,44 +1,41 @@
 {
-  "tag": "personal-v1.4.14",
+  "tag": "personal-v1.4.15",
   "repo": "https://github.com/CYRYGBG/TokenTracker",
   "sourceBranch": "codex/personal-release-20261027",
-  "sourceCommit": "166e6c2d2ea5a7c25911b62aa6ba83c2a2512c37",
+  "sourceCommit": "2909813223d488f6b2290b538ef11ecb63482d45",
   "draft": false,
   "latest": true,
-  "publishedAt": "2026-10-28T05:40:00Z",
-  "checkedAt": "2026-10-28T05:47:00Z",
+  "publishedAt": "2026-10-28T07:25:00Z",
+  "checkedAt": "2026-10-28T07:30:00Z",
   "npmPublished": false,
   "mainBranchChanged": false,
   "assets": [
     {
       "name": "TokenTrackerPersonal-macOS-arm64.dmg",
-      "size": 65381282,
-      "sha256": "feed91b10a75beb11099c80017e78b620048010ea244cdb2a465c12629afe83b",
+      "size": 64935726,
+      "sha256": "57e7ab6667390101b01eaf1ebe20818b8c7c14438c6ac68530560546326092b3",
       "githubDigestMatches": true,
       "anonymousDownloadHead": 200
     },
     {
       "name": "TokenTrackerPersonal-Windows-x64-Setup.exe",
-      "size": 304595418,
-      "sha256": "46080f267c9e7c555d4882172aa1db8ce68a36baec5e9d45894db07066e446a3",
+      "size": 304596557,
+      "sha256": "40d89dd44834a18a3b443fc0122306e55c469371e645b34407375f84aa7b95d7",
       "githubDigestMatches": true,
       "anonymousDownloadHead": 200
     },
     {
       "name": "SHA256SUMS.txt",
       "size": 212,
-      "sha256": "da0e92504f88945005467096c7a09359730c8b510cbf6c7943991591de146696",
+      "sha256": "05ca7377307edac05a732fb3600506144eeb0f431df1f5121cfc9c9a1da3a875",
       "githubDigestMatches": true,
       "anonymousDownloadHead": 200
     }
   ],
   "build": {
-    "macos": "python3 scripts/build-personal-macos.py（CLT Release，DMG 挂载验证 1.4.14 + 新服务端/设置页资源）",
-    "windows": "dotnet publish -c Release -r win-x64 --self-contained true -p:EnableWindowsTargeting=true -o publish；ISCC 6.7.3 经 CrossOver win10 bottle（tt-inno10）编译",
-    "windowsPackageVerify": "scripts/verify-windows-package.cjs：sourceSha 166e6c2d、version 1.4.14、matchedInputs 311、packageFiles 6151、无符号链接、无私密文件；证据 windows-package-1.4.14.json",
-    "windowsRuntimeSmoke": "bundled node.exe 22.22.2 于 Wine win10_64 bottle 加载 rollout.js（258 exports）/usage-limits/zcode-limits 模块成功",
-    "innoSetupNote": "本机既有 Inno bottle 已不存在，重建时发现 CrossOver 默认 win98 模板导致 Inno 6.7.x 安装器 Error 120；改用 win10 模板后 6.7.3 正常安装编译，编译器版本与 1.4.12 一致"
+    "macos": "python3 scripts/build-personal-macos.py（挂载验证 1.4.15 + device_names 服务端 + webdav-interval 前端资源）",
+    "windows": "dotnet publish + EmbeddedServer 刷新（npm ci + 去 .bin 符号链接）+ verify-windows-package.cjs（sourceSha 2909813、version 1.4.15、matchedInputs 311）+ ISCC 6.7.3 / CrossOver tt-inno10",
+    "evidence": "windows-package-1.4.15.json"
   },
-  "superseded": "personal-v1.4.13 草稿（含其 DMG/SHA256SUMS 附件）已按授权删除，由本版取代",
-  "notDone": ["Windows 实机安装/升级验证（需用户 Windows 机器执行）", "本机应用内更新验证（用户在 Mac 上手动检查更新即触发）"]
+  "round": "同步设置页优化：间隔预设（分钟/小时）、编辑解锁防误改、保存并测试合并、状态时间本地化到分钟、设备名替代机器码；/api/webdav/status 增加 device_names；新增 ForkSyncPage 测试 7 项"
 }
