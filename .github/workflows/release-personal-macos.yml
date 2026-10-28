@@ -30,8 +30,8 @@ jobs:
     # macos-26 left two dispatches queued ~15min with no runner ever assigned
     # (job cancelled with empty runner_name). The fork builds with swiftc via
     # scripts/build-personal-macos.py and needs no macos-26-specific SDK, so
-    # use the larger macos-latest pool instead.
-    runs-on: macos-latest
+    # use the larger pool; macos-latest was also starved, trying macos-14.
+    runs-on: macos-14
     permissions: {}
     steps:
       - uses: actions/checkout@v4
