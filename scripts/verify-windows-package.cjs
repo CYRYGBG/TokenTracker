@@ -1,4 +1,6 @@
 // Check a self-contained Windows payload against the checkout that built it.
+// Fork deltas vs upstream: the assembly is TokenTrackerPersonal.exe, and the
+// pet/quota pages are removed with the pet feature.
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
@@ -9,9 +11,9 @@ const root = path.resolve(__dirname, "..");
 const publish = path.resolve(process.argv[2] || "TokenTrackerWin/publish");
 const reportPath = process.argv[3];
 const runtime = path.join(publish, "EmbeddedServer", "tokentracker");
-const required = ["TokenTracker.exe", "TokenTracker.dll", "EmbeddedServer/node.exe",
+const required = ["TokenTrackerPersonal.exe", "TokenTrackerPersonal.dll", "EmbeddedServer/node.exe",
   "EmbeddedServer/tokentracker/bin/tracker.js", "EmbeddedServer/tokentracker/package-lock.json",
-  ...["index.html", "pet.html", "quota.html", "pricing.html", "terms.html", "privacy.html"]
+  ...["index.html", "pricing.html", "terms.html", "privacy.html"]
     .map(name => `EmbeddedServer/tokentracker/dashboard/dist/${name}`)];
 for (const name of required) assert.ok(fs.statSync(path.join(publish, name)).isFile(), `Missing ${name}`);
 

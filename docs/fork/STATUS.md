@@ -127,3 +127,12 @@ ZCode 新增的 512 MiB Codex 解压上限、后台归档回填和缺口台账�
 尚未做：本轮修复只进了源码与本地构建产物，未提交 GitHub 发布、未覆盖安装本机应用（等用户对发布安排的授权）；Windows publish 与真实发布校验在发布步骤执行。
 
 补充：`ci:local` 首跑卡在 ui-hardcode——上轮 `/devices` 重定向把 JSX 三元换行成 `) : Page ? (` 独立行，被扫描器当作裸文本节点（与上游 #904 提交说明里提到的同类误报）。已把 App.jsx 的嵌套三元改为提前计算 `content`（重定向逻辑不变），扫描器归零；guardrails/versions/bot-frames/架构测试/dashboard 生产构建全部通过，App+SettingsPage 前端测试 21 项通过。
+
+
+## 1.4.14 GitHub 发布完成（2026-10-28 用户授权）
+
+2026-10-28 13:40（Asia/Shanghai）前后已公开发布 [personal-v1.4.14](https://github.com/CYRYGBG/TokenTracker/releases/tag/personal-v1.4.14) 并设为 latest。标签指向 `166e6c2d`，分支同步推送至远端。三份附件（macOS arm64 DMG、Windows x64 Setup、SHA256SUMS.txt）远端 digest 与本地 SHA-256 全部一致，匿名下载 HEAD 均 HTTP 200；证据 `evidence/release.json`、`evidence/windows-package-1.4.14.json`。
+
+构建链：macOS CLT Release 重新构建（含本轮全部源码与最新 dashboard，挂载验证版本/资源）；Windows 走 `EnableWindowsTargeting` 自包含 publish + `verify-windows-package.cjs`（311 项嵌入文件与源码逐字节一致）+ CrossOver win10 bottle 内 ISCC 6.7.3 编译 + Wine 冒烟（bundled node 22.22.2 加载真实 CLI 模块）。本轮工具链事实：本机原 Inno bottle 已不存在；CrossOver `cxbottle --create` 不指定模板时是 win98，会导致 Inno 6.7.x 安装器报 Error 120（Call not implemented），必须用 `--template win10`（或 win10_64 跑 64 位 node）。`verify-windows-package.cjs` 已对齐 fork 实际产物名（TokenTrackerPersonal.exe、无 pet/quota 页）。
+
+personal-v1.4.13 草稿（含旧附件）已按授权删除，由 1.4.14 取代；1.4.13 本地安装版会被本版的应用内更新直接覆盖升级。未做：Windows 实机升级验证、本机应用内更新动作（用户侧手动检查更新即可验证）。npm 未发布、main 未改动。

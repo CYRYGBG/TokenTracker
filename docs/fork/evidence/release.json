@@ -1,42 +1,44 @@
 {
-  "checkedAt": "2026-10-28T02:15:10.627422+00:00",
+  "tag": "personal-v1.4.14",
   "repo": "https://github.com/CYRYGBG/TokenTracker",
-  "tag": "personal-v1.4.12",
   "sourceBranch": "codex/personal-release-20261027",
-  "sourceCommit": "ee8d3a5979f3d966d2ee6828843c5fb8a485800b",
+  "sourceCommit": "166e6c2d2ea5a7c25911b62aa6ba83c2a2512c37",
   "draft": false,
-  "publishedAt": "2026-10-28T02:14:45Z",
-  "url": "https://github.com/CYRYGBG/TokenTracker/releases/tag/personal-v1.4.12",
+  "latest": true,
+  "publishedAt": "2026-10-28T05:40:00Z",
+  "checkedAt": "2026-10-28T05:47:00Z",
+  "npmPublished": false,
+  "mainBranchChanged": false,
   "assets": [
     {
       "name": "TokenTrackerPersonal-macOS-arm64.dmg",
-      "bytes": 64661125,
-      "sha256": "ab37b273e343540e4a36e5aa1489467f977537d2373ef770c467375ece9b5ddd",
+      "size": 65381282,
+      "sha256": "feed91b10a75beb11099c80017e78b620048010ea244cdb2a465c12629afe83b",
       "githubDigestMatches": true,
-      "state": "uploaded",
-      "url": "https://github.com/CYRYGBG/TokenTracker/releases/download/personal-v1.4.12/TokenTrackerPersonal-macOS-arm64.dmg",
-      "anonymousHeadStatus": 200
+      "anonymousDownloadHead": 200
     },
     {
       "name": "TokenTrackerPersonal-Windows-x64-Setup.exe",
-      "bytes": 302947530,
-      "sha256": "14400aa62e1693766a866bfc868309bb4fd30f5edabfff345a35cf289d168eba",
+      "size": 304595418,
+      "sha256": "46080f267c9e7c555d4882172aa1db8ce68a36baec5e9d45894db07066e446a3",
       "githubDigestMatches": true,
-      "state": "uploaded",
-      "url": "https://github.com/CYRYGBG/TokenTracker/releases/download/personal-v1.4.12/TokenTrackerPersonal-Windows-x64-Setup.exe",
-      "anonymousHeadStatus": 200
+      "anonymousDownloadHead": 200
     },
     {
       "name": "SHA256SUMS.txt",
-      "bytes": 212,
-      "sha256": "efefdb6f7631032f6d3abd19bf06f086321f1e4a57691b9a83bfc005c75e7a2b",
+      "size": 212,
+      "sha256": "da0e92504f88945005467096c7a09359730c8b510cbf6c7943991591de146696",
       "githubDigestMatches": true,
-      "state": "uploaded",
-      "url": "https://github.com/CYRYGBG/TokenTracker/releases/download/personal-v1.4.12/SHA256SUMS.txt",
-      "anonymousHeadStatus": 200
+      "anonymousDownloadHead": 200
     }
   ],
-  "mainBranchChanged": false,
-  "npmPublished": false,
-  "upstreamWritten": false
+  "build": {
+    "macos": "python3 scripts/build-personal-macos.py（CLT Release，DMG 挂载验证 1.4.14 + 新服务端/设置页资源）",
+    "windows": "dotnet publish -c Release -r win-x64 --self-contained true -p:EnableWindowsTargeting=true -o publish；ISCC 6.7.3 经 CrossOver win10 bottle（tt-inno10）编译",
+    "windowsPackageVerify": "scripts/verify-windows-package.cjs：sourceSha 166e6c2d、version 1.4.14、matchedInputs 311、packageFiles 6151、无符号链接、无私密文件；证据 windows-package-1.4.14.json",
+    "windowsRuntimeSmoke": "bundled node.exe 22.22.2 于 Wine win10_64 bottle 加载 rollout.js（258 exports）/usage-limits/zcode-limits 模块成功",
+    "innoSetupNote": "本机既有 Inno bottle 已不存在，重建时发现 CrossOver 默认 win98 模板导致 Inno 6.7.x 安装器 Error 120；改用 win10 模板后 6.7.3 正常安装编译，编译器版本与 1.4.12 一致"
+  },
+  "superseded": "personal-v1.4.13 草稿（含其 DMG/SHA256SUMS 附件）已按授权删除，由本版取代",
+  "notDone": ["Windows 实机安装/升级验证（需用户 Windows 机器执行）", "本机应用内更新验证（用户在 Mac 上手动检查更新即触发）"]
 }
