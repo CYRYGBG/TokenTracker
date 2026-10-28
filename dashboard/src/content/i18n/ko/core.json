@@ -638,5 +638,11 @@
   "fork.devices.updated": "동기화: {{time}}",
   "fork.menubar.five_hour_hint": "표시 항목에서 Codex 5h 또는 Claude 5h를 선택하세요. 대시는 한도를 가져올 수 없음을 뜻합니다. 도구에 로그인하고 한도를 새로고침하세요. 숨긴 도구는 표시되지 않습니다.",
   "fork.updates.channel_hint": "CYRYGBG/TokenTracker의 개인용 릴리스에서만 업데이트합니다. 기본값은 꺼짐이며 켜면 자동으로 다운로드하고 설치합니다.",
-  "limits.zcode.reset_bank.unavailable": "초기화 권한을 확인할 수 없습니다. 새로고침해 다시 시도하세요."
+  "limits.zcode.reset_bank.unavailable": "초기화 권한을 확인할 수 없습니다. 새로고침해 다시 시도하세요.",
+  "fork.personal.3d7e8f9a0b": "편집",
+  "fork.personal.4c5d6e7f8a": "취소",
+  "fork.personal.5a6b7c8d9e": "동기화 간격",
+  "fork.personal.6f7a8b9c0d": "분",
+  "fork.personal.7b8c9d0e1f": "시간",
+  "fork.personal.8c9d0e1f2a": "마지막 동기화 실패"
 }

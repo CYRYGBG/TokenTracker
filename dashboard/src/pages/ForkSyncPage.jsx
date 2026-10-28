@@ -1,6 +1,6 @@
 import { saveLocalUsageExport } from "../lib/native-bridge";
 import { copy } from "../lib/copy";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { forkApi } from "../lib/fork-api";
 import { Button } from "../ui/components/Button.jsx";
 import {
@@ -10,6 +10,22 @@ import {
   ToggleSwitch,
 } from "../components/settings/Controls.jsx";
 const inputClass = SETTINGS_INPUT_CLASS;
+
+// Presets for the background auto-sync cadence. Minutes below an hour, hours
+// above; a saved value outside the presets stays selectable so the form never
+// shows a lie about the active config.
+const INTERVAL_PRESETS_MINUTES = [5, 15, 30, 60, 120, 360, 720, 1440];
+
+/// Local-time "YYYY-MM-DD HH:mm" — the sync status is a human recall aid, not
+/// a log line, so no seconds and no UTC suffix.
+function formatSyncMinute(iso) {
+  if (!iso) return null;
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return null;
+  const p2 = (n) => String(n).padStart(2, "0");
+  return `${date.getFullYear()}-${p2(date.getMonth() + 1)}-${p2(date.getDate())} ${p2(date.getHours())}:${p2(date.getMinutes())}`;
+}
+
 export default function ForkSyncSection() {
   const [config, setConfig] = useState({
     url: "",
@@ -20,6 +36,8 @@ export default function ForkSyncSection() {
     sync_titles: true,
     interval_minutes: 5,
   });
+  const [loadedConfig, setLoadedConfig] = useState(null);
+  const [editing, setEditing] = useState(false);
   const [password, setPassword] = useState("");
   const [status, setStatus] = useState(null);
   const [busy, setBusy] = useState(false);
@@ -47,6 +65,19 @@ export default function ForkSyncSection() {
     cache_write: "",
   });
   const [alias, setAlias] = useState({ from: "", to: "" });
+  const intervalOptions = useMemo(() => {
+    const current = Number(config.interval_minutes) || 5;
+    const values = INTERVAL_PRESETS_MINUTES.includes(current)
+      ? INTERVAL_PRESETS_MINUTES
+      : [...INTERVAL_PRESETS_MINUTES, current].sort((a, b) => a - b);
+    return values.map((minutes) => ({
+      value: minutes,
+      label:
+        minutes < 60
+          ? `${minutes} ${copy("fork.personal.6f7a8b9c0d")}`
+          : `${minutes / 60} ${copy("fork.personal.7b8c9d0e1f")}`,
+    }));
+  }, [config.interval_minutes]);
   async function load() {
     const [s, p, ps] = await Promise.all([
       forkApi("/api/webdav/status"),
@@ -54,7 +85,10 @@ export default function ForkSyncSection() {
       forkApi("/api/fork/pricing"),
     ]);
     setStatus(s);
-    if (s.config) setConfig(s.config);
+    if (s.config) {
+      setConfig(s.config);
+      setLoadedConfig(s.config);
+    }
     setPrefs(p);
     setPriceStatus(ps);
   }
@@ -115,6 +149,7 @@ export default function ForkSyncSection() {
                   id={`webdav-${key}`}
                   className={inputClass + " sm:w-64"}
                   value={config[key] || ""}
+                  readOnly={!editing}
                   onChange={(e) => setConfig({ ...config, [key]: e.target.value })}
                 />
               }
@@ -130,6 +165,7 @@ export default function ForkSyncSection() {
                 autoComplete="new-password"
                 value={password}
                 placeholder={status?.credential_present ? copy("fork.personal.8a57844ddf") : copy("fork.personal.63595e95b7")}
+                readOnly={!editing}
                 onChange={(e) => setPassword(e.target.value)}
               />
             }
@@ -141,6 +177,7 @@ export default function ForkSyncSection() {
             control={
               <ToggleSwitch
                 checked={config.enabled}
+                disabled={!editing}
                 onChange={() =>
                   setConfig({ ...config, enabled: !config.enabled })
                 }
@@ -149,10 +186,31 @@ export default function ForkSyncSection() {
             }
           />
           <SettingsRow
+            label={<label htmlFor="webdav-interval">{copy("fork.personal.5a6b7c8d9e")}</label>}
+            control={
+              <select
+                id="webdav-interval"
+                className={inputClass + " sm:w-40"}
+                value={Number(config.interval_minutes) || 5}
+                disabled={!editing}
+                onChange={(e) =>
+                  setConfig({ ...config, interval_minutes: Number(e.target.value) })
+                }
+              >
+                {intervalOptions.map(({ value, label }) => (
+                  <option key={value} value={value}>
+                    {label}
+                  </option>
+                ))}
+              </select>
+            }
+          />
+          <SettingsRow
             label={copy("fork.personal.0cf7912b4d")}
             control={
               <ToggleSwitch
                 checked={config.sync_titles !== false}
+                disabled={!editing}
                 onChange={() =>
                   setConfig({
                     ...config,
@@ -165,50 +223,79 @@ export default function ForkSyncSection() {
           />
         </div>
         <div className="flex flex-wrap gap-2">
-          <Button
-            variant="secondary"
-            size="sm"
-            disabled={busy}
-            onClick={() => run(save, copy("fork.personal.cb84a961b0"))}
-          >
-            {copy("fork.personal.fadf24dbc5")}
-          </Button>
-          <Button
-            variant="secondary"
-            size="sm"
-            disabled={busy}
-            onClick={() =>
-              run(async () => {
-                await save();
-                await forkApi("/api/webdav/test", { method: "POST" });
-              }, copy("fork.personal.eb06635875"))
-            }
-          >
-            {copy("fork.personal.b4a9a5f1b1")}
-          </Button>
-          <Button
-            variant="secondary"
-            size="sm"
-            disabled={busy}
-            onClick={() =>
-              run(async () => {
-                await save();
-                await forkApi("/api/webdav/sync-now", { method: "POST" });
-              }, copy("fork.personal.d9c1fcf2bb"))
-            }
-          >
-            {copy("fork.personal.098d06ecac")}
-          </Button>
+          {editing ? (
+            <>
+              <Button
+                variant="secondary"
+                size="sm"
+                disabled={busy}
+                onClick={() =>
+                  run(async () => {
+                    await save();
+                    await forkApi("/api/webdav/test", { method: "POST" });
+                    setEditing(false);
+                  }, copy("fork.personal.eb06635875"))
+                }
+              >
+                {copy("fork.personal.b4a9a5f1b1")}
+              </Button>
+              <Button
+                variant="secondary"
+                size="sm"
+                disabled={busy}
+                onClick={() => {
+                  if (loadedConfig) setConfig(loadedConfig);
+                  setPassword("");
+                  setEditing(false);
+                }}
+              >
+                {copy("fork.personal.4c5d6e7f8a")}
+              </Button>
+            </>
+          ) : (
+            <>
+              <Button
+                variant="secondary"
+                size="sm"
+                disabled={busy}
+                onClick={() => {
+                  setError("");
+                  setNotice("");
+                  setEditing(true);
+                }}
+              >
+                {copy("fork.personal.3d7e8f9a0b")}
+              </Button>
+              <Button
+                variant="secondary"
+                size="sm"
+                disabled={busy}
+                onClick={() =>
+                  run(async () => {
+                    await save();
+                    await forkApi("/api/webdav/sync-now", { method: "POST" });
+                  }, copy("fork.personal.d9c1fcf2bb"))
+                }
+              >
+                {copy("fork.personal.098d06ecac")}
+              </Button>
+            </>
+          )}
         </div>
         <p className="text-sm">
-          {copy("fork.personal.2a0b1ad677")}
-          {status?.sync?.last_success_at || copy("fork.personal.9ef840e69f")}　
-          {status?.sync?.last_failure?.code || ""}
+          {copy("fork.personal.2a0b1ad677")}{" "}
+          {formatSyncMinute(status?.sync?.last_success_at) || copy("fork.personal.9ef840e69f")}
         </p>
+        {status?.sync?.last_failure ? (
+          <p className="text-sm text-red-600">
+            {copy("fork.personal.8c9d0e1f2a")}
+            {status.sync.last_failure.code ? ` (${status.sync.last_failure.code})` : ""}
+          </p>
+        ) : null}
         <ul className="text-sm">
           {Object.entries(status?.sync?.imported || {}).map(([id, s]) => (
             <li key={id}>
-              {id}：
+              {status?.device_names?.[id] || id}：
               {s.ok
                 ? copy("fork.personal.76ce8e3d5e")
                 : copy("fork.personal.d82674407c")}

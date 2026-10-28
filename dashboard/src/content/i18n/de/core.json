@@ -635,5 +635,11 @@
   "fork.devices.updated": "Synchronisiert: {{time}}",
   "fork.menubar.five_hour_hint": "Wähle Codex 5h oder Claude 5h als Anzeige. Ein Strich bedeutet, dass das Limit nicht verfügbar ist. Beim Anbieter anmelden und Limits aktualisieren. Ausgeblendete Anbieter bleiben ausgeblendet.",
   "fork.updates.channel_hint": "Updates stammen nur aus persönlichen Releases von CYRYGBG/TokenTracker. Standardmäßig deaktiviert. Aktivieren, um Updates automatisch herunterzuladen und zu installieren.",
-  "limits.zcode.reset_bank.unavailable": "Zurücksetzungen derzeit nicht verfügbar. Zum Wiederholen aktualisieren."
+  "limits.zcode.reset_bank.unavailable": "Zurücksetzungen derzeit nicht verfügbar. Zum Wiederholen aktualisieren.",
+  "fork.personal.3d7e8f9a0b": "Bearbeiten",
+  "fork.personal.4c5d6e7f8a": "Abbrechen",
+  "fork.personal.5a6b7c8d9e": "Synchronisierungsintervall",
+  "fork.personal.6f7a8b9c0d": "Min.",
+  "fork.personal.7b8c9d0e1f": "Std.",
+  "fork.personal.8c9d0e1f2a": "Letzte Synchronisierung fehlgeschlagen"
 }

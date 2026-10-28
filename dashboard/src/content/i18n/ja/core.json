@@ -638,5 +638,11 @@
   "fork.devices.updated": "同期: {{time}}",
   "fork.menubar.five_hour_hint": "表示項目に Codex 5h または Claude 5h を選択できます。ダッシュは上限を取得できない状態です。ツールにログインして使用上限を更新してください。非表示のツールは表示されません。",
   "fork.updates.channel_hint": "CYRYGBG/TokenTracker の個人版リリースのみから更新します。初期設定はオフです。有効にすると自動でダウンロード・インストールします。",
-  "limits.zcode.reset_bank.unavailable": "リセット権利を取得できません。更新して再試行してください。"
+  "limits.zcode.reset_bank.unavailable": "リセット権利を取得できません。更新して再試行してください。",
+  "fork.personal.3d7e8f9a0b": "編集",
+  "fork.personal.4c5d6e7f8a": "キャンセル",
+  "fork.personal.5a6b7c8d9e": "同期間隔",
+  "fork.personal.6f7a8b9c0d": "分",
+  "fork.personal.7b8c9d0e1f": "時間",
+  "fork.personal.8c9d0e1f2a": "前回の同期に失敗"
 }

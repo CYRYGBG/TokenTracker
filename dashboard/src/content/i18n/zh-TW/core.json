@@ -847,7 +847,6 @@
   "fork.personal.5faab6dc38": "后台自动同步",
   "fork.personal.0cf7912b4d": "同步会话标题",
   "fork.personal.cb84a961b0": "设置已保存",
-  "fork.personal.fadf24dbc5": "保存",
   "fork.personal.eb06635875": "连接成功",
   "fork.personal.b4a9a5f1b1": "保存并测试连接",
   "fork.personal.d9c1fcf2bb": "同步周期完成；请核对设备状态",
@@ -924,5 +923,11 @@
   "fork.devices.updated": "同步於 {{time}}",
   "fork.menubar.five_hour_hint": "在任一顯示位置選擇 Codex 5h 或 Claude 5h。橫線表示暫時無法取得額度，請登入對應工具後重新整理額度頁；額度頁的工具顯示設定同樣生效。",
   "fork.updates.channel_hint": "僅從 CYRYGBG/TokenTracker 的個人版發佈取得更新。預設關閉，開啟後自動下載並安裝更新。",
-  "limits.zcode.reset_bank.unavailable": "暫時無法查詢重設權益，重新整理後重試。"
+  "limits.zcode.reset_bank.unavailable": "暫時無法查詢重設權益，重新整理後重試。",
+  "fork.personal.3d7e8f9a0b": "編輯",
+  "fork.personal.4c5d6e7f8a": "取消",
+  "fork.personal.5a6b7c8d9e": "同步間隔",
+  "fork.personal.6f7a8b9c0d": "分鐘",
+  "fork.personal.7b8c9d0e1f": "小時",
+  "fork.personal.8c9d0e1f2a": "上次同步失敗"
 }

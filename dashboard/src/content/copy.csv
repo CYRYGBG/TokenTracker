@@ -2156,7 +2156,6 @@ fork.personal.63595e95b7,fork,Personal,Personal,text,"Not configured",,active
 fork.personal.5faab6dc38,fork,Personal,Personal,text,"Background sync",,active
 fork.personal.0cf7912b4d,fork,Personal,Personal,text,"Sync session titles",,active
 fork.personal.cb84a961b0,fork,Personal,Personal,text,"Settings saved",,active
-fork.personal.fadf24dbc5,fork,Personal,Personal,text,"Save",,active
 fork.personal.eb06635875,fork,Personal,Personal,text,"Connection succeeded",,active
 fork.personal.b4a9a5f1b1,fork,Personal,Personal,text,"Save and test connection",,active
 fork.personal.d9c1fcf2bb,fork,Personal,Personal,text,"Sync cycle finished; review device status",,active
@@ -2165,6 +2164,12 @@ fork.personal.2a0b1ad677,fork,Personal,Personal,text,"Last successful sync:",,ac
 fork.personal.9ef840e69f,fork,Personal,Personal,text,"None yet",,active
 fork.personal.76ce8e3d5e,fork,Personal,Personal,text,"Synced",,active
 fork.personal.d82674407c,fork,Personal,Personal,text,"Sync failed; history retained",,active
+fork.personal.3d7e8f9a0b,fork,Personal,Personal,text,"Edit",,active
+fork.personal.4c5d6e7f8a,fork,Personal,Personal,text,"Cancel",,active
+fork.personal.5a6b7c8d9e,fork,Personal,Personal,text,"Sync interval",,active
+fork.personal.6f7a8b9c0d,fork,Personal,Personal,text,"min",,active
+fork.personal.7b8c9d0e1f,fork,Personal,Personal,text,"hr",,active
+fork.personal.8c9d0e1f2a,fork,Personal,Personal,text,"Last sync failed",,active
 fork.personal.bf9c6bfe0c,fork,Personal,Personal,text,"Model pricing",,active
 fork.personal.64b3b59a15,fork,Personal,Personal,text,"Source:",,active
 fork.personal.09ceea7644,fork,Personal,Personal,text,"Built-in",,active

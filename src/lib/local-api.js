@@ -1190,7 +1190,14 @@ function createLocalApiHandler({ queuePath, serverVersion = null, trackerDataDir
       try {
         const scheduler = getWebdavScheduler();
         const state = await scheduler.readState();
-        json(res, { ...(await webdavStatusSummary()), sync: {
+        // Imported-device display names for the sync page; ids alone read like
+        // machine garbage. Non-fatal: a broken import store still returns status.
+        let deviceNames = {};
+        try {
+          const known = await require('./fork-view').devices(trackerDataDir);
+          deviceNames = Object.fromEntries(known.map((d) => [d.id, d.name || d.id]));
+        } catch {}
+        json(res, { ...(await webdavStatusSummary()), device_names: deviceNames, sync: {
           last_success_at: state.last_success_at || null,
           last_failure: state.last_failure || null,
           backoff_until_ms: state.backoff_until_ms || 0,
