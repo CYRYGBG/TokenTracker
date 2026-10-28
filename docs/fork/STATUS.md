@@ -24,6 +24,7 @@
 - ③ 升级后同步正常：新 server 起动即同步成功（22:05，buckets seq 26→27），「立即同步」22:12 再成功，状态行「上次成功 2026-10-28 22:12 / Mac：已同步」，last_failure=null、无退避、credential_present=true。
 - 泄漏线索（供下一轮排查）：18:34–19:04 该 serve 进程 node stderr 三次 `Session history warning: ZSTD_error_memory_allocation`，与冲高回落窗口吻合。升级后新 server（pid 165432，21:59 起）基线 WS≈251MB/PM≈346MB；72h 稳定性与游戏同开提交峰值验收仍待观察。
 - 打包小观察（1.4.17 可顺手处理）：已装包 dashboard/dist/assets 残留 3 个旧 main-*.js（index.html 引用最新构建，功能无影响，多约 2MB 体积）；`dashboard:build` 似未清空 outDir。
+- 官方版残留清除（2026-10-28 用户明确授权「官方版可以直接删了」）：Inno 卸载器静默移除 `C:\Users\cyr\AppData\Local\Programs\TokenTracker\`（注册表卸载项与开始菜单快捷方式随之消失）；手动清除运行时残留——HKCU Run 自启值「TokenTracker」、`%LOCALAPPDATA%\TokenTracker\`（224MB，含官方 WebView2/更新器下载）、`~/.tokentracker\`（127MB，官方统计数据）；并从 `~/.codex/config.toml` 的 notify 链移除指向官方 node+notify.cjs 的 `--previous-notify` 段（保留 Codex 自带 computer-use 通知）、删除 `~/.claude/settings.json` 中仅有的两条官方 hook（Stop/SessionEnd，指向已删文件）。两配置文件改前已留 `.bak-before-official-tokentracker-removal` 备份。清理后无残留引用，个人版应用与 WebDAV 同步不受影响（22:20 仍成功同步）。注意：开机自启现在没有任何 TokenTracker 生效，个人版如需自启要在应用内开启。
 - 本轮零源码改动；未推送远端、未发布。结构化证据见 evidence/windows-local-install-1.4.16.json。
 
 ## 当前实现

@@ -7,7 +7,22 @@
       "version": "1.4.11+cf721ab355928353379925a815f4a7d69301855a",
       "evidence": "EmbeddedServer CLI package.json 1.4.11, bin/ has no personal.js, data dir ~/.tokentracker, HKCU Run 'TokenTracker' autostart, Codex notify hook targets ~/.tokentracker/bin/notify.cjs",
       "lastRunning": "2026-10-25 (windows-host.log in %LOCALAPPDATA%\\TokenTracker)",
-      "action": "untouched, reported to user"
+      "action": "user authorized removal ('官方版可以直接删了'); fully removed 2026-10-28 ~22:2x local"
+    },
+    "officialRemoval": {
+      "uninstaller": "unins000.exe /VERYSILENT /SUPPRESSMSGBOXES /NORESTART — install dir, uninstall registry entry and Start Menu shortcut removed",
+      "manualCleanup": [
+        "HKCU Run value 'TokenTracker' (--startup) deleted",
+        "%LOCALAPPDATA%\\TokenTracker (224MB: WebView2, WebView2Pet, updates, logs) deleted",
+        "~/.tokentracker (127MB official data incl. tracker stats) deleted"
+      ],
+      "hookCleanup": {
+        "codex": "~/.codex/config.toml notify chain: removed --previous-notify segment referencing official EmbeddedServer node.exe + ~/.tokentracker/bin/notify.cjs; kept codex-computer-use.exe notifier",
+        "claude": "~/.claude/settings.json: removed the only hooks (Stop + SessionEnd) which both pointed at the deleted official node/notify.cjs; env and other settings untouched"
+      },
+      "backups": "config.toml.bak-before-official-tokentracker-removal and settings.json.bak-before-official-tokentracker-removal kept next to the originals",
+      "postCheck": "no residual official references in codex/claude configs; no TokenTracker autostart entries; personal app (pid 135896) and WebDAV sync unaffected (last_success 22:20 local)",
+      "note": "no TokenTracker auto-starts at boot anymore; enable personal autostart in-app if desired"
     },
     "personal": {
       "path": "D:\\01.软件\\TokenTracker Personal\\TokenTrackerPersonal.exe",
