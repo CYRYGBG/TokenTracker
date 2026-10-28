@@ -2140,9 +2140,6 @@ settings.local_data.error.unknown_device,settings,SettingsPage,LocalDataSection,
 settings.local_data.error.transfer_failed,settings,SettingsPage,LocalDataSection,transfer_failed,"Transfer failed. Check the file and local app, then try again.",,active
 settings.local_data.local_history_only,dashboard,DashboardPage,LocalDataSection,local_history_only,"Offline snapshots omit session records. Select this device for context breakdown; project, session and outcome analyses always use this device's records.",,active
 fork.personal.300ee3dee4,fork,Personal,Personal,text,"Loading…",,active
-fork.personal.174fd6f85c,fork,Personal,Personal,text,"Usage scope",,active
-fork.personal.fb9b2c7f31,fork,Personal,Personal,text,"All devices",,active
-fork.personal.8b4c1c5f0c,fork,Personal,Personal,text,"This device",,active
 fork.personal.7d0ecab92a,fork,Personal,Personal,text,"Sync is incomplete. Showing saved data.",,active
 fork.personal.3651670662,fork,Personal,Personal,text,"Sync & devices",,active
 fork.personal.bfb9248299,fork,Personal,Personal,text,"Sync usage details over HTTPS using your WebDAV app password. The password stays in system credential storage. Conversation content is excluded. Enter credentials here, never in chat.",,active

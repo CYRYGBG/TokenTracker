@@ -95,7 +95,23 @@ async function scope(trackerDir, url) {
   const saved = await durable.read(path.join(trackerDir, "fork-view.json"), {
     device: "all",
   });
-  return url?.searchParams.get("device") || saved.device || "all";
+  // The official in-card device dropdown sends its selection as the
+  // per-request `device_id` param (lib/api buildFilterParams); `device` stays
+  // for the older saved-preference flow. Only ids that actually name a device
+  // (this machine, a WebDAV import, or the all/local scopes) select it —
+  // unknown ids are cloud-era leftovers that must keep the local fallback.
+  const requested =
+    url?.searchParams.get("device") || url?.searchParams.get("device_id");
+  if (requested) {
+    if (["all", "local"].includes(requested)) return requested;
+    const machineId = getOrCreateMachineId(
+      path.join(trackerDir, "queue.jsonl"),
+    );
+    if (requested === machineId) return requested;
+    const known = await remote(trackerDir);
+    if (known.some((d) => d.machineId === requested)) return requested;
+  }
+  return saved.device || "all";
 }
 async function buckets(trackerDir, url) {
   const device = await scope(trackerDir, url);

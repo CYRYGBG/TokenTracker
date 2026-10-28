@@ -28,6 +28,7 @@ import {
 } from "../lib/format";
 import { shouldShowInstallCard } from "../lib/install-status";
 import { isLocalDashboardHost } from "../lib/host-mode";
+import { forkApi } from "../lib/fork-api";
 import { getMockNow, isMockEnabled } from "../lib/mock-data";
 import { publishUsageLimitsPreloadState } from "../lib/dashboard-preload.js";
 import { startLocalUsageAutoRefresh } from "../lib/local-usage-auto-refresh";
@@ -368,7 +369,28 @@ export function DashboardPage({
   const to = range.to;
 
   const [storedDevice, setSelectedDevice] = useState(null);
-  const selectedDevice = storedDevice && (storedDevice.startsWith("local:") !== accountView) ? storedDevice : null;
+  // Fork local view: WebDAV-imported devices are not offline snapshots, so
+  // their raw machine ids bypass the local:/account guard below and are sent
+  // per-request as device_id (src/lib/fork-view.js scope()).
+  const forkDeviceView = isLocalDashboardHost() && !publicMode && !mockEnabled;
+  const selectedDevice = forkDeviceView
+    ? storedDevice
+    : storedDevice && (storedDevice.startsWith("local:") !== accountView)
+      ? storedDevice
+      : null;
+  const [forkViewState, setForkViewState] = useState(null);
+  useEffect(() => {
+    if (!forkDeviceView) return;
+    let cancelled = false;
+    forkApi("/api/fork/view")
+      .then((s) => {
+        if (!cancelled) setForkViewState(s);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [forkDeviceView]);
   const [currentDeviceId, setCurrentDeviceId] = useState(() => getCurrentDeviceId());
   useEffect(() => {
     const refreshCurrentDevice = () => setCurrentDeviceId(getCurrentDeviceId());
@@ -403,9 +425,20 @@ export function DashboardPage({
     () => accountDeviceSources.filter((s) => (Number(s.total_tokens) || 0) > 0),
     [accountDeviceSources],
   );
-  // Dropdown filter: choosing between devices needs 2+ of them.
-  const forkDeviceView = isLocalDashboardHost() && !publicMode && !mockEnabled;
-  const showDeviceFilter = !forkDeviceView && activeDevices.length >= 2;
+  // Dropdown filter: choosing between devices needs 2+ of them. The fork view
+  // lists WebDAV devices from /api/fork/view (offline snapshots are not the
+  // fork's device set); the official path keeps account devices.
+  const selectorDevices = useMemo(
+    () =>
+      forkDeviceView
+        ? (forkViewState?.devices || []).map((d) => ({
+            ...d,
+            isCurrent: d.isCurrent ?? d.local,
+          }))
+        : activeDevices,
+    [forkDeviceView, forkViewState, activeDevices],
+  );
+  const showDeviceFilter = selectorDevices.length >= 2;
   // Breakdown card: needs 2+ rows; account-level sources count as rows.
   const showDeviceCard = (accountView || activeDevices.length >= 2) && activeDevices.length + accountSourceRows.length >= 2;
   // Reset the filter when no selector is visible, or when the selected device
@@ -416,22 +449,26 @@ export function DashboardPage({
       if (selectedDevice !== null) setSelectedDevice(null);
       return;
     }
-    if (selectedDevice && !activeDevices.some((d) => d.id === selectedDevice)) {
+    if (selectedDevice && !selectorDevices.some((d) => d.id === selectedDevice)) {
       setSelectedDevice(null);
     }
-  }, [showDeviceFilter, showDeviceCard, activeDevices, selectedDevice, devicesLoading]);
+  }, [showDeviceFilter, showDeviceCard, selectorDevices, selectedDevice, devicesLoading]);
 
   const deviceOptions = useMemo(() => {
     if (!showDeviceFilter) return [];
     return [
       { value: "", label: copy("dashboard.device_filter.all") },
-      ...activeDevices.map((d) => {
-        const deviceLabel = formatDeviceLabel(d) || copy("dashboard.device_card.unnamed");
+      ...selectorDevices.map((d) => {
+        const deviceLabel = (forkDeviceView ? d.name : formatDeviceLabel(d)) || copy("dashboard.device_card.unnamed");
         const currentSuffix = d.isCurrent ? ` (${copy("dashboard.device_card.current")})` : "";
         return { value: d.id, label: `${deviceLabel}${currentSuffix}` };
       }),
     ];
-  }, [showDeviceFilter, activeDevices, resolvedLocale]);
+  }, [showDeviceFilter, selectorDevices, forkDeviceView, resolvedLocale]);
+
+  // Fork scope() ignores an absent device_id and falls back to the last saved
+  // preference, so "All devices" must travel as an explicit value.
+  const usageDeviceId = forkDeviceView ? selectedDevice || "all" : selectedDevice;
 
   const deviceUsageData = accountView ? { devices: activeDevices, accountSources: accountSourceRows }
     : localDeviceUsage(activeDevices, accountSourceRows, selectedDevice);
@@ -510,7 +547,7 @@ export function DashboardPage({
     accountAccessToken,
     accountRevision,
     accountViewResolving,
-    deviceId: selectedDevice,
+    deviceId: usageDeviceId,
   });
   const {
     daily: dailyBreakdownDaily,
@@ -537,7 +574,7 @@ export function DashboardPage({
     // Keep the daily breakdown aligned with the selected device used by the
     // main usage/detail cards. Without this, choosing a device only filtered
     // some cards while the daily table continued to show account-wide rows.
-    deviceId: selectedDevice,
+    deviceId: usageDeviceId,
   });
 
   const {
@@ -557,7 +594,7 @@ export function DashboardPage({
     accountAccessToken,
     accountRevision,
     accountViewResolving,
-    deviceId: selectedDevice,
+    deviceId: usageDeviceId,
   });
 
   const [projectUsageLimit, setProjectUsageLimit] = useState(3);
@@ -607,7 +644,7 @@ export function DashboardPage({
     accountAccessToken,
     accountRevision,
     accountViewResolving,
-    deviceId: selectedDevice,
+    deviceId: usageDeviceId,
   });
 
   // Stable useTrendData config handed to the zoom modal so it can hold its OWN
@@ -629,7 +666,7 @@ export function DashboardPage({
       accountAccessToken,
       accountRevision,
       accountViewResolving,
-      deviceId: selectedDevice,
+      deviceId: usageDeviceId,
     }),
     [
       baseUrl, accessToken, guestAllowed, cacheKey, trendTimeZone, trendTzOffsetMinutes, mockNow,
@@ -656,7 +693,7 @@ export function DashboardPage({
     accountAccessToken,
     accountRevision,
     accountViewResolving,
-    deviceId: selectedDevice,
+    deviceId: usageDeviceId,
   });
 
   const {

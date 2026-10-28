@@ -207,10 +207,16 @@ describe("SettingsPage category navigation", () => {
     const user = userEvent.setup();
     renderSettings("/settings?app=1");
     expect(screen.queryByTestId("sync-content")).toBeNull();
-    await user.click(screen.getByRole("button", { name: "Sync & devices" }));
+    // act-wrapped like the sibling navigation clicks: unwrapped, the router
+    // update can land after the assertion when workers are under load.
+    await act(async () => {
+      await user.click(screen.getByRole("button", { name: "Sync & devices" }));
+    });
     expect(screen.getByTestId("sync-content")).toBeVisible();
     expect(screen.getByTestId("location")).toHaveTextContent("/settings?app=1&section=sync");
-    await user.click(screen.getByRole("button", { name: "Appearance" }));
+    await act(async () => {
+      await user.click(screen.getByRole("button", { name: "Appearance" }));
+    });
     expect(screen.queryByTestId("sync-content")).toBeNull();
   });
 

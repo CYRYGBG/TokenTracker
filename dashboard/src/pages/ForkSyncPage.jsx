@@ -116,6 +116,15 @@ export default function ForkSyncSection() {
     });
     setPassword("");
   }
+  // Selection-type controls (toggles, interval) apply immediately — they are
+  // not part of the credential edit flow and need no 编辑 gate.
+  const applySelection = (next) => {
+    setConfig(next);
+    void run(
+      () => forkApi("/api/webdav/config", { method: "PUT", body: next }),
+      copy("fork.personal.cb84a961b0"),
+    );
+  };
   const event = (action, target, payload = {}) =>
     forkApi("/api/fork/prefs", {
       method: "POST",
@@ -134,6 +143,9 @@ export default function ForkSyncSection() {
         <p className="text-sm text-oai-gray-500">
           {copy("fork.personal.bfb9248299")}
         </p>
+        {/* Credentials are fill-in content: locked rows render as plain text
+            until 编辑, so the form never advertises an editability it does
+            not have. The password value is never echoed back. */}
         <div className="divide-y divide-oai-gray-200/60 dark:divide-oai-gray-800/60">
           {[
             ["url", copy("fork.personal.86e118291e")],
@@ -143,31 +155,58 @@ export default function ForkSyncSection() {
           ].map(([key, label]) => (
             <SettingsRow
               key={key}
-              label={<label htmlFor={`webdav-${key}`}>{label}</label>}
+              label={
+                editing ? (
+                  <label htmlFor={`webdav-${key}`}>{label}</label>
+                ) : (
+                  label
+                )
+              }
               control={
-                <input
-                  id={`webdav-${key}`}
-                  className={inputClass + " sm:w-64"}
-                  value={config[key] || ""}
-                  readOnly={!editing}
-                  onChange={(e) => setConfig({ ...config, [key]: e.target.value })}
-                />
+                editing ? (
+                  <input
+                    id={`webdav-${key}`}
+                    className={inputClass + " sm:w-64"}
+                    value={config[key] || ""}
+                    onChange={(e) => setConfig({ ...config, [key]: e.target.value })}
+                  />
+                ) : (
+                  <span
+                    data-testid={`webdav-${key}-value`}
+                    className="text-sm break-all text-oai-gray-900 dark:text-oai-gray-200"
+                  >
+                    {config[key] || copy("fork.personal.63595e95b7")}
+                  </span>
+                )
               }
             />
           ))}
           <SettingsRow
-            label={<label htmlFor="webdav-password">{copy("fork.personal.ae66366412")}</label>}
+            label={
+              editing ? (
+                <label htmlFor="webdav-password">{copy("fork.personal.ae66366412")}</label>
+              ) : (
+                copy("fork.personal.ae66366412")
+              )
+            }
             control={
-              <input
-                id="webdav-password"
-                className={inputClass + " sm:w-64"}
-                type="password"
-                autoComplete="new-password"
-                value={password}
-                placeholder={status?.credential_present ? copy("fork.personal.8a57844ddf") : copy("fork.personal.63595e95b7")}
-                readOnly={!editing}
-                onChange={(e) => setPassword(e.target.value)}
-              />
+              editing ? (
+                <input
+                  id="webdav-password"
+                  className={inputClass + " sm:w-64"}
+                  type="password"
+                  autoComplete="new-password"
+                  value={password}
+                  placeholder={status?.credential_present ? copy("fork.personal.8a57844ddf") : copy("fork.personal.63595e95b7")}
+                  onChange={(e) => setPassword(e.target.value)}
+                />
+              ) : (
+                <span className="text-sm text-oai-gray-900 dark:text-oai-gray-200">
+                  {status?.credential_present
+                    ? copy("limits.apiKey.saved")
+                    : copy("fork.personal.63595e95b7")}
+                </span>
+              )
             }
           />
         </div>
@@ -177,9 +216,9 @@ export default function ForkSyncSection() {
             control={
               <ToggleSwitch
                 checked={config.enabled}
-                disabled={!editing}
+                disabled={busy}
                 onChange={() =>
-                  setConfig({ ...config, enabled: !config.enabled })
+                  applySelection({ ...config, enabled: !config.enabled })
                 }
                 ariaLabel={copy("fork.personal.5faab6dc38")}
               />
@@ -192,9 +231,9 @@ export default function ForkSyncSection() {
                 id="webdav-interval"
                 className={inputClass + " sm:w-40"}
                 value={Number(config.interval_minutes) || 5}
-                disabled={!editing}
+                disabled={busy}
                 onChange={(e) =>
-                  setConfig({ ...config, interval_minutes: Number(e.target.value) })
+                  applySelection({ ...config, interval_minutes: Number(e.target.value) })
                 }
               >
                 {intervalOptions.map(({ value, label }) => (
@@ -210,9 +249,9 @@ export default function ForkSyncSection() {
             control={
               <ToggleSwitch
                 checked={config.sync_titles !== false}
-                disabled={!editing}
+                disabled={busy}
                 onChange={() =>
-                  setConfig({
+                  applySelection({
                     ...config,
                     sync_titles: config.sync_titles === false,
                   })
@@ -272,7 +311,6 @@ export default function ForkSyncSection() {
                 disabled={busy}
                 onClick={() =>
                   run(async () => {
-                    await save();
                     await forkApi("/api/webdav/sync-now", { method: "POST" });
                   }, copy("fork.personal.d9c1fcf2bb"))
                 }

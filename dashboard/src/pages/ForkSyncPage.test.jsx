@@ -46,6 +46,7 @@ function primeApi(overrides = {}) {
     }
     if (path === "/api/fork/prefs") return { expenses: [], prices: [], aliases: {} };
     if (path === "/api/fork/pricing") return { source: null, version: null, updated_at: null };
+    if (path === "/api/webdav/config" && init?.method === "PUT") return {};
     throw new Error(`unexpected forkApi call: ${path} ${init?.method ?? "GET"}`);
   });
 }
@@ -61,30 +62,40 @@ describe("ForkSyncSection", () => {
     primeApi();
   });
 
-  it("locks every credential field until Edit is clicked", async () => {
+  it("shows credentials as plain text until Edit is clicked", async () => {
     renderSection();
-    await waitFor(() => expect(screen.getByLabelText("Server URL")).toHaveProperty("readOnly", true));
-    expect(screen.getByLabelText("Username")).toHaveProperty("readOnly", true);
-    expect(screen.getByLabelText("Device name")).toHaveProperty("readOnly", true);
-    expect(screen.getByLabelText("App password")).toHaveProperty("readOnly", true);
+    await waitFor(() => expect(screen.getByTestId("webdav-url-value")).toHaveTextContent("https://dav.jianguoyun.com/dav"));
+    expect(screen.queryByLabelText("Server URL")).toBeNull();
+    expect(screen.getByTestId("webdav-device_name-value")).toHaveTextContent("Mac");
+    // The stored password is never echoed; only its presence is reported.
+    expect(screen.getByText("Saved")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Sync now" })).toBeEnabled();
     expect(screen.queryByRole("button", { name: "Cancel" })).toBeNull();
 
     fireEvent.click(screen.getByRole("button", { name: "Edit" }));
-    expect(screen.getByLabelText("Server URL")).toHaveProperty("readOnly", false);
-    expect(screen.getByLabelText("App password")).toHaveProperty("readOnly", false);
+    expect(screen.getByLabelText("Server URL")).toHaveValue("https://dav.jianguoyun.com/dav");
+    expect(screen.getByLabelText("App password")).toHaveValue("");
   });
 
-  it("locks the toggles and the interval select until Edit is clicked", async () => {
+  it("applies toggle and interval changes immediately without the edit state", async () => {
     renderSection();
-    await waitFor(() => expect(screen.getByRole("switch", { name: "Background sync" })).toBeDisabled());
-    expect(screen.getByLabelText("Sync interval")).toBeDisabled();
-    expect(screen.getByRole("switch", { name: "Sync session titles" })).toBeDisabled();
-
-    fireEvent.click(screen.getByRole("button", { name: "Edit" }));
-    expect(screen.getByRole("switch", { name: "Background sync" })).toBeEnabled();
+    const toggle = await screen.findByRole("switch", { name: "Background sync" });
+    expect(toggle).toBeEnabled();
     expect(screen.getByLabelText("Sync interval")).toBeEnabled();
     expect(screen.getByRole("switch", { name: "Sync session titles" })).toBeEnabled();
+
+    fireEvent.click(toggle);
+    await waitFor(() => {
+      const putCall = forkApiMock.mock.calls.find(([path, init]) => path === "/api/webdav/config" && init?.method === "PUT");
+      expect(putCall[1].body.enabled).toBe(false);
+      expect(putCall[1].body.interval_minutes).toBe(5);
+    });
+
+    fireEvent.change(screen.getByLabelText("Sync interval"), { target: { value: "120" } });
+    await waitFor(() => {
+      const puts = forkApiMock.mock.calls.filter(([path, init]) => path === "/api/webdav/config" && init?.method === "PUT");
+      expect(puts[puts.length - 1][1].body.interval_minutes).toBe(120);
+    });
   });
 
   it("offers minute and hour interval presets and keeps an off-preset saved value selectable", async () => {
@@ -112,7 +123,7 @@ describe("ForkSyncSection", () => {
       throw new Error(`unexpected forkApi call: ${path}`);
     });
     renderSection();
-    await screen.findByLabelText("Server URL");
+    await screen.findByTestId("webdav-url-value");
     fireEvent.click(screen.getByRole("button", { name: "Edit" }));
     fireEvent.change(screen.getByLabelText("Server URL"), { target: { value: "https://dav.example.com/dav" } });
     fireEvent.click(screen.getByRole("button", { name: "Save and test connection" }));
@@ -123,21 +134,24 @@ describe("ForkSyncSection", () => {
       expect(putCall[1].body.interval_minutes).toBe(5);
       expect(putCall[1].body.url).toBe("https://dav.example.com/dav");
     });
-    // Back to the locked state: Edit is offered again, Save and test is not.
+    // Back to the locked state: plain text again, Edit is offered, the
+    // save-and-test button is gone. The row shows the reloaded server config
+    // (the mock still serves the original URL).
     expect(screen.getByRole("button", { name: "Edit" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Save and test connection" })).toBeNull();
-    expect(screen.getByLabelText("Server URL")).toHaveProperty("readOnly", true);
+    expect(screen.getByTestId("webdav-url-value")).toHaveTextContent("https://dav.jianguoyun.com/dav");
+    expect(screen.queryByLabelText("Server URL")).toBeNull();
   });
 
   it("Cancel discards edits and re-locks without saving", async () => {
     renderSection();
-    await screen.findByLabelText("Server URL");
+    await screen.findByTestId("webdav-url-value");
     fireEvent.click(screen.getByRole("button", { name: "Edit" }));
     fireEvent.change(screen.getByLabelText("Server URL"), { target: { value: "https://broken.example/dav" } });
     fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
 
-    expect(screen.getByLabelText("Server URL")).toHaveValue("https://dav.jianguoyun.com/dav");
-    expect(screen.getByLabelText("Server URL")).toHaveProperty("readOnly", true);
+    expect(screen.queryByLabelText("Server URL")).toBeNull();
+    expect(screen.getByTestId("webdav-url-value")).toHaveTextContent("https://dav.jianguoyun.com/dav");
     expect(forkApiMock).not.toHaveBeenCalledWith("/api/webdav/config", expect.anything());
   });
 
