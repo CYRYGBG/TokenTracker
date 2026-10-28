@@ -1,41 +1,42 @@
 {
-  "tag": "personal-v1.4.15",
+  "tag": "personal-v1.4.16",
   "repo": "https://github.com/CYRYGBG/TokenTracker",
   "sourceBranch": "codex/personal-release-20261027",
-  "sourceCommit": "2909813223d488f6b2290b538ef11ecb63482d45",
+  "sourceCommit": "bbdc06b3396a15dbd8bc9b903ca92f971e52011a",
+  "sourceCommitShort": "bbdc06b3",
   "draft": false,
   "latest": true,
-  "publishedAt": "2026-10-28T07:25:00Z",
-  "checkedAt": "2026-10-28T07:30:00Z",
+  "publishedAt": "2026-10-28T13:30:00Z",
+  "checkedAt": "2026-10-28T13:40:00Z",
   "npmPublished": false,
   "mainBranchChanged": false,
   "assets": [
     {
       "name": "TokenTrackerPersonal-macOS-arm64.dmg",
-      "size": 64935726,
-      "sha256": "57e7ab6667390101b01eaf1ebe20818b8c7c14438c6ac68530560546326092b3",
+      "size": 64846745,
+      "sha256": "5e345c3d90b281eed0302b05818f6726ea98f37b31be7d57f8ed81106bdf31c7",
       "githubDigestMatches": true,
-      "anonymousDownloadHead": 200
+      "anonymousDownloadHead": 302
     },
     {
       "name": "TokenTrackerPersonal-Windows-x64-Setup.exe",
-      "size": 304596557,
-      "sha256": "40d89dd44834a18a3b443fc0122306e55c469371e645b34407375f84aa7b95d7",
+      "size": 304595117,
+      "sha256": "b220c99cf7685d14cc59b854a28412818d3d50166ef68b80155c79c98b4f44c3",
       "githubDigestMatches": true,
-      "anonymousDownloadHead": 200
+      "anonymousDownloadHead": 302
     },
     {
       "name": "SHA256SUMS.txt",
       "size": 212,
-      "sha256": "05ca7377307edac05a732fb3600506144eeb0f431df1f5121cfc9c9a1da3a875",
+      "sha256": "416b318c33f92cbd59abad384ff99a3ea90669ec05db357db74742c252740118",
       "githubDigestMatches": true,
-      "anonymousDownloadHead": 200
+      "anonymousDownloadHead": 302
     }
   ],
   "build": {
-    "macos": "python3 scripts/build-personal-macos.py（挂载验证 1.4.15 + device_names 服务端 + webdav-interval 前端资源）",
-    "windows": "dotnet publish + EmbeddedServer 刷新（npm ci + 去 .bin 符号链接）+ verify-windows-package.cjs（sourceSha 2909813、version 1.4.15、matchedInputs 311）+ ISCC 6.7.3 / CrossOver tt-inno10",
-    "evidence": "windows-package-1.4.15.json"
+    "macos": "python3 scripts/build-personal-macos.py（挂载验证 1.4.16 + fork-view device_id 校验 + dashboard 分块含 device_filter 与只读凭据模板字面量）",
+    "windows": "dotnet publish + EmbeddedServer 增量刷新（依赖集与 1.4.15 逐项一致故复用 node_modules；src/dashboard/bin/package* rsync 刷新）+ verify-windows-package.cjs（sourceSha 616e1423 基线、version 1.4.16、matchedInputs 311、packageFiles 6151、无符号链接）+ ISCC 6.7.3 / CrossOver tt-inno10 + tt-smoke64 Wine 冒烟（bundled node 加载改动后 fork-view/local-api）",
+    "evidence": "windows-package-1.4.16.json"
   },
-  "round": "同步设置页优化：间隔预设（分钟/小时）、编辑解锁防误改、保存并测试合并、状态时间本地化到分钟、设备名替代机器码；/api/webdav/status 增加 device_names；新增 ForkSyncPage 测试 7 项"
+  "round": "仪表盘设备筛选回归官方交互（移除页首统计范围，官方 Token 总数卡片内下拉，device_id 按请求作用域）；同步设置凭据只读展示、编辑才出输入框，开关/间隔即时生效；scope() 只接受真实设备 id，未知 id 保持本地回退"
 }

@@ -164,3 +164,18 @@ personal-v1.4.13 草稿（含旧附件）已按授权删除，由 1.4.14 取代�
 验证：dashboard 1268 项全过（首轮 1 项超时抖动复跑全绿，同既有记录）；node 全量 0 失败；copy/locale/ui-hardcode/guardrails/versions/bot-frames/架构全部通过；双平台构建 + 包校验（311 文件逐字节一致）。
 
 发布：personal-v1.4.15 已公开发布并设 latest，标签 29098132，远端 digest 与本地一致、匿名下载 HTTP 200（证据 release.json）。1.4.13/1.4.14 用户可应用内更新直接升级。未做：本机应用内更新动作（用户手动触发即验证）、Windows 实机升级。
+
+
+## 1.4.16 官方设备下拉回归 + 同步页凭据只读（2026-10-28 用户反馈驱动）
+
+用户三点新要求：①同步页凭证字段（服务地址/用户名/同步目录/设备名称/应用密码）未编辑时不应显示输入框；②后台同步/同步间隔/同步会话标题属选择项，无需编辑状态即可改；③仪表盘移除页首「统计范围」选择器，沿用官方多设备交互，在 Token 总数卡片位置加官方风格设备下拉。
+
+实现：
+- ForkScope 顶栏只保留实际付费与同步异常状态；启动时若存量偏好非 all 一次性复位（旧选择器入口已移除，防止陈旧偏好静默过滤无参调用方）。
+- 官方 `UsageOverview` 卡片头部本就内置设备 `Select`（fork 此前用 `showDeviceFilter = !forkDeviceView` 硬关）；fork 本地视图改为从 `/api/fork/view` 取 WebDAV 设备列表（≥2 台显示），选择走客户端状态，随 `device_id` 参数按请求生效于 usage/daily/trend/heatmap/model-breakdown/context-breakdown。
+- 后端 `fork-view scope()` 接受 `device_id`，但只接受真实存在的设备（本机 machineId / WebDAV 导入 / all / local）；未知 id（云时代遗留）保持既有本地回退——这是 local-usage-transfer 测试钉死的契约，首版实现曾破坏该测试后修正。
+- 同步页：凭据行未编辑渲染纯文本（密码只显示「已保存/未配置」，不回显），编辑才挂输入框；开关与间隔 `disabled={busy}` 即时 PUT；「立即同步」不再附带写配置。复用既有文案键（cb84a961b0「设置已保存」、limits.apiKey.saved「已保存」），删除 3 个选择器专用键（174fd6f85c/fb9b2c7f31/8b4c1c5f0c），无新增键。
+
+验证：dashboard 1268 项全绿（复跑两轮）；node 全量 3707 项 0 失败（含新增 device_id 作用域测试）；copy/locale/ui-hardcode/guardrails/versions/dashboard 生产构建全部通过。插曲：全量跑 SettingsPage 1 项偶发失败——根因是该用例点击未包 act（相邻用例均包），新增重写测试文件改变 worker 调度后暴露；补 act 包裹后连续两轮全绿（git stash 对照确认改动前树同样存在该竞态概率）。
+
+发布：personal-v1.4.16 已公开发布并设 latest，标签指向 bbdc06b3，分支已推送。三附件远端 digest 与本地一致，匿名下载 HEAD 302（GitHub 对象存储标准重定向）。Windows 包校验 311 项字节一致 + tt-smoke64 Wine 冒烟加载改动后 CLI（1.4.16）。未做：本机应用内更新动作、Windows 实机验证（用户在 Windows 机器上经应用内更新即可验证本轮 UI）。
