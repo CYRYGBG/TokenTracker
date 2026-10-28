@@ -17,6 +17,16 @@ const required = ["TokenTrackerPersonal.exe", "TokenTrackerPersonal.dll", "Embed
     .map(name => `EmbeddedServer/tokentracker/dashboard/dist/${name}`)];
 for (const name of required) assert.ok(fs.statSync(path.join(publish, name)).isFile(), `Missing ${name}`);
 
+// Exactly one main JS/CSS bundle may ship: extra main-*.js files are stale
+// chunks from an earlier build that index.html no longer references (~2MB of
+// dead weight per platform). The inventory check below passes when package
+// and workspace drifted together, so assert the shipped bundle shape here.
+const assetsDir = path.join(publish, "EmbeddedServer", "tokentracker", "dashboard", "dist", "assets");
+for (const pattern of [/^main-.*\.js$/, /^main-.*\.css$/]) {
+  const matches = fs.readdirSync(assetsDir).filter(assetName => pattern.test(assetName));
+  assert.equal(matches.length, 1, `Expected exactly one ${pattern} in dashboard/dist/assets, found: ${matches.join(", ")}`);
+}
+
 function files(directory) {
   return fs.readdirSync(directory, { withFileTypes: true }).flatMap(entry => {
     assert.ok(!entry.isSymbolicLink(), `Unexpected package link: ${entry.name}`);

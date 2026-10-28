@@ -1297,6 +1297,11 @@ export default defineConfig(({ mode }) => {
     ],
     ...(Object.keys(define).length ? { define } : {}),
     build: {
+      // Explicit because a stale workspace dist once shipped ~2MB of dead
+      // main-*.js bundles alongside the referenced one. Emptying is Vite's
+      // default when outDir is inside root; pinning it documents the release
+      // invariant that verify-windows-package.cjs asserts.
+      emptyOutDir: true,
       rollupOptions: {
         input: rollupInput,
       },
