@@ -254,6 +254,13 @@ async function readCodexRolloutSnapshot(filePath, { maxOutputBytes = CODEX_ROLLO
     const outputLimit = Number.isSafeInteger(maxOutputBytes) && maxOutputBytes >= 0
       ? maxOutputBytes
       : CODEX_ROLLOUT_TEXT_MAX_BYTES;
+    // zstd never expands below roughly 1:1, so a compressed payload already
+    // over the output cap cannot decode within it. Refuse from the stat
+    // instead of reading gigabytes of compressed bytes into memory first.
+    if (initialStat.size > outputLimit) {
+      recordCodexCollectionGap(filePath, "oversized-archive", `compressed ${initialStat.size} bytes`);
+      return null;
+    }
     let data;
     try {
       data = await handle.readFile();
@@ -13311,11 +13318,10 @@ async function decodeZedThreadBlob({ dataType, data }) {
     return data.toString("utf8");
   }
   if (type === "zstd") {
-    const zlib = require("node:zlib");
-    const out =
-      typeof zlib.zstdDecompressSync === "function"
-        ? zlib.zstdDecompressSync(data)
-        : Buffer.from(await require("@mongodb-js/zstd").decompress(data));
+    const { decodeZstdBounded, supportsBoundedStreamDecode } = require("./zstd-bounded");
+    const out = supportsBoundedStreamDecode()
+      ? await decodeZstdBounded(data, { maxOutputBytes: MAX_ZED_THREAD_JSON_BYTES, label: "Zed thread blob" })
+      : Buffer.from(await require("@mongodb-js/zstd").decompress(data));
     if (out.length > MAX_ZED_THREAD_JSON_BYTES) {
       throw new Error(`decoded zstd blob exceeds ${MAX_ZED_THREAD_JSON_BYTES} bytes`);
     }
@@ -24516,13 +24522,23 @@ function inspectDshZstdFrames(data, maxOutputBytes = DSH_SESSION_TEXT_MAX_BYTES)
   };
 }
 
-// Decode one already-isolated frame. Prefer Node's built-in zstd (22.15+):
-// the desktop bundles install dependencies with --ignore-scripts, so
-// @mongodb-js/zstd ships without its native binding there and the require()
-// would throw — silently skipping every compressed session (issue #465). The
-// MongoDB binding stays as the fallback for Node 20 CLI installs, where npm
-// runs install scripts normally.
-async function decodeDshZstdFrame(frameBytes) {
+// Decode one already-isolated frame. Prefer the bounded streaming decoder
+// (Node 22.15+): zstdDecompressSync allocates the whole output up front from
+// the frame's declared (or corrupt, or missing) content size, so one oversized
+// frame could spike commit memory by gigabytes before any size check ran —
+// the 2026-10-28 memory sawtooth on the resident serve process. The MongoDB
+// binding stays as the Node 20 CLI fallback (npm runs install scripts there,
+// and these scans run as short-lived child processes).
+async function decodeDshZstdFrame(frameBytes, { maxOutputBytes } = {}) {
+  const { decodeZstdBounded, supportsBoundedStreamDecode } = require("./zstd-bounded");
+  if (supportsBoundedStreamDecode()) {
+    return decodeZstdBounded(frameBytes, {
+      maxOutputBytes: Number.isSafeInteger(maxOutputBytes) && maxOutputBytes >= 0
+        ? maxOutputBytes
+        : DSH_SESSION_TEXT_MAX_BYTES,
+      label: "DeepSeek Harness zstd frame",
+    });
+  }
   const zlib = require("node:zlib");
   if (typeof zlib.zstdDecompressSync === "function") {
     return zlib.zstdDecompressSync(frameBytes);
@@ -24542,7 +24558,11 @@ async function decodeDshZstd(
   const parts = [];
   let total = 0;
   for (const frame of frameInfo.frameRanges) {
-    const decoded = await decodeDshZstdFrame(input.subarray(frame.start, frame.end));
+    const decoded = await decodeDshZstdFrame(input.subarray(frame.start, frame.end), {
+      // Per-frame hard cap of the remaining budget: even a frame that hides
+      // its content size cannot allocate beyond what the aggregate cap allows.
+      maxOutputBytes: Math.max(0, maxOutputBytes - total),
+    });
     total += decoded.length;
     if (total > maxOutputBytes) {
       throw new Error(`DeepSeek Harness decompressed session log exceeds ${maxOutputBytes} bytes`);
@@ -26388,6 +26408,7 @@ module.exports = {
   parseDshVersion,
   readDshSessionText,
   decodeDshZstd,
+  decodeDshZstdFrame,
   inspectDshZstdFrames,
   normalizeDshModelName,
   dshUsageToTotals,
