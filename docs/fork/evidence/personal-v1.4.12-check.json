@@ -36,5 +36,10 @@
     "dashboardFiles": 145,
     "dashboardPass": 1260,
     "windowsNativePass": 172
-  }
+  },
+  "packagedNode22DeviceApiTests": 3,
+  "finalDmgChecksumValid": true,
+  "acceptanceAppCleaned": true,
+  "installedAppRestored": true,
+  "spotlightPersonalAppCount": 1
 }

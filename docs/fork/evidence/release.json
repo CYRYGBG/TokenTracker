@@ -1,56 +1,42 @@
 {
-  "checkedAt": "2026-10-27T11:38:17.064742+00:00",
+  "checkedAt": "2026-10-28T02:15:10.627422+00:00",
   "repo": "https://github.com/CYRYGBG/TokenTracker",
-  "tag": "personal-v1.4.11",
+  "tag": "personal-v1.4.12",
   "sourceBranch": "codex/personal-release-20261027",
-  "sourceCommit": "a99edf0d4f54a8ed358614154917ef471c75a420",
+  "sourceCommit": "ee8d3a5979f3d966d2ee6828843c5fb8a485800b",
   "draft": false,
-  "publishedAt": "2026-10-27T11:38:05Z",
-  "url": "https://github.com/CYRYGBG/TokenTracker/releases/tag/personal-v1.4.11",
+  "publishedAt": "2026-10-28T02:14:45Z",
+  "url": "https://github.com/CYRYGBG/TokenTracker/releases/tag/personal-v1.4.12",
   "assets": [
     {
       "name": "TokenTrackerPersonal-macOS-arm64.dmg",
-      "bytes": 64086434,
-      "sha256": "92065a8703f3793acb025fddc5c57a327f19cc2e23d8901b1a401397376e895e",
+      "bytes": 64661125,
+      "sha256": "ab37b273e343540e4a36e5aa1489467f977537d2373ef770c467375ece9b5ddd",
       "githubDigestMatches": true,
       "state": "uploaded",
-      "url": "https://github.com/CYRYGBG/TokenTracker/releases/download/personal-v1.4.11/TokenTrackerPersonal-macOS-arm64.dmg"
+      "url": "https://github.com/CYRYGBG/TokenTracker/releases/download/personal-v1.4.12/TokenTrackerPersonal-macOS-arm64.dmg",
+      "anonymousHeadStatus": 200
     },
     {
       "name": "TokenTrackerPersonal-Windows-x64-Setup.exe",
-      "bytes": 302944965,
-      "sha256": "803f6cea03579c0938a7cb610dc3c4f77ea59a2727a56a2bc56542e6899e0c4e",
+      "bytes": 302947530,
+      "sha256": "14400aa62e1693766a866bfc868309bb4fd30f5edabfff345a35cf289d168eba",
       "githubDigestMatches": true,
       "state": "uploaded",
-      "url": "https://github.com/CYRYGBG/TokenTracker/releases/download/personal-v1.4.11/TokenTrackerPersonal-Windows-x64-Setup.exe"
+      "url": "https://github.com/CYRYGBG/TokenTracker/releases/download/personal-v1.4.12/TokenTrackerPersonal-Windows-x64-Setup.exe",
+      "anonymousHeadStatus": 200
     },
     {
       "name": "SHA256SUMS.txt",
       "bytes": 212,
-      "sha256": "48266525c0a0c4f24c5fdca57c3017c243f5adf8c18af6be666682bf4b892ec6",
+      "sha256": "efefdb6f7631032f6d3abd19bf06f086321f1e4a57691b9a83bfc005c75e7a2b",
       "githubDigestMatches": true,
       "state": "uploaded",
-      "url": "https://github.com/CYRYGBG/TokenTracker/releases/download/personal-v1.4.11/SHA256SUMS.txt"
+      "url": "https://github.com/CYRYGBG/TokenTracker/releases/download/personal-v1.4.12/SHA256SUMS.txt",
+      "anonymousHeadStatus": 200
     }
   ],
   "mainBranchChanged": false,
   "npmPublished": false,
-  "upstreamWritten": false,
-  "anonymousDownloadChecks": [
-    {
-      "name": "TokenTrackerPersonal-macOS-arm64.dmg",
-      "httpStatus": "200",
-      "exitCode": 0
-    },
-    {
-      "name": "TokenTrackerPersonal-Windows-x64-Setup.exe",
-      "httpStatus": "200",
-      "exitCode": 0
-    },
-    {
-      "name": "SHA256SUMS.txt",
-      "httpStatus": "200",
-      "exitCode": 0
-    }
-  ]
+  "upstreamWritten": false
 }

@@ -1,6 +1,6 @@
 # STATUS — 个人同步版事实状态
 
-更新时间：2026-10-28。已获用户明确授权，将审核后的 macOS/Windows 安装包发布到自己的 fork；不发布 npm、不向 upstream 写入、不覆盖安装官方应用。发布源快照分支 `codex/personal-release-20261027`，标签 `personal-v1.4.11`。需求入口 REQUIREMENTS.md；验收入口 ACCEPTANCE.md；ZCode 提示词与结果审核见 ZCODE_REVIEW.md。
+更新时间：2026-10-28。已获用户明确授权，将审核后的 macOS/Windows 安装包发布到自己的 fork；不发布 npm、不向 upstream 写入、不覆盖安装官方应用。发布源快照分支 `codex/personal-release-20261027`，标签 `personal-v1.4.12`。需求入口 REQUIREMENTS.md；验收入口 ACCEPTANCE.md；ZCode 提示词与结果审核见 ZCODE_REVIEW.md。
 
 ## 当前实现
 
@@ -88,3 +88,10 @@ ZCode 新增的 512 MiB Codex 解压上限、后台归档回填和缺口台账�
 - 现有 Applications 1.4.11 未覆盖，个人统计目录未删除/迁移。旧版需先按 README 手动覆盖安装一次 1.4.12，之后应用内更新。Windows 实机升级、真实坚果云、物理双机仍未验证。
 
 最终二进制再次原生复验：重启后 Codex 五小时选择保持；应用实际读取个人 GitHub 最新发布及校验文件，显示“1.4.12 已是最新版本”，关闭提示后设置仍保留结果。证据 personal-update-check.png / personal-device-card.png / personal-native-settings.png。没有发起真实覆盖安装或伪造未来升级。
+
+
+## 1.4.12 发布完成
+
+2026-10-28 10:14:45（Asia/Shanghai）已公开发布 [personal-v1.4.12](https://github.com/CYRYGBG/TokenTracker/releases/tag/personal-v1.4.12)，并设为 latest。源码标签指向 ee8d3a5979f3d966d2ee6828843c5fb8a485800b。macOS arm64 DMG、Windows x64 Setup、SHA256SUMS.txt 三份附件远端 digest/大小均与本地一致，匿名下载 HEAD 全部 HTTP 200；证据 evidence/release.json。
+
+最终 DMG 的 hdiutil 校验通过；bundled Node 22 执行新的设备卡片与双进程 WebDAV/API 测试共 3 项通过。临时验收应用/夹具与偏好已清理，正式安装的 1.4.11 已恢复打开、后端 HTTP 200，Spotlight 仅返回 Applications 中一份个人版。没有覆盖原安装、删除用户统计目录、修改 main、发布 npm 或写入 upstream。
