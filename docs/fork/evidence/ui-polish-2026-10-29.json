@@ -1,0 +1,47 @@
+{
+  "checkedAt": "2026-10-29T02:23:04.391773+00:00",
+  "baseCommit": "431e9d3203b07d8bb68788696d8fee4e5336f72e",
+  "scope": [
+    "Remove always-visible actual-payment header strip",
+    "Render macOS menu-bar stats without leading animated icon"
+  ],
+  "dashboard": {
+    "files": 3,
+    "passed": 30,
+    "failed": 0
+  },
+  "node": {
+    "passed": 14,
+    "failed": 0
+  },
+  "checksPassed": [
+    "dashboard typecheck",
+    "ui-hardcode",
+    "guardrails",
+    "dashboard production build",
+    "full native Swift typecheck"
+  ],
+  "newTestsAdded": false,
+  "packaged": false,
+  "published": false,
+  "installed": false,
+  "githubActionsUsed": false,
+  "logs": {
+    "dashboard": {
+      "sha256": "818d607cf3b2ed76327b84e54a0e6e150c57e9f856bbb7d159cdf70c591a483a",
+      "retainedLocally": true
+    },
+    "node": {
+      "sha256": "cbfeb72eeac7554eb027f1a6295ee4fe880a3d3f0890b6155f99750ba22c1fa9",
+      "retainedLocally": true
+    },
+    "build": {
+      "sha256": "27b119529af885f7868cc44aca72dc78ca083cb2a5c7d5adf10f6327e6caad54",
+      "retainedLocally": true
+    },
+    "nativeTypecheck": {
+      "sha256": "f16b5504f7ec6efead64571d73961512941776a805581220a2f42cd26dce32f5",
+      "retainedLocally": true
+    }
+  }
+}

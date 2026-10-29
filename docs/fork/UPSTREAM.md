@@ -1,5 +1,16 @@
 # UPSTREAM 跟踪与 Fork 改动地图
 
+## 最新检查点：2026-10-29 两处界面精简
+
+经代理 `git fetch upstream` 到 `c30d1e3b13b92b5681265076c5ad26fbf4e9d01f`，相对上轮 `f15b3f64` 已核对新增提交：
+
+- `061a73a5`：ZCode 重置权益过滤零数量条目及空分区；涉及额度面板，未包含本轮付款提示条/菜单栏前缀图标的对应修改，留待单独适配。
+- `c30d1e3b`：Qoder Desktop 0.4.x 数据目录和 main.log 额度读取兼容（有界倒序扫描、过期快照及失败/空扫描缓存）；列为后续额度兼容适配项，本轮仅按用户要求改展示，不夹带该读取行为变化。
+- 其余新增提交为官方站点 SEO、目录验证和 README 徽标，不采纳。
+
+本轮只修改 fork 的付款提示展示与 macOS 菜单栏图片组合，不改采集、去重、存储、价格或厂商查询。不合并上游发布/营销文件。
+
+
 ## 最新检查点：2026-10-28 Windows 轮（泄漏修复发布前核对）
 
 经代理 fetch 到 `f15b3f643a2df5119724cc77f797ac9aa0cb2052`（#911）。相对上一检查点 `b2c2eb85` 仅新增此一个主线提交：`fix(dashboard): reject partial community metrics cache`，只改 `dashboard/src/hooks/use-community-stats.js` 及其测试。该 hook 在 fork 运行路径中已无存活调用方（引用它的 LeaderboardPage / MarketingLanding 均已移出路由，文件按依赖清理原则保留为死代码），**不采纳**，后续若恢复任何社区统计入口再重新评估。

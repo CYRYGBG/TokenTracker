@@ -53,7 +53,6 @@ final class StatusBarController: NSObject {
     private static let updateMenuItemTag = 4_242
 
     private let menuBarHeight: CGFloat = 22
-    private let menuBarIconSize = NSSize(width: 22, height: 22)
     private let emptyAttributedTitle = NSAttributedString(string: "")
     private var isUpdatingDisplay = false
     private var isHideIconPromptPending = false
@@ -236,7 +235,7 @@ final class StatusBarController: NSObject {
             hideRequested: hideRequested,
             islandEnabled: islandEnabled
         )
-        animator?.updatesButton = statusItem.isVisible
+        animator?.updatesButton = statusItem.isVisible && !(showStats && !buildMenuBarDisplayValues().isEmpty)
         // Frames skipped the button while hidden; catch it up so a paused
         // animation (sleeping, reduced motion) doesn't show a stale icon.
         if animator != nil, statusItem.isVisible, !wasVisible {
@@ -273,15 +272,8 @@ final class StatusBarController: NSObject {
         updateMenuBarIconVisibility()
 
         animator = MenuBarAnimator(button: button)
-        animator?.updatesButton = statusItem.isVisible
-        animator?.onImageUpdated = { [weak self] image in
-            guard let self else { return }
-            // Hidden status item (island-only setup): the composite is never
-            // seen, so skip rebuilding it every frame. `updateMenuBarIconVisibility`
-            // re-composites when the item comes back.
-            if self.statusItem.isVisible, self.showStats, !self.buildMenuBarDisplayValues().isEmpty {
-                self.updateStatsDisplay()
-            }
+        animator?.updatesButton = statusItem.isVisible && !(showStats && !buildMenuBarDisplayValues().isEmpty)
+        animator?.onImageUpdated = { image in
             NotificationCenter.default.post(name: .menuBarIconFrameUpdated, object: image)
         }
 
@@ -396,13 +388,15 @@ final class StatusBarController: NSObject {
         guard let button = statusItem.button else { return }
         let displayItems = buildMenuBarDisplayValues()
 
-        // Freeze statusItem.length while the popover is shown: stats publishers and
-        // animator frames both call this method, and a flicker in length drags the
+        // Freeze statusItem.length while the popover is shown: stats publishers
+        // call this method, and a flicker in length drags the
         // popover anchor sideways. The didCloseNotification observer realigns width
         // after the popover closes.
         let canResizeStatusItem = !popover.isShown
 
         if showStats && !displayItems.isEmpty {
+            // Keep animation frames from replacing the text-only status item.
+            animator?.updatesButton = false
             let signature = statsTextSignature(displayItems)
             let textLayer: (image: NSImage, width: CGFloat)
             if let cached = statsTextCache, cached.signature == signature {
@@ -412,20 +406,15 @@ final class StatusBarController: NSObject {
                 statsTextCache = (signature, rendered.image, rendered.width)
                 textLayer = rendered
             }
-            let compositeImage = makeDisplayMenuBarImage(
-                icon: animator?.currentImage ?? button.image,
-                textImage: textLayer.image,
-                textWidth: textLayer.width
-            )
-
             button.title = ""
             button.attributedTitle = emptyAttributedTitle
             button.imagePosition = .imageOnly
-            button.image = compositeImage
+            button.image = textLayer.image
             if canResizeStatusItem {
-                statusItem.length = compositeImage.size.width
+                statusItem.length = textLayer.width
             }
         } else {
+            animator?.updatesButton = statusItem.isVisible
             button.title = ""
             button.attributedTitle = emptyAttributedTitle
             button.imagePosition = .imageOnly
@@ -659,10 +648,7 @@ final class StatusBarController: NSObject {
         return "\(pct) · \(reset)"
     }
 
-    /// Cache for the stats text layer. The icon animates (runner sprint is
-    /// 12.5fps) and every frame re-composites the menu bar image, but the text
-    /// only changes when a displayed value does — re-laying it out per frame
-    /// was the menu bar's steady-state main-thread cost.
+    /// Cache the text-only status image until a displayed value changes.
     private var statsTextCache: (signature: String, image: NSImage, width: CGFloat)?
 
     private func statsTextSignature(_ items: [MenuBarDisplayValue]) -> String {
@@ -729,49 +715,6 @@ final class StatusBarController: NSObject {
         }
         image.isTemplate = false
         return (image, imageWidth)
-    }
-
-    private func makeDisplayMenuBarImage(icon: NSImage?, textImage: NSImage, textWidth: CGFloat) -> NSImage {
-        let iconTrailingPadding: CGFloat = 6
-
-        // Respect the icon's own aspect ratio: Clawd frames are 22×22 but the
-        // runner cat is 28×18 — squeezing it into the square slot distorts it.
-        let iconSize: NSSize = {
-            guard let icon, icon.size.width > 0, icon.size.height > 0 else { return menuBarIconSize }
-            return icon.size
-        }()
-        let iconWidth = iconSize.width
-        let textOriginX = iconWidth + iconTrailingPadding
-        let totalWidth = ceil(textOriginX + textWidth)
-        let imageSize = NSSize(width: totalWidth, height: menuBarHeight)
-
-        let image = NSImage(size: imageSize, flipped: false) { [weak self] _ in
-            guard let self else { return false }
-
-            if let icon {
-                let iconRect = NSRect(
-                    origin: NSPoint(x: 0, y: floor((self.menuBarHeight - iconSize.height) / 2)),
-                    size: iconSize
-                )
-                // Pixel-art frames (cat / pet silhouettes) must not be smoothed.
-                NSGraphicsContext.current?.imageInterpolation = .none
-                // Template icons are black alpha — tint to labelColor for compositing
-                if icon.isTemplate {
-                    icon.draw(in: iconRect, from: .zero, operation: .sourceOver, fraction: 1)
-                    NSColor.labelColor.setFill()
-                    iconRect.fill(using: .sourceAtop)
-                } else {
-                    icon.draw(in: iconRect, from: .zero, operation: .sourceOver, fraction: 1)
-                }
-                NSGraphicsContext.current?.imageInterpolation = .default
-            }
-
-            textImage.draw(at: NSPoint(x: textOriginX, y: 0), from: .zero, operation: .sourceOver, fraction: 1)
-            return true
-        }
-
-        image.isTemplate = false
-        return image
     }
 
     private func centeredRect(for string: NSAttributedString, in rect: NSRect) -> NSRect {
