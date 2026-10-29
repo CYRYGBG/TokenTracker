@@ -15,17 +15,21 @@
 
 **打包死重修复（90aecc73）**：vite `emptyOutDir` 显式化；`verify-windows-package.cjs` 新增「dashboard/dist/assets 仅允许一份 main-*.js / main-*.css」断言（此前 1.4.16 包内携带 3 个旧 main bundle 约 2MB，包与工作区同时脏可双过清单比对）。
 
-**macOS 构建通道（d05b2449）**：新增 fork 专用 `release-personal-macos.yml`（dispatch-only，只构建 + 传 artifact，发布组装仍留本地，保持个人版逐轮确认模式）；workflow 文件作为唯一变更单独提交到 main（905a54e8→2de765e5）以启用 workflow_dispatch。
+**macOS 构建通道（历史及本轮事实）**：Windows 侧 d05b2449 曾新增 fork 专用 `release-personal-macos.yml`，并单独提交到 main。随后用户明确禁用整个仓库的 GitHub Actions；本轮确认 Actions `enabled=false`，未运行或重新开启任何 workflow。macOS 改由本机 CLT 完整编译，未修改 main。
 
 **验证**：node 全量 3714 项 0 失败（3672 过 42 跳过，Windows 实机）；fork 端到端/去重/设备 19 项全过（连续采集不重复、源删历史保留语义由 fork-end-to-end 覆盖）；dashboard vitest 146 文件 1273 项全过（首轮 sentry.test.js 收集失败为 vitest 旧转换缓存误报，清 `.vite` 缓存后消失）；typecheck、copy/locale/ui-hardcode/guardrails/versions/bot-frames/架构全过。Windows 包校验 313 输入逐字节一致 + 4880 包文件 + 单 main 断言通过（sourceSha d05b2449）。
 
-**构建**：Windows Setup `dist/reviewed/TokenTrackerPersonal-Windows-x64-Setup.exe`，SHA256 `e936a06978ec7d38cd2af03f6b510d6f52c4e51b6c955ebd4fed778e85b38147`（331,078,335 字节），证据 evidence/windows-local-1.4.17-build.json + windows-package-1.4.17.json。macOS DMG 经 GitHub CI（macos-26）构建，状态见 evidence/release-1.4.17.json。
+**构建**：Windows Setup `dist/reviewed/TokenTrackerPersonal-Windows-x64-Setup.exe`，SHA256 `e936a06978ec7d38cd2af03f6b510d6f52c4e51b6c955ebd4fed778e85b38147`（331,078,335 字节），证据 evidence/windows-local-1.4.17-build.json + windows-package-1.4.17.json。macOS DMG 使用本机 CLT 构建，源码 `3f64610fcc8473292d4bf9dafbec375898cdfc63`，SHA256 `b3b01687c17c421ad497ba2673c5ce899cb0c0cee782e65d5b0e4f64a5008b38`（65,203,000 字节）。原始构建清单位于 `dist/reviewed/macos-build.json`，入库副本见 `evidence/macos-build-1.4.17.json`。Windows 构建提交 d05b2449 到本轮源码只涉及 workflow/文档/证据；139 个 Windows 运行时源码、入口和包清单文件逐项哈希一致，未重建 Windows。
 
-**发布**：personal-v1.4.17（DMG + Windows Setup + SHA256SUMS.txt，设 latest）——结果与远端 digest 核对见下方补记。
+**macOS 本地回归（2026-10-29）**：Node 3712 项（3695 通过、17 跳过、0 失败）；dashboard 146 文件/1273 项通过；typecheck、copy/locale/ui-hardcode/guardrails/versions/bot-frames/架构及生产构建通过。首轮默认并发中 Reset Bank 的 180ms 时序预算用例失败，单文件 15 项重跑通过；随后以 concurrency=2 全量通过，未修改测试或放宽断言。bundled Node 22.22.2 上有界解压、双进程历史/幂等与 WebDAV 间隔 7 项通过。DMG 校验、只读挂载、深度签名验证通过；挂载包与构建 app 完全一致，314 个源码/资源文件及 85 个原生源码哈希匹配，main JS/CSS 各一份。证据见 `evidence/local-verification-1.4.17-final.json`。
 
-**未做/边界**：72h 常驻稳定性与游戏同开提交峰值验收待真实观察（修复已消除分配根因，但不等于验收）；上游 `f15b3f64`（社区指标缓存修复）不采纳——fork 无存活调用方；本机升级走应用内更新，无覆盖安装。
+**标签对齐授权**：用户明确允许把尚未发布的 personal-v1.4.17 从旧源码 `23558a8faf7851d9c78b660b457d7047aa4549e4` 对齐到已构建源码 `3f64610fcc8473292d4bf9dafbec375898cdfc63`。已仅对该标签使用显式 force-with-lease；旧提交仍保留在分支历史，未重写或强推分支。发布后的文档证据提交独立于构建源码，标签固定在已审核的构建快照。
 
-## 2026-10-28 最新接续：1.4.17 发布验收中
+**发布已完成（2026-10-29 10:13:19，Asia/Shanghai）**：[personal-v1.4.17](https://github.com/CYRYGBG/TokenTracker/releases/tag/personal-v1.4.17)，release ID `427378343`，已公开并设为 latest。DMG、Windows Setup、SHA256SUMS.txt 三资产的远端 digest/大小均与本地匹配；匿名跟随重定向 HEAD 均为 200，公开校验文件逐字节一致。远端标签指向构建源码 `3f64610f`，发布前确认远端分支 tip 未变。结构化发布证据见 `evidence/release-1.4.17.json`，当前汇总 `evidence/release.json` 已更新。
+
+**未做/边界**：72h 常驻稳定性与游戏同开提交峰值验收待真实观察（修复已消除分配根因，但不等于验收）；上游 `f15b3f64`（社区指标缓存修复）不采纳——fork 无存活调用方；本机升级走应用内更新；本轮未操作升级或覆盖安装，读取到的本机版本仍为 1.4.15。
+
+## 2026-10-28 接续开发记录（1.4.17 发布结果见首节）
 
 - 已逐项复核第二个 ZCode 接续会话的用户需求、文字对话和实际实现；核对 1.4.16 已公开，三附件本地大小/远端 digest 一致，但此前 release.json 与 STATUS 停在 1.4.15。详见 ZCODE_REVIEW.md。
 - 后续本机安装遵循用户新偏好：已有更新能力的版本一律应用内更新，不再终端换包。接续会话已提供 Windows 旧版迁移提示词。当前本机实际为 1.4.15。
@@ -38,7 +42,7 @@
 - Node 全量 3708：3691 通过、17 跳过、0 失败；针对性后端 179：178 通过、1 跳过。前端最终 146 文件/1273 项通过。首轮高并发中一个已有 LeaderboardPage 用例 5 秒超时，降低到两 worker 后全量通过；首轮 UI 扫描曾把测试里的箭头表达式当文本，改为带花括号后通过，不放宽门禁。
 - 类型、文案/翻译、UI、架构、版本及生产构建通过；macOS CLT 完整 Release、Windows 自包含 publish/ISCC 已通过。DMG 校验与包内资源/原生源码哈希/签名检查通过；bundled Node 22 跑间隔、设备、真实本地握手 4 项通过。正式发布与应用内升级结果在下一条补记，未完成前不算已安装。
 
-更新时间：2026-10-28。已获用户明确授权，将审核后的 macOS/Windows 安装包发布到自己的 fork；不发布 npm、不向 upstream 写入、不覆盖安装官方应用。发布源快照分支 `codex/personal-release-20261027`，标签 `personal-v1.4.12`。需求入口 REQUIREMENTS.md；验收入口 ACCEPTANCE.md；ZCode 提示词与结果审核见 ZCODE_REVIEW.md。
+更新时间：2026-10-29。已获用户明确授权，将审核后的 macOS/Windows 安装包发布到自己的 fork；不发布 npm、不向 upstream 写入、不覆盖安装官方应用。发布源快照分支 `codex/personal-release-20261027`，本轮标签 `personal-v1.4.17`。需求入口 REQUIREMENTS.md；验收入口 ACCEPTANCE.md；ZCode 提示词与结果审核见 ZCODE_REVIEW.md。
 
 ## 2026-10-28 Windows 实机 1.4.16 应用内升级与三项验证（本轮）
 

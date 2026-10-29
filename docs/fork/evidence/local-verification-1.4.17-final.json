@@ -1,0 +1,127 @@
+{
+  "startedAt": "2026-10-29T02:00:49.997592+00:00",
+  "sourceCommit": "3f64610fcc8473292d4bf9dafbec375898cdfc63",
+  "node": {
+    "tests": 3712,
+    "passed": 3695,
+    "skipped": 17,
+    "failed": 0,
+    "previousAttempt": {
+      "tests": 3712,
+      "passed": 3694,
+      "skipped": 17,
+      "failed": 1,
+      "failure": "180ms Codex Reset Bank timing budget under parallel full-suite load",
+      "targetedRerunPassed": 15,
+      "finalConcurrency": 2
+    }
+  },
+  "dashboard": {
+    "files": 146,
+    "passed": 1273,
+    "failed": 0
+  },
+  "checksPassed": [
+    "typecheck",
+    "copy",
+    "locale",
+    "ui-hardcode",
+    "guardrails",
+    "versions",
+    "bot-frames",
+    "architecture"
+  ],
+  "actionsEnabled": false,
+  "windowsAssetDigestVerified": "e936a06978ec7d38cd2af03f6b510d6f52c4e51b6c955ebd4fed778e85b38147",
+  "windowsPayloadSourceFilesMatched": 139,
+  "windowsBuildSource": "d05b24490da587dfb03fc4c63d0b7f8846d4f840",
+  "windowsRuntimeSourceEquivalentToMacCheckout": true,
+  "installedThisRun": false,
+  "macos": {
+    "sourceCommit": "3f64610fcc8473292d4bf9dafbec375898cdfc63",
+    "version": "1.4.17",
+    "dmgSha256": "b3b01687c17c421ad497ba2673c5ce899cb0c0cee782e65d5b0e4f64a5008b38",
+    "dmgBytes": 65203000,
+    "completeBundleMatchesBuild": true,
+    "sourceAndAssetsMatchCheckout": true,
+    "matchedFiles": 314,
+    "singleMainJsAndCss": true,
+    "nativeSourcesVerified": 85,
+    "signatureVerified": true,
+    "nodeVersion": "22.22.2",
+    "boundedZstdIncluded": true,
+    "installed": false
+  },
+  "bundledNode22": {
+    "passed": 7,
+    "failed": 0,
+    "coverage": [
+      "bounded zstd",
+      "two-process fork history/idempotence",
+      "WebDAV cadence"
+    ]
+  },
+  "dmgVolumeChecksumVerified": true,
+  "logs": {
+    "node": {
+      "sha256": "800c6faa3c86d4a2a1ef5dfdc74a95874fd6abd00f8223b3cc36515e20d24f13",
+      "retainedLocally": true
+    },
+    "dashboard": {
+      "sha256": "202fb7669038895abaa35f23f026fcbd9948612cebe6c1ae14fa0ef00eff5274",
+      "retainedLocally": true
+    },
+    "typecheck": {
+      "sha256": "311e1cbf2c244f3aca79805806c7bb36a57584f38d4907e3a95928a10828eb4c",
+      "retainedLocally": true
+    },
+    "copy": {
+      "sha256": "dd122ec37fb3d26b6f16bc9ffa936fd0307ce13cf64170eeeeb173f7cbd23169",
+      "retainedLocally": true
+    },
+    "locale": {
+      "sha256": "10fab26473cbd54c214b9d312a05c791a31259d3e09f6397897cd8a0d061eeb4",
+      "retainedLocally": true
+    },
+    "ui-hardcode": {
+      "sha256": "21dd7eb5ca5229c9e3df7390c7bd18b0fe70d1482bd3980387b0618cbeea0ca9",
+      "retainedLocally": true
+    },
+    "guardrails": {
+      "sha256": "a4d54485b9e2ee0cbb526cf85de38b219ff96ad3e4ecab8d0a34b835611f730c",
+      "retainedLocally": true
+    },
+    "versions": {
+      "sha256": "b27abaf4e0d5e009ff8a9b849d9ba7b88e6697a128c58b24f6ba7a8545018594",
+      "retainedLocally": true
+    },
+    "bot-frames": {
+      "sha256": "d32621df9b83739ed6811b382ced07266cf7d7d3243ff69f75858347f8ad3b5a",
+      "retainedLocally": true
+    },
+    "architecture": {
+      "sha256": "980c0233e40faaaa1a73d57ad63ce84a690b2fd6d9bec791a78ca020d12bd488",
+      "retainedLocally": true
+    },
+    "dashboard-build": {
+      "sha256": "0046f4c1923ba37bbb59cc3be27e8387b4b02cf3ee0489acc97b3c95a232c0ce",
+      "retainedLocally": true
+    },
+    "bundle": {
+      "sha256": "6305fca1f8b8897ac50c3aaf2586a8f65432cc59756cad23572c4df0eac8447f",
+      "retainedLocally": true
+    },
+    "macos-build": {
+      "sha256": "68afd7526c41d611839fd7a397d4e16bb160f9f6f0f6fe12fb4145ad3640a88d",
+      "retainedLocally": true
+    },
+    "bundled-node": {
+      "sha256": "7f742aa221e8cc2552a2f59a7494c6ce2ce7b4267116286880eb0f5c8d054e8b",
+      "retainedLocally": true
+    },
+    "dmg-verify": {
+      "sha256": "c8f150fa651e8cb9d047198919e50f7d12d01057ba82b411277e3d9e766e8216",
+      "retainedLocally": true
+    }
+  }
+}
