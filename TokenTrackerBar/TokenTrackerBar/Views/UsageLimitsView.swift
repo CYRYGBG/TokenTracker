@@ -863,7 +863,7 @@ struct UsageLimitsView: View {
         )
     }
 
-    /// True when ZCode reset inventory should occupy space (error banner or any group).
+    /// True when ZCode reset inventory should occupy space (error banner or any live group).
     private func zcodeResetBankHasContent(_ resetCredits: ZcodeResetCredits?) -> Bool {
         guard let resetCredits else { return false }
         if let error = resetCredits.error, !error.isEmpty { return true }
@@ -923,6 +923,10 @@ struct UsageLimitsView: View {
                 earliestHelp: help.isEmpty ? nil : help
             )
         }
+        // Zero-count windows drop out, matching the Codex reset bank
+        // (codexResetRows): a "0 available" row carries no information, and an
+        // all-empty inventory lets zcodeResetBankHasContent hide the section.
+        .filter { $0.count > 0 }
     }
 
     @ViewBuilder

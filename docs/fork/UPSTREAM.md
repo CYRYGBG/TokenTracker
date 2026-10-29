@@ -1,5 +1,28 @@
 # UPSTREAM 跟踪与 Fork 改动地图
 
+## 2026-10-29 已授权集成：personal-v1.4.18
+
+本轮再次经代理 fetch，upstream/main 仍为 `f80ed15a0976f076a3f41ccdd9a202ac7d09d409`。用户明确要求按建议集成并发布双平台，原只读评估转为本轮实施范围：
+
+- 分项复用 `061a73a58a3bbce5ba16bbe8c6774d102f9685eb`：网页/原生 ZCode 空重置权益区和零数量条目隐藏，网页真正返回 null 以恢复无数据占位；保留 fork 本地化失败提示与按账号隔离的缓存。
+- 分项复用 `c30d1e3b13b92b5681265076c5ad26fbf4e9d01f` 的 qoder-limits.js 和全部新增回归：新版 Qoder Desktop 目录、main.log 元数据额度扫描、有界尾读、过期拒绝和失败/空扫描缓存；未带入官网营销、官方版本和发布流程，不改 Token 采集及同步身份。
+- 仅将实际使用的 Undici 精确升级为 8.12.3，根锁文件变更仅此包及个人版版本号；不整体复制上游锁文件。网络/代理/WebDAV 回归须通过后分发。wa-sqlite 此次仅 PowerSync core extension 更新，个人版未使用该扩展能力；lucide/postcss 当前收益有限，均保留原版本。不恢复 Sentry React/PostHog 或遥测入口。
+- Node 全量 3722（3705 通过、17 跳过、0 失败），Dashboard 146 文件/1276 项通过，定向 Qoder 34/额度面板 59 项通过；类型/全部项目校验通过。完整构建和包内运行时验证见本轮 STATUS 与 evidence。
+
+
+## 最新检查点：2026-10-29 只读评估（等待用户决策）
+
+首次 fetch 遇到 SSL 连接失败，显式使用仓库代理和 HTTP/1.1 重试成功；官方 API 同时核对 main 为 `f80ed15a0976f076a3f41ccdd9a202ac7d09d409`（v1.5.1）。相对上次 c30d1e3b 新增三个提交：
+
+- `040d3b2c` / #908：wa-sqlite 2.0.7→2.0.8、undici 8.12.2→8.12.3，锁文件更新 Sentry Node。依赖官方发布说明：wa-sqlite 仅更新 PowerSync SQLite core extension；undici 修复 HTTP/2 超时后无响应连接替换及排队请求 async context，不能据此保证个人版 WebDAV 更快。后续仅选择实际使用的依赖更新并回归代理/联网和 TRAE 读取。
+- `f2fa8654` / #910：lucide-react 1.59→1.61、postcss 8.5.30→8.5.31，另有官方遥测依赖 Sentry React/PostHog 更新。PostCSS 为源码映射修复，图标库升级不是当前必需；个人版不重新引入遥测依赖，不整抄官方锁文件。
+- `f80ed15a`：官方版本发布元数据，无新增运行时功能，不跟随改个人版本/更新渠道。
+
+此前待适配的 #919 ZCode 零权益/空分区隐藏（需保留 fork 可恢复错误）最贴近用户；#921 Qoder Desktop 0.4.x 额度兼容有助于保留全部工具支持，直接收益取决于是否使用 Qoder。官方 SEO/目录验证改动仍不适用。
+
+本轮只有审查记录，未合并/cherry-pick，未改应用源码、依赖、版本、安装或发布；用户明确要求先汇报并等待决定，全部采纳建议尚未执行。
+
+
 ## 最新检查点：2026-10-29 两处界面精简
 
 经代理 `git fetch upstream` 到 `c30d1e3b13b92b5681265076c5ad26fbf4e9d01f`，相对上轮 `f15b3f64` 已核对新增提交：
