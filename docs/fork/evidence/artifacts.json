@@ -1,7 +1,7 @@
 {
-  "checkedAt": "2026-10-28T09:51:19.115Z",
-  "version": "1.4.17",
-  "upstream": "b2c2eb8545cee15d517f4fd6e783191c2ba30117",
+  "checkedAt": "2026-10-29T07:18:36.297Z",
+  "version": "1.4.18",
+  "upstream": "f80ed15a0976f076a3f41ccdd9a202ac7d09d409",
   "dashboard": "dashboard/dist",
   "embeddedServer": "TokenTrackerBar/EmbeddedServer",
   "architecture": "darwin-arm64",
@@ -9,8 +9,8 @@
   "nodeSha256": "31c9b901f72536e3710fb91381bc9371c5ee7880bdea9a03383a8d6e5d05949c",
   "comparisons": {
     "src": {
-      "files": 134,
-      "sha256": "7a30d7ae505f092635b09ce5982090d28e824ece124cb2ffed8ff954ade3ed9c",
+      "files": 135,
+      "sha256": "fb0fa6836b865f8391f858f6ec92f5972763df3a7ce0e963bb75b99fee0dd422",
       "matchesWorkspace": true
     },
     "bin": {
@@ -20,15 +20,15 @@
     },
     "dashboard/dist": {
       "files": 175,
-      "sha256": "066871358f39f2631d2701ae164f24457a8bcd38bd53ed3e80f87950eaff493a",
+      "sha256": "344d261ba232e21e71dc5bc0b719d506d5dee5768cbb5b10783d878cb41972ef",
       "matchesWorkspace": true
     },
     "package.json": {
-      "sha256": "3805ced55b33a8f64781b34954f8f997d1c62b771f790be5119138d19f2146d1",
+      "sha256": "41a9ed57fc8097d8eceaaf22d5fde1d6da073a88c823c2aed54ccdef920daae8",
       "matchesWorkspace": true
     },
     "package-lock.json": {
-      "sha256": "87ef3e53b4c033af82f1047be0342223a6fb5726a69bf7c6bb68dda818399b62",
+      "sha256": "159f0bb938d4aed8214341eca4b4fa6811fc797c3a8dfcb9395d686bd9b07d07",
       "matchesWorkspace": true
     }
   },
@@ -51,14 +51,16 @@
   },
   "installers": {
     "TokenTrackerPersonal-macOS-arm64.dmg": {
-      "bytes": 65164943,
-      "sha256": "606847a0f8eeb11f93c291b2323bc7d8ee57cfad0a224a431a3e2e4145eb04b2"
+      "bytes": 65173889,
+      "sha256": "a68b695eac9fbfdb1e5d0fbebd872e1b9e17add81d8e6e9d2158500927154c22"
     },
     "TokenTrackerPersonal-Windows-x64-Setup.exe": {
-      "bytes": 304600149,
-      "sha256": "eddb54417117f8f9c694044cf9cfd3f141473b10664f1e7aeb617428ea6c1bba"
+      "bytes": 299780433,
+      "sha256": "23ae7da2a012f1d2c7463023d41205c1ecedbaa793c6400234b7be76652c2349"
     }
   },
   "windowsRealMachineVerified": false,
-  "upstreamMeaning": "latest reviewed checkpoint; selective adoption documented in UPSTREAM.md"
+  "sourceCommit": "e5d64c7ef060d9171f13f9578089e4296c672a64",
+  "publishedAfterVerification": "https://github.com/CYRYGBG/TokenTracker/releases/tag/personal-v1.4.18",
+  "installedThisRun": false
 }

@@ -1,0 +1,158 @@
+{
+  "checkedAt": "2026-10-29T07:20:27.373720+00:00",
+  "sourceCommit": "e5d64c7ef060d9171f13f9578089e4296c672a64",
+  "node": {
+    "total": 3722,
+    "passed": 3705,
+    "skipped": 17,
+    "failed": 0
+  },
+  "dashboard": {
+    "files": 146,
+    "passed": 1276,
+    "failed": 0
+  },
+  "targeted": {
+    "qoder": 34,
+    "usageLimitsPanel": 59
+  },
+  "bundledNode22": {
+    "passed": 105,
+    "failed": 0
+  },
+  "checksPassed": [
+    "typecheck",
+    "copy",
+    "locale",
+    "ui-hardcode",
+    "guardrails",
+    "versions",
+    "bot-frames",
+    "architecture",
+    "dashboard production build"
+  ],
+  "macos": {
+    "sourceCommit": "e5d64c7ef060d9171f13f9578089e4296c672a64",
+    "version": "1.4.18",
+    "dmgSha256": "a68b695eac9fbfdb1e5d0fbebd872e1b9e17add81d8e6e9d2158500927154c22",
+    "dmgBytes": 65173889,
+    "completeBundleMatchesBuild": true,
+    "sourceAndAssetsMatchCheckout": true,
+    "matchedFiles": 314,
+    "singleMainJsAndCss": true,
+    "nativeSourcesVerified": 85,
+    "signatureVerified": true,
+    "nodeVersion": "22.22.2",
+    "boundedZstdIncluded": true,
+    "installed": false
+  },
+  "bundles": {
+    "sourceSha": "e5d64c7ef060d9171f13f9578089e4296c672a64",
+    "macosNodeOfficialArchiveSha256": "db4b275b83736df67533529a18cc55de2549a8329ace6c7bcc68f8d22d3c9000",
+    "macosNodeBinaryMatchesOfficialAfterStripAndSign": true,
+    "macosNodeBinarySha256": "31c9b901f72536e3710fb91381bc9371c5ee7880bdea9a03383a8d6e5d05949c",
+    "windowsNode": {
+      "version": "22.22.2",
+      "archiveSha256": "7c93e9d92bf68c07182b471aa187e35ee6cd08ef0f24ab060dfff605fcc1c57c",
+      "nodeExeSha256": "ae1a50511be58e987483fdbc12125407443926d2d394669ade2352776e920dd3",
+      "verifiedAgainstOfficialSums": true
+    },
+    "productionDepsSharedBetweenPlatforms": true,
+    "platformSpecificNodeAddons": 0,
+    "undici": "8.12.3",
+    "githubActionsUsed": false
+  },
+  "windowsBuildManifest": "windows-build-1.4.18.json",
+  "installedThisRun": false,
+  "githubActionsUsed": false,
+  "logs": {
+    "architecture": {
+      "sha256": "02496d46bb5663470b8f62d1aa5b3b8d63a6678f7c5f12c99eb2a876b2743896",
+      "retainedLocally": true
+    },
+    "artifacts": {
+      "sha256": "d5154762459a8c316f56ffa3d8f464ab1cc2c3486775e077a0b010e2c24c6d95",
+      "retainedLocally": true
+    },
+    "bot-frames": {
+      "sha256": "434319aabba50c662d8992742b0590402e4b9b21758940988f971985f471f867",
+      "retainedLocally": true
+    },
+    "bundle": {
+      "sha256": "589229b44cf000c249b668b749904ffeeb377127b181fe429ad5f3a1c29c66a4",
+      "retainedLocally": true
+    },
+    "copy": {
+      "sha256": "270f0faa1c5bf96b9dfde3115636d979b9cf251d6ffe4cc71114cbac1a7cdc16",
+      "retainedLocally": true
+    },
+    "dashboard-build": {
+      "sha256": "a9c9a5e6a492cb1daade9f06ed28221ea0ef01e0f8853cec01b6c2416215a8e3",
+      "retainedLocally": true
+    },
+    "dashboard": {
+      "sha256": "ee99728f4dc2603368401717009e987402ab0979b30ec1cc2958fb796c99ace5",
+      "retainedLocally": true
+    },
+    "dmg-verify": {
+      "sha256": "e0a6383f79be172696f649da156684ade4cd7e1e0e18757e0d37a38f7d9132bc",
+      "retainedLocally": true
+    },
+    "guardrails": {
+      "sha256": "09c30491ad4fa91fa0803de1281d67d4e1e0903f525e72e290cae856fc6aa632",
+      "retainedLocally": true
+    },
+    "inno": {
+      "sha256": "c5e9b580b46fb330e66ea13ba93dec91faa1cee2ad2116745493ad40e82851f2",
+      "retainedLocally": true
+    },
+    "installer-extract": {
+      "sha256": "b9e5459590f65d7a11382d5e9a549aace162e4e694c3c18c4a9c6fbfc2417438",
+      "retainedLocally": true
+    },
+    "limits": {
+      "sha256": "0139280f056484d305e2803aa4cfdeb8acf5095052a01f032acc0a1aa7122379",
+      "retainedLocally": true
+    },
+    "locale": {
+      "sha256": "c0597773f17664656da8afd7155a5cca689e1053b90abbdddd825b3faa7bf1a1",
+      "retainedLocally": true
+    },
+    "macos-build": {
+      "sha256": "68afd7526c41d611839fd7a397d4e16bb160f9f6f0f6fe12fb4145ad3640a88d",
+      "retainedLocally": true
+    },
+    "node": {
+      "sha256": "959140ec251f69d406a983567eeacde53a6b76511e3d8b782f9a1bd9f00fe536",
+      "retainedLocally": true
+    },
+    "qoder": {
+      "sha256": "80c54cd9ad85dcd49ce648e8cd518e91761bbb987e39b20e4596610a024cefa9",
+      "retainedLocally": true
+    },
+    "runtime22": {
+      "sha256": "fc6016ab815973a2c59c210698cbdc6e30f820f332502ad6e57722879d4c117a",
+      "retainedLocally": true
+    },
+    "typecheck": {
+      "sha256": "311e1cbf2c244f3aca79805806c7bb36a57584f38d4907e3a95928a10828eb4c",
+      "retainedLocally": true
+    },
+    "ui-hardcode": {
+      "sha256": "7adf1e34c8f822ac076966bf9575717a749fe71c69b2d65cb5c57ade84a2b648",
+      "retainedLocally": true
+    },
+    "versions": {
+      "sha256": "553688117b823f7803a19926de783574f8e15547b4053b6578cc27e8323cdd24",
+      "retainedLocally": true
+    },
+    "windows-build": {
+      "sha256": "f687eb6abc3e30b517038148a0d69af8a2b6ba8d874576b44b5ec9b685f37ab8",
+      "retainedLocally": true
+    },
+    "windows-runtime": {
+      "sha256": "5cc408e6b2279f7791f32868e37dab567f7ac4df51538e4be662c7799269897e",
+      "retainedLocally": true
+    }
+  }
+}

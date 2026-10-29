@@ -1,28 +1,32 @@
 # STATUS — 个人同步版事实状态
 
-## 2026-10-29 personal-v1.4.18 集成与发布轮（构建中）
+## 2026-10-29 personal-v1.4.18 双平台发布已完成
 
 - 用户明确授权纳入审查建议、本机验证并正式发布 macOS arm64 / Windows x64；不使用 GitHub Actions，不覆盖安装本机应用。
 - 已接入上游 #919 ZCode 空重置权益/零数量条目隐藏、#921 Qoder Desktop 0.4.x 额度兼容；保留个人版错误提示、缓存隔离及同步/历史语义。此前已推送的付款提示条移除和菜单栏额度文字去图标一并交付。
 - Undici 8.12.2→8.12.3；SQLite、图标库和 PostCSS 本轮不升级，采纳依据见 UPSTREAM.md。所有托管版本同步为 1.4.18，XcodeGen 与 icon patch 已执行。
 - 回归：Node 全量 3722（3705 通过、17 跳过、0 失败）；Dashboard 146 文件/1276 项通过；Qoder 34 与额度面板 59 定向测试通过；typecheck、copy、locale、ui-hardcode、guardrails、versions、bot-frames、架构通过。未改采集器或迁移；全量含重复采集/源删保史与 WebDAV 用例。
-- Node 22.22.2 对网络/代理/WebDAV、Qoder、历史保留和有界解压的 105 项回归通过；前端生产构建通过。构建和发布尚未完成，下一步固定源码提交、本地重建双平台安装包、核验运行时与包内资源后发布，并记录三附件哈希/公开下载/latest。Actions 已确认 enabled=false；实际 Windows 实机行为仍与本机交叉构建验证分开记录。
+- 构建源码固定为 `e5d64c7ef060d9171f13f9578089e4296c672a64`，分支与 personal-v1.4.18 标签已推送。Node 22.22.2 对网络/代理/WebDAV、Qoder、历史保留和有界解压的 105 项回归通过；前端生产构建通过。
+- macOS CLT 完整 Release、签名/镜像校验、314 个打包源码/资源和 85 个原生源码哈希核验通过；Windows 自包含 win-x64 交叉构建、ISCC 6.7.3 安装器编译及 313 个输入逐字节匹配通过。Windows Node 22 在隔离 64 位 Wine 下完成 HTTP/Undici、SQLite/WASM、Qoder/rollout 加载和有界解压冒烟。两平台运行时均校验官方 Node 下载 SHA；macOS strip/ad-hoc 重签流程可从官方二进制复现；Windows 共用无原生 .node 插件的生产 JS/WASM 依赖。
+- 真实 bundled CLI 在隔离 HOME 下离线启动、本地握手/生产 HTML 和正常退出通过。构建与运行时证据：`evidence/local-verification-1.4.18.json`、`macos-build-1.4.18.json`、`windows-build-1.4.18.json`、`artifacts-1.4.18.json`。
+- 边界：本机 innoextract 1.9 仅支持至 Inno Setup 6.0.5，无法解包本次 6.7.3 安装器，独立解包未验收；不将其 loader revision/checksum 警告当作安装器已损坏的结论。ISCC 自检和打包前清单通过，Windows 实机安装/托盘界面及 72h 常驻仍未验证。未覆盖安装本机应用。Actions 已确认 enabled=false。
+- 已于 2026-10-29 15:36:30（Asia/Shanghai）公开发布 [personal-v1.4.18](https://github.com/CYRYGBG/TokenTracker/releases/tag/personal-v1.4.18)，release ID `427564574`，设为 latest。三附件的远端 digest/大小与本地一致，匿名下载 HEAD 均 200，公开 SHA256SUMS.txt 逐字节匹配；标签指向固定构建源码 e5d64c7e。首次 Windows 大文件上传遇 broken pipe，重试后完成。发布证据 `evidence/release-1.4.18.json`，当前汇总 `evidence/release.json` 已同步。发布后仅提交文档/证据，不移动构建标签；未写 upstream/main、未发 npm、未重开 Actions、未覆盖安装本机应用。
 
 
-## 2026-10-29 官方新提交评估（未实施，待用户决定）
+## 2026-10-29 官方新提交初步评估（历史，后续已授权并发布）
 
 - 经代理 fetch 成功并通过官方 API 核对 upstream/main 为 `f80ed15a`（v1.5.1）；比上次 c30d1e3b 多三次提交，内容为两组依赖升级及版本发布。
 - 结合尚未适配的 #919/#921，建议优先 ZCode 空重置权益展示修复；Qoder 0.4.x 额度兼容有条件收益；undici 等依赖按实际修复及回归结果分别考虑。遥测、官网 SEO 和官方版本元数据不引入，详见 UPSTREAM.md。
 - 用户要求先简要汇报，故只更新审查记录；应用源码、依赖、版本及发布未改，未跑构建或测试、未推送本轮文档。下一步等待用户选定采纳范围。
 
 
-## 2026-10-29 下一版本：两处界面精简（已实现，待下次发布）
+## 2026-10-29 两处界面精简（已随 1.4.18 发布）
 
 - 按用户截图删除顶部“实际付款（全部记录日期）”提示及正常状态下的整条占位，不再为该提示请求 prefs；实际支出设置和记录不变。部分同步失败提示与旧设备范围迁移仍保留。
 - macOS 菜单栏额度/统计改为直接使用原有文字图层，移除左侧 Clawd 图标及 6pt 间距；保留百分比、五小时/周标签、分隔线与倒计时。动画不再向文字按钮写入图标，也不再逐帧重绘统计。关闭数字显示或没有选择指标时仍保留单独图标入口。
 - 验证：Dashboard App/Settings/ForkSync 3 文件 30 项通过；macOS 定位/后台同步/本地化相关 Node 14 项通过；dashboard typecheck、ui-hardcode、架构 guardrails、生产构建通过；本机完整原生 Swift typecheck 通过（仍有已有的 Swift Sendable 警告）。本轮未新增测试，不涉及统计引擎修改。证据 `evidence/ui-polish-2026-10-29.json`。
 - 上游经代理 fetch 到 c30d1e3b；新增 ZCode 空重置权益、Qoder 0.4.x 额度读取列为后续独立适配，详见 UPSTREAM.md。
-- 交付边界：源码改动已本地提交为 `d4a2218e`。用户随后明确授权先推送到 `origin/codex/personal-release-20261027`，两个改动留待下次新版本一起发布。本轮不构建下一版本安装包、不创建 Release；已公开的 1.4.17 三附件、本机安装和禁用的 GitHub Actions 保持不变。下一步在下一版本组装时重新构建双平台安装包并验收。
+- 交付边界：源码改动已本地提交为 `d4a2218e`。用户随后明确授权先推送到 `origin/codex/personal-release-20261027`，两个改动留待下次新版本一起发布。本轮不构建下一版本安装包、不创建 Release；已公开的 1.4.17 三附件、本机安装和禁用的 GitHub Actions 保持不变。现已随 1.4.18 完成双平台重建与发布，具体验证层级见首节。
 
 
 ## 1.4.17 发布（2026-10-28/29 Windows 实机轮，用户授权发布双平台）
