@@ -49,5 +49,14 @@
   "realStatisticsUploaded": false,
   "installedThisRun": false,
   "githubActionsUsed": false,
-  "windowsRealMachineVerified": false
+  "windowsRealMachineVerified": false,
+  "sourceCommit": "1d776bf5004bb477e4326de0f3738ad1bbe02ed5",
+  "bundledNode22Targeted": {
+    "passed": 44,
+    "failed": 0
+  },
+  "macOSSignatureAndDmgVerified": true,
+  "windowsPackageInputs": 318,
+  "windowsSetupCompiled": true,
+  "packagedCliIsolatedSmoke": true
 }

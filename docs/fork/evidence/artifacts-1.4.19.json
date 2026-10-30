@@ -1,0 +1,66 @@
+{
+  "checkedAt": "2026-10-30T03:33:37.713Z",
+  "version": "1.4.19",
+  "upstream": "2ea4010899cc6681670110f2691c07fd7bbf8ce6",
+  "dashboard": "dashboard/dist",
+  "embeddedServer": "TokenTrackerBar/EmbeddedServer",
+  "architecture": "darwin-arm64",
+  "nodeVersion": "22.22.2",
+  "nodeSha256": "31c9b901f72536e3710fb91381bc9371c5ee7880bdea9a03383a8d6e5d05949c",
+  "comparisons": {
+    "src": {
+      "files": 135,
+      "sha256": "26e1342944f06bc5fd1e34c86946a9fef8ffbee38c27f5b27af46d3ede7792d1",
+      "matchesWorkspace": true
+    },
+    "bin": {
+      "files": 2,
+      "sha256": "7abec83e95296bca5930497e736c8c092fa7b4184a00ac48ec450c647d81e873",
+      "matchesWorkspace": true
+    },
+    "dashboard/dist": {
+      "files": 180,
+      "sha256": "86fe16cf4f9d725675ddbc11c013a7f6331135c8b192d4a95a658222fab9a1c4",
+      "matchesWorkspace": true
+    },
+    "package.json": {
+      "sha256": "69346386e997577a9421ddeb6d7bb457e1a287ef2e059ccdf22ba7828c11a354",
+      "matchesWorkspace": true
+    },
+    "package-lock.json": {
+      "sha256": "36934d070424feb3a03b1b2f8d46cdc896692eb7a55400e76bd439435dd29ecd",
+      "matchesWorkspace": true
+    }
+  },
+  "packagedCliSmoke": {
+    "passed": true,
+    "isolatedHome": true,
+    "offline": true,
+    "productionHtml": true,
+    "officialProfileUntouched": true,
+    "normalExit": true
+  },
+  "macOSAppBuilt": true,
+  "windowsAppBuilt": true,
+  "installedOrPublished": true,
+  "nativeApp": {
+    "path": "dist/personal-build.noindex/TokenTrackerPersonal.app",
+    "sourceHashesVerified": true,
+    "signature": "ad-hoc",
+    "notarized": false
+  },
+  "installers": {
+    "TokenTrackerPersonal-macOS-arm64.dmg": {
+      "bytes": 65217676,
+      "sha256": "a4e95b5989fc16eef116ab0889fc228793977e7418129613526ac45bfe961f9f"
+    },
+    "TokenTrackerPersonal-Windows-x64-Setup.exe": {
+      "bytes": 299788123,
+      "sha256": "8b5396b8f22eb41babfdcdbe4daaf8118e3805089719dedbe2760178a9b18e70"
+    }
+  },
+  "windowsRealMachineVerified": false,
+  "sourceCommit": "1d776bf5004bb477e4326de0f3738ad1bbe02ed5",
+  "publishedAfterVerification": "https://github.com/CYRYGBG/TokenTracker/releases/tag/personal-v1.4.19",
+  "installedThisRun": false
+}

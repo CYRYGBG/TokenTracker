@@ -1,0 +1,54 @@
+{
+  "checkedAt": "2026-10-30T03:40:08.801965+00:00",
+  "releaseId": 428625920,
+  "repo": "https://github.com/CYRYGBG/TokenTracker",
+  "tag": "personal-v1.4.19",
+  "sourceBranch": "codex/personal-release-20261027",
+  "sourceCommit": "1d776bf5004bb477e4326de0f3738ad1bbe02ed5",
+  "tagPointsToBuildSource": true,
+  "draft": false,
+  "latest": true,
+  "publishedAt": "2026-10-30T03:40:01Z",
+  "url": "https://github.com/CYRYGBG/TokenTracker/releases/tag/personal-v1.4.19",
+  "assets": [
+    {
+      "name": "TokenTrackerPersonal-macOS-arm64.dmg",
+      "bytes": 65217676,
+      "sha256": "a4e95b5989fc16eef116ab0889fc228793977e7418129613526ac45bfe961f9f",
+      "githubDigestMatches": true,
+      "assetId": 690805240,
+      "url": "https://github.com/CYRYGBG/TokenTracker/releases/download/personal-v1.4.19/TokenTrackerPersonal-macOS-arm64.dmg",
+      "anonymousDownloadHead": 200
+    },
+    {
+      "name": "TokenTrackerPersonal-Windows-x64-Setup.exe",
+      "bytes": 299788123,
+      "sha256": "8b5396b8f22eb41babfdcdbe4daaf8118e3805089719dedbe2760178a9b18e70",
+      "githubDigestMatches": true,
+      "assetId": 690807010,
+      "url": "https://github.com/CYRYGBG/TokenTracker/releases/download/personal-v1.4.19/TokenTrackerPersonal-Windows-x64-Setup.exe",
+      "anonymousDownloadHead": 200
+    },
+    {
+      "name": "SHA256SUMS.txt",
+      "bytes": 212,
+      "sha256": "b62a1545661af6769ba3e751ee6ef0a4bb0ac816162dcea47728c40bc63595c4",
+      "githubDigestMatches": true,
+      "assetId": 690815758,
+      "url": "https://github.com/CYRYGBG/TokenTracker/releases/download/personal-v1.4.19/SHA256SUMS.txt",
+      "anonymousDownloadHead": 200
+    }
+  ],
+  "publicChecksumsMatchLocal": true,
+  "bothPlatformsBuiltLocally": true,
+  "macosBuildManifest": "macos-build-1.4.19.json",
+  "windowsBuildManifest": "windows-build-1.4.19.json",
+  "localVerification": "local-verification-1.4.19.json",
+  "windowsRealMachineVerified": false,
+  "githubActionsEnabled": false,
+  "githubActionsUsedThisRun": false,
+  "mainBranchChangedThisRun": false,
+  "npmPublished": false,
+  "upstreamWritten": false,
+  "installedThisRun": false
+}
