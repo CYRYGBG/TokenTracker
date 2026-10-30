@@ -1,5 +1,9 @@
 # UPSTREAM 跟踪与 Fork 改动地图
 
+## 2026-10-30 Windows → macOS 构建修复检查点
+
+本轮开始已 `git fetch upstream`，最新仍为 `2ea4010899cc6681670110f2691c07fd7bbf8ce6`，与下节记录一致。本轮不集成统计/额度变更，仅修个人构建链。`scripts/build-personal-macos.py` 增加宿主/SDK 前检、完整准备入口与可恢复的校验下载；个人 workflow 使用受支持 macos-15 arm64。旧 `ClawdCompanionView.swift` 的 macOS26 glassEffect 分支移除，统一沿用已有 material fallback，避免 SDK15 编译未知 API；不恢复宠物入口。实际 GitHub Swift Release/DMG 签名及下载哈希验证通过，证据见 STATUS 与 macos-build-repair-2026-10-30.json。官方后台/发布 workflow 继续禁用。
+
 ## 2026-10-30 个人报表与同步提示修复检查点
 
 经代理 fetch 核对 upstream/main 为 `2ea4010899cc6681670110f2691c07fd7bbf8ce6`。相对 f80ed15a 新增 #924 官网徽标、#930 Devin/Factory 状态卡、#923 Qoder 附加额度与空窗口、#928 WorkBuddy CN/AI 额度分开。均不提供本轮个人报表或同步状态刷新修复；本轮不混入，额度适配留待专项回归后纳入，官网营销不采纳。

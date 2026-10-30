@@ -1,14 +1,19 @@
 # STATUS — 个人同步版事实状态
 
-## 2026-10-30 Windows 发起 macOS 构建修复（验证中）
+## 2026-10-30 Windows 发起 macOS 构建修复（已构建验证）
+
+- 完成：修复提交 `10a0995a`、`beb600c9` 已推送个人发布分支。第二轮 [run 41046723933](https://github.com/CYRYGBG/TokenTracker/actions/runs/41046723933) 使用 macos-15 arm64，2 分 13 秒完整通过前端/EmbeddedServer/真实 Vortex/Swift Release/DMG/版本与签名检查及附件上传；源码固定 `beb600c901b65038ded36a3bb4b6a7dbbdc124f1`。不是仅修改脚本或只排队成功。
+- DMG 已下载本机 `dist/macos-ci-41046723933/`，72,255,993 字节，SHA256 `164d8f720d64828a6536019de32ec1be2ca49ab006aa83d885953a5d1471278c` 与构建清单一致，85 个原生源码哈希与当前源码逐项一致。证据 `evidence/macos-build-repair-2026-10-30.json`。
+- 已安装 GitHub CLI 2.103.3；仓库 Actions 已按授权恢复，仅 personal macOS 工作流 active，另外 11 个逐个 disabled_manually（含排行榜定时、官方发布与 npm），避免恢复仓库开关时连带启动官方任务。后续从 Windows 手动 dispatch 个人发布分支即可生成 Mac 附件，步骤见 README。
+- 本次只验证现有 1.4.19 的构建链：未新建 Release，未更换既有 tag/公开附件，未覆盖安装。Mac GUI/安装实机未在本轮验证；已有 Swift 并发警告和 Actions 旧 action 的 Node20 弃用警告不影响本轮成功。当前无构建阻塞；下一次产品版本按现有双平台验收/发布规则执行。
 
 - 本机个人发布分支已从 `3f64610f` 快进至远端 `5a7fa5fe`（1.4.19）；保留原有未跟踪 workflow `.bak`。已 fetch upstream，仍为已检查 `2ea40108`，无额外上游修复待纳入本轮。
 - 实查 GitHub：排行榜定时任务 run `40799723374` 因 `LEADERBOARD_REFRESH_SECRET is not configured` 失败；个人 macOS run `40735012090` / runner probe `40737895297` 均 runner 名为空、步骤为空、job cancelled，未开始编译。不能把所有失败邮件归因于 Swift 编译。
 - GitHub 官方 2026-10-01 公告：macos-14 于 2026-11-02 退役，此前有 brownout 和容量缩减。个人工作流改为 macos-15 arm64、固定 Node 22.22.2、45 分钟运行超时、只读源码权限，版本输入走环境变量；缓存路径使用 runner.temp。
 - Python 构建在任何下载/写 staging 前检查宿主、架构、SDK/工具及受管版本；`--prepare` 串联依赖安装/前端/EmbeddedServer/原生 DMG，`--check` 单独诊断环境。Vortex 下载使用超时重试、临时文件、校验后替换，可恢复中断缓存；不放宽 pinned SHA。shell 打包拒绝非 macOS、非法架构、缺前端资源，并保留 npm 失败日志。
 - Windows 已验证：Python 构建工具回归 6 项、架构 4 项、shell 语法、YAML 解析及版本一致性通过；实际 Windows `--check` 清楚拒绝，未进入下载/原生构建。已初始化 CodeGraph（1297 文件）并忽略本地索引；没有改统计/同步引擎、应用版本、个人数据或安装。
-- 用户已明确授权推送修复、仅恢复个人 macOS 构建并实际编译验证一次；不发布新版本，其余官方工作流保持禁用。远端构建结果将在完成后补记，不将本地脚本测试写成 DMG 已构建。
-- 首次实际 run `41046337433` 已分配 macos-15，前端/运行时打包全过，原生编译暴露旧宠物视图 `PetBubbleSurface.glassEffect` 依赖 macOS 26 SDK（当前 Xcode 16.4 / SDK 15.5）；运行时 availability 不能隐藏未知 API。个人版保留原有 material fallback，移除该未启用功能的新 SDK 分支，不恢复宠物入口。重建结果见后续补记。
+- 用户已明确授权推送修复、仅恢复个人 macOS 构建并实际编译验证；不发布新版本，其余官方工作流保持禁用。构建结果见本节首条。
+- 首次实际 run `41046337433` 已分配 macos-15，前端/运行时打包全过，原生编译暴露旧宠物视图 `PetBubbleSurface.glassEffect` 依赖 macOS 26 SDK（当前 Xcode 16.4 / SDK 15.5）；运行时 availability 不能隐藏未知 API。个人版保留原有 material fallback，移除该未启用功能的新 SDK 分支，不恢复宠物入口。随后第二轮全绿。
 
 ## 2026-10-30 personal-v1.4.19 双平台发布已完成
 

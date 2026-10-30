@@ -1,0 +1,58 @@
+{
+  "checkedAt": "2026-10-30T11:19:04.972662+00:00",
+  "sourceCommit": "beb600c901b65038ded36a3bb4b6a7dbbdc124f1",
+  "runId": 41046723933,
+  "runUrl": "https://github.com/CYRYGBG/TokenTracker/actions/runs/41046723933",
+  "conclusion": "success",
+  "runner": "macos-15 arm64",
+  "durationSeconds": 133,
+  "artifactId": 12973011271,
+  "artifactName": "TokenTrackerPersonal-macos-1.4.19",
+  "dmg": {
+    "file": "TokenTrackerPersonal-macOS-arm64.dmg",
+    "bytes": 72255993,
+    "sha256": "164d8f720d64828a6536019de32ec1be2ca49ab006aa83d885953a5d1471278c",
+    "matchesBuildManifest": true
+  },
+  "nativeSourcesMatched": 85,
+  "checks": [
+    "production dashboard",
+    "bundled Node 22.22.2 executable before and after strip/sign",
+    "real pinned Vortex",
+    "optimized Swift app compile",
+    "ad-hoc codesign verify --deep --strict",
+    "bundle identity and version",
+    "no pet.html or quota.html",
+    "downloaded artifact hash and native source hashes"
+  ],
+  "localTests": {
+    "pythonBuildRegressions": 6,
+    "architectureGuardrails": 4,
+    "shellSyntax": true,
+    "yamlParsed": true,
+    "managedVersions": true
+  },
+  "historicalFailures": {
+    "leaderboardRun": 40799723374,
+    "leaderboardError": "LEADERBOARD_REFRESH_SECRET is not configured",
+    "macRun": 40735012090,
+    "macJobRunner": "",
+    "macJobSteps": 0
+  },
+  "initialRepairRun": {
+    "id": 41046337433,
+    "error": "SDK 15.5 has no glassEffect API; removed SDK 26 branch from legacy disabled pet view"
+  },
+  "actions": {
+    "repositoryEnabled": true,
+    "onlyActiveWorkflow": "release-personal-macos.yml",
+    "otherWorkflowsDisabled": 11
+  },
+  "published": false,
+  "installed": false,
+  "macGuiVerified": false,
+  "notes": [
+    "Rebuilt 1.4.19 for build-chain verification only; published personal-v1.4.19 assets and tag were not replaced.",
+    "Existing Swift concurrency warnings and Actions Node 20 deprecation warning remain non-fatal."
+  ]
+}

@@ -12,6 +12,8 @@ Windows/WSL 不能直接运行这套 AppKit/签名/DMG 构建链，安装 Window
 
 构建工具回归：`python test/macos-build.test.py`（可在 Windows 运行，不冒充原生编译）。
 
+2026-10-30 已按授权恢复个人 macOS 工作流，并禁用其他 11 个工作流，实际构建通过（见 STATUS）。Windows 上已配置 GitHub CLI 登录后可运行：`gh workflow run release-personal-macos.yml --repo CYRYGBG/TokenTracker --ref codex/personal-release-20261027 -f version=1.4.19`（版本随分支当前 package.json 更新）；在 Actions 页等待成功后下载 `TokenTrackerPersonal-macos-<版本>` 附件。必须显式 `--repo`，避免 gh 默认把 fork 的上游当作目标。构建不创建公开 Release，不改应用内更新渠道；发布仍需对应授权与双平台校验。
+
 这是 WebDAV 个人同步 fork，功能和限制以 REQUIREMENTS.md、STATUS.md、ACCEPTANCE.md 为准。不会自动发布或覆盖原官方应用。
 
 ## 本地启动
