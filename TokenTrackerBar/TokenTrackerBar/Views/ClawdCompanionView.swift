@@ -2016,38 +2016,24 @@ private struct BubbleShape: Shape {
     }
 }
 
-/// Applies glass to the bubble content itself. On macOS 26 the native SwiftUI
-/// modifier owns both foreground treatment and glass geometry; older systems use a
-/// shape-backed material without crossing the SwiftUI/AppKit rendering boundary.
+/// Legacy view retained for source dependencies; the personal app has no pet entry.
+/// Use the existing material surface so this file also compiles with pre-26 SDKs.
 private struct PetBubbleSurface: ViewModifier {
     let isFloating: Bool
 
     @ViewBuilder
     func body(content: Content) -> some View {
         if isFloating {
-            if #available(macOS 26, *) {
-                content
-                    .glassEffect(
-                        .regular,
-                        in: BubbleShape(direction: .down)
-                    )
-                    .overlay {
-                        BubbleShape(direction: .down)
-                            .stroke(.white.opacity(0.18), lineWidth: 0.6)
-                    }
-                    .shadow(color: .black.opacity(0.16), radius: 4, y: 1)
-            } else {
-                content
-                    .background {
-                        BubbleShape(direction: .down)
-                            .fill(.regularMaterial)
-                    }
-                    .overlay {
-                        BubbleShape(direction: .down)
-                            .stroke(.white.opacity(0.18), lineWidth: 0.6)
-                    }
-                    .shadow(color: .black.opacity(0.16), radius: 4, y: 1)
-            }
+            content
+                .background {
+                    BubbleShape(direction: .down)
+                        .fill(.regularMaterial)
+                }
+                .overlay {
+                    BubbleShape(direction: .down)
+                        .stroke(.white.opacity(0.18), lineWidth: 0.6)
+                }
+                .shadow(color: .black.opacity(0.16), radius: 4, y: 1)
         } else {
             content
                 .background {

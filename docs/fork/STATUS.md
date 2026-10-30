@@ -8,6 +8,7 @@
 - Python 构建在任何下载/写 staging 前检查宿主、架构、SDK/工具及受管版本；`--prepare` 串联依赖安装/前端/EmbeddedServer/原生 DMG，`--check` 单独诊断环境。Vortex 下载使用超时重试、临时文件、校验后替换，可恢复中断缓存；不放宽 pinned SHA。shell 打包拒绝非 macOS、非法架构、缺前端资源，并保留 npm 失败日志。
 - Windows 已验证：Python 构建工具回归 6 项、架构 4 项、shell 语法、YAML 解析及版本一致性通过；实际 Windows `--check` 清楚拒绝，未进入下载/原生构建。已初始化 CodeGraph（1297 文件）并忽略本地索引；没有改统计/同步引擎、应用版本、个人数据或安装。
 - 用户已明确授权推送修复、仅恢复个人 macOS 构建并实际编译验证一次；不发布新版本，其余官方工作流保持禁用。远端构建结果将在完成后补记，不将本地脚本测试写成 DMG 已构建。
+- 首次实际 run `41046337433` 已分配 macos-15，前端/运行时打包全过，原生编译暴露旧宠物视图 `PetBubbleSurface.glassEffect` 依赖 macOS 26 SDK（当前 Xcode 16.4 / SDK 15.5）；运行时 availability 不能隐藏未知 API。个人版保留原有 material fallback，移除该未启用功能的新 SDK 分支，不恢复宠物入口。重建结果见后续补记。
 
 ## 2026-10-30 personal-v1.4.19 双平台发布已完成
 
