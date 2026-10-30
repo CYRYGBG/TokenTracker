@@ -6,7 +6,11 @@
 
 macOS 是个人本地 ad-hoc 签名产物，未做开发者公证。Windows 安装包包含 .NET、Node 和 WebView2 离线运行时；不需要另外安装 Node。两者均未自动覆盖安装到你的应用目录，实机验证范围见 STATUS.md。
 
-CLT 可复现 macOS 完整构建：先 `npm run dashboard:build` 和既有 EmbeddedServer 打包，再运行 `python3 scripts/build-personal-macos.py`。无需切换系统 Xcode；脚本编译 project.yml 相同 pinned Vortex 真实源码，检查下载校验和并记录所有 native 源码哈希。
+Apple Silicon Mac 上可用 CLT 复现完整构建：先装 Node.js >=20 和 Apple Command Line Tools（`xcode-select --install`），运行 `python3 scripts/build-personal-macos.py --check` 检查环境，再运行 `python3 scripts/build-personal-macos.py --prepare`，自动安装前端依赖、构建 dashboard、打包 EmbeddedServer、编译和生成 DMG。已有完整 staging 时仍可不带参数运行。无需切换系统 Xcode；脚本编译 project.yml 相同 pinned Vortex 真实源码，检查下载校验和并记录所有 native 源码哈希。
+
+Windows/WSL 不能直接运行这套 AppKit/签名/DMG 构建链，安装 Windows Swift 不能补齐 Apple SDK。只有 Windows 时，可从 Windows 发起 GitHub 托管 macOS 构建，下载构建附件再验收与发布。个人工作流 `release-personal-macos.yml` 仅手动触发，使用 `macos-15` arm64；`version` 必须等于所选分支 package.json。选择个人发布分支，不能使用仍保留上游内容的 main。它只上传 DMG 与构建清单，不发布 Release/npm、不安装应用。仓库 Actions 曾被用户禁用，恢复需用户明确授权；恢复时仅启用个人构建工作流，继续禁用上游排行榜/云/发布工作流，避免缺官方 secret 的定时失败邮件。`macos-14` 正在退役，不能继续依赖。GitHub 排队没有分配 runner（无步骤）与编译步骤失败要分别诊断，不用反复切换旧标签或安装本机工具处理远端排队。
+
+构建工具回归：`python test/macos-build.test.py`（可在 Windows 运行，不冒充原生编译）。
 
 这是 WebDAV 个人同步 fork，功能和限制以 REQUIREMENTS.md、STATUS.md、ACCEPTANCE.md 为准。不会自动发布或覆盖原官方应用。
 

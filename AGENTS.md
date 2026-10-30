@@ -24,6 +24,8 @@
 
 2026-10-28 用户本轮新增明确授权：代为将本机 Applications 中的个人版从 1.4.11 覆盖安装为已发布的 1.4.12，保留统计与同步配置并做本地可恢复备份。此项仅限本机个人版安装，不涉及官方应用、数据清理或 npm 发布。
 
+2026-10-30 Windows 构建修复明确授权：推送本轮构建修复，仅恢复个人版 macOS GitHub Actions 并实际构建验证；其余上游工作流保持禁用。不创建 Release、不发布 npm、不覆盖安装。本次授权替代此前“全部 Actions 禁用”中个人 macOS 构建部分。
+
 2026-10-30 用户明确授权：按确认的精简预览接入个人周报/月报，同时修复同步成功后顶栏残留失败提示及错误原因不清的问题；验证后推送源码并发布 personal-v1.4.19 的 macOS arm64 / Windows x64 安装包至 CYRYGBG/TokenTracker。继续禁用整个仓库的 GitHub Actions，不覆盖安装本机应用。
 
 **跟进 upstream 的规则（重要）**：
@@ -138,7 +140,7 @@ React → useNativeSettings() 订阅
 ## 7. 本机环境事实
 
 - GitHub 直连超时；git 与 npm（原生模块下载）都需代理 `127.0.0.1:7897`（本仓库 git 已配置 `http.proxy`；npm 用环境变量 `HTTP_PROXY/HTTPS_PROXY`）。
-- 开发机：macOS arm64，Node 25。无完整 Xcode和 Windows 实机；可用 CLT 的 swiftc 完整编译 macOS app（`python3 scripts/build-personal-macos.py`）。.NET 8 已补 WindowsDesktop targets，可跨平台 publish；Inno Setup 6.7.3 可在隔离 CrossOver bottle 编译安装器。构建通过不等于 Windows 实机通过；macOS 产物为个人 ad-hoc 签名，未做开发者公证。
+- 当前会话开发机（2026-10-30）：Windows x64，仓库 `D:\04.Code\TokenTracker`；此前 macOS arm64 / CLT / CrossOver 构建证据属于另一台 Mac，不代表本机具备这些工具。macOS AppKit 应用、codesign 和 DMG 需要真实 macOS 构建机，Windows/WSL 安装 Swift 不能替代。Apple Silicon Mac 上可运行 `python3 scripts/build-personal-macos.py --prepare`；Windows 侧只能发起远端 Mac 构建。GitHub Actions 之前被用户禁用，未获重新授权不得恢复；不适用的上游官方定时/发布工作流继续禁用。macOS 产物为个人 ad-hoc 签名，未做开发者公证。
 - 版本三处同步（package.json / project.yml / csproj）规则保留，但**不触发任何发布动作**；fork 版本策略见 STATUS.md。
 
 ## 8. 上游发布流程的关系（必读）

@@ -4,13 +4,16 @@
 No installation, publishing, Xcode selection or existing app process changes.
 Vortex is compiled from the same pinned source as project.yml, not a stub.
 """
+import argparse
 import hashlib
 import json
 import os
+import platform
 from pathlib import Path
 import plistlib
 import shutil
 import subprocess
+import sys
 import tarfile
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -30,14 +33,63 @@ def sha(file):
     return hashlib.sha256(file.read_bytes()).hexdigest()
 
 
+def preflight():
+    # Check before downloading or touching staging: Swift for Windows cannot
+    # supply AppKit, Apple's SDK, codesign or hdiutil.
+    if sys.platform != "darwin":
+        raise RuntimeError(
+            "macOS builds require an Apple Silicon Mac (local or remote macOS runner). "
+            "Windows/WSL cannot build this AppKit app or create its signed DMG. "
+            "See docs/fork/README.md; installing Swift for Windows is insufficient.")
+    if platform.machine() != "arm64":
+        raise RuntimeError("Use an arm64 macOS runner / Apple Silicon terminal for this arm64 bundle.")
+    missing = [tool for tool in ("swiftc", "xcrun", "codesign", "hdiutil", "curl", "bash", "node", "npm", "strip")
+               if not shutil.which(tool)]
+    if missing:
+        raise RuntimeError("Missing build tools: " + ", ".join(missing) +
+                           ". Install Apple Command Line Tools (xcode-select --install) and Node.js >=20.")
+    run("xcrun", "--sdk", "macosx", "--show-sdk-path")
+    run("swiftc", "--version")
+    run("node", "-e", "if (+process.versions.node.split('.')[0] < 20) process.exit(1)")
+    run("node", "scripts/validate-versions.cjs")
+
+
+def vortex_archive():
+    archive = BUILD / "vortex.tar.gz"
+    if archive.exists() and sha(archive) == VORTEX_SHA:
+        return archive
+    # Interrupted downloads must never poison the cache for every later build.
+    partial = BUILD / "vortex.tar.gz.part"
+    try:
+        run("curl", "-fLsS", "--retry", "3", "--connect-timeout", "20", "--max-time", "300",
+            f"https://codeload.github.com/zats/Vortex/tar.gz/{REV}", "-o", partial)
+        if sha(partial) != VORTEX_SHA:
+            raise RuntimeError("Pinned Vortex archive checksum mismatch; refusing downloaded source")
+        partial.replace(archive)
+    finally:
+        partial.unlink(missing_ok=True)
+    return archive
+
+
 def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--check", action="store_true", help="Check the build host without creating artifacts")
+    parser.add_argument("--prepare", action="store_true", help="Install dashboard dependencies, build it and bundle Node first")
+    args = parser.parse_args()
+    preflight()
+    if args.check:
+        return
+    if args.prepare:
+        run("npm", "ci", "--prefix", "dashboard", "--no-audit", "--no-fund")
+        run("npm", "run", "dashboard:build")
+        run("bash", "TokenTrackerBar/scripts/bundle-node.sh", "--arch", "arm64")
+    for required in ("dashboard/dist/index.html", "TokenTrackerBar/EmbeddedServer/node",
+                     "TokenTrackerBar/EmbeddedServer/tokentracker/node_modules"):
+        if not (ROOT / required).exists():
+            raise RuntimeError(f"Missing {required}. Run python3 scripts/build-personal-macos.py --prepare first.")
     BUILD.mkdir(parents=True, exist_ok=True)
     OUT.mkdir(parents=True, exist_ok=True)
-    archive = BUILD / "vortex.tar.gz"
-    if not archive.exists():
-        run("curl", "-fLsS", f"https://codeload.github.com/zats/Vortex/tar.gz/{REV}", "-o", archive)
-    if sha(archive) != VORTEX_SHA:
-        raise RuntimeError("Pinned Vortex archive checksum mismatch")
+    archive = vortex_archive()
     vortex = BUILD / f"Vortex-{REV}"
     if not vortex.exists():
         with tarfile.open(archive) as handle:
@@ -118,4 +170,7 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except (RuntimeError, subprocess.CalledProcessError) as error:
+        sys.exit(f"macOS build failed: {error}")

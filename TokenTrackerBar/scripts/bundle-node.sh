@@ -1,6 +1,11 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+if [[ "$(uname -s)" != "Darwin" ]]; then
+  echo "macOS bundling requires a Mac with Apple Command Line Tools; Windows/WSL is unsupported." >&2
+  exit 1
+fi
+
 # ──────────────────────────────────────────────
 # bundle-node.sh
 # Downloads Node.js binary and bundles
@@ -51,6 +56,15 @@ while [[ $# -gt 0 ]]; do
       ;;
   esac
 done
+
+if [[ "$TARGET_ARCH" != "arm64" && "$TARGET_ARCH" != "x64" && "$TARGET_ARCH" != "universal" ]]; then
+  echo "Unsupported architecture: $TARGET_ARCH" >&2
+  exit 1
+fi
+if [[ ! -f "$REPO_ROOT/dashboard/dist/index.html" ]]; then
+  echo "Missing dashboard build. Run npm run dashboard:build before bundling." >&2
+  exit 1
+fi
 
 # ── Always start fresh ──
 rm -rf "$EMBED_DIR"
@@ -168,7 +182,7 @@ fi
 # 3. Install production dependencies
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 echo "📥 Installing production dependencies..."
-(cd "$TT_DIR" && npm ci --omit=dev --no-optional --ignore-scripts 2>&1 | tail -1)
+(cd "$TT_DIR" && npm ci --omit=dev --omit=optional --ignore-scripts --no-audit --no-fund)
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 # 4. Clean node_modules bloat

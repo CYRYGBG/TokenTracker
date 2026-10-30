@@ -27,12 +27,12 @@ concurrency:
 
 jobs:
   build-macos:
-    # macos-26 left two dispatches queued ~15min with no runner ever assigned
-    # (job cancelled with empty runner_name). The fork builds with swiftc via
-    # scripts/build-personal-macos.py and needs no macos-26-specific SDK, so
-    # use the larger pool; macos-latest was also starved, trying macos-14.
-    runs-on: macos-14
-    permissions: {}
+    # macos-14 retires 2026-11-02 and is already subject to brownouts and
+    # reduced capacity. Use an explicit supported Apple Silicon image.
+    runs-on: macos-15
+    timeout-minutes: 45
+    permissions:
+      contents: read
     steps:
       - uses: actions/checkout@v4
         with:
@@ -40,7 +40,7 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22.22.2
           cache: ${{ inputs.no_cache && '' || 'npm' }}
           cache-dependency-path: dashboard/package-lock.json
 
@@ -48,21 +48,27 @@ jobs:
       # CFBundleShortVersionString disagrees with the tag breaks the in-app
       # updater's version comparison.
       - name: Verify version
+        env:
+          BUILD_VERSION: ${{ inputs.version }}
         run: |
           set -euo pipefail
+          [[ "$BUILD_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "::error::Invalid version"; exit 1; }
           PKG_VERSION=$(node -p "require('./package.json').version")
-          if [[ "$PKG_VERSION" != "${{ inputs.version }}" ]]; then
-            echo "::error::package.json version ($PKG_VERSION) does not match input (${{ inputs.version }})"
+          if [[ "$PKG_VERSION" != "$BUILD_VERSION" ]]; then
+            echo "::error::package.json version ($PKG_VERSION) does not match input ($BUILD_VERSION)"
             exit 1
           fi
           MISMATCHED=$(grep -E '^[[:space:]]*MARKETING_VERSION:' TokenTrackerBar/project.yml \
             | sed -E 's/.*MARKETING_VERSION:[[:space:]]*"([^"]+)".*/\1/' \
             | sort -u \
-            | grep -v "^${{ inputs.version }}$" || true)
+            | grep -v "^${BUILD_VERSION}$" || true)
           if [ -n "$MISMATCHED" ]; then
-            echo "::error::project.yml MARKETING_VERSION value(s) not matching ${{ inputs.version }}: $MISMATCHED"
+            echo "::error::project.yml MARKETING_VERSION value(s) not matching $BUILD_VERSION: $MISMATCHED"
             exit 1
           fi
+
+      - name: Check macOS build tools
+        run: python3 scripts/build-personal-macos.py --check
 
       # build-personal-macos.py stages TokenTrackerBar/EmbeddedServer from the
       # repo working tree and then re-copies src/bin/dashboard/dist from the
@@ -77,12 +83,12 @@ jobs:
         if: ${{ !inputs.no_cache }}
         uses: actions/cache@v4
         with:
-          path: ~/tt-node-cache
+          path: ${{ runner.temp }}/tt-node-cache
           key: node-darwin-arm64-22.22.2
 
       - name: Bundle EmbeddedServer
         env:
-          NODE_CACHE_DIR: /Users/runner/tt-node-cache
+          NODE_CACHE_DIR: ${{ runner.temp }}/tt-node-cache
         run: bash TokenTrackerBar/scripts/bundle-node.sh --arch arm64
 
       - name: Build personal macOS app and DMG
