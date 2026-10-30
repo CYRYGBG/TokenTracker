@@ -1,6 +1,6 @@
 {
   "name": "tokentracker-cli",
-  "version": "1.4.18",
+  "version": "1.4.19",
   "description": "Personal AI coding usage statistics with WebDAV device, project and session sync.",
   "main": "src/cli.js",
   "bin": {

@@ -47,6 +47,7 @@ function primeApi(overrides = {}) {
     }
     if (path === "/api/fork/prefs") return { expenses: [], prices: [], aliases: {} };
     if (path === "/api/fork/pricing") return { source: null, version: null, updated_at: null };
+    if (path === '/api/webdav/sync-now') return overrides.syncResult || {ok:true};
     if (path === "/api/webdav/config" && init?.method === "PUT") {
       config = { ...config, ...init.body };
       return { config };
@@ -64,6 +65,16 @@ describe("ForkSyncSection", () => {
     forkApiMock.mockReset();
     saveLocalUsageExportMock.mockReset();
     primeApi();
+  });
+
+  it.each([
+    [{ok:true,partial:true}, /Some device files could not be read/],
+    [{ok:true,skipped:'already-running'}, /already running or has not started/],
+  ])('does not announce complete success for %j',async(syncResult,text)=>{
+    primeApi({syncResult});renderSection();
+    await screen.findByRole('button',{name:'Sync now'});
+    fireEvent.click(screen.getByRole('button',{name:'Sync now'}));
+    expect(await screen.findByText(text)).toBeInTheDocument();
   });
 
   it("shows credentials as plain text until Edit is clicked", async () => {
@@ -195,7 +206,7 @@ describe("ForkSyncSection", () => {
     expect(screen.queryByText(/966d21f4/)).toBeNull();
   });
 
-  it("reports a failed last sync as its own line with the failure code", async () => {
+  it("explains a failed sync without rendering raw exception content", async () => {
     primeApi({
       sync: {
         last_failure: { code: "WEBDAV_UPLOAD_FAILED", message: "boom" },
@@ -203,6 +214,7 @@ describe("ForkSyncSection", () => {
     });
     renderSection();
     await screen.findByText("Last successful sync:", { exact: false });
-    expect(screen.getByText(/Last sync failed \(WEBDAV_UPLOAD_FAILED\)/)).toBeInTheDocument();
+    expect(screen.getByText(/The drive request failed/)).toBeInTheDocument();
+    expect(screen.queryByText('boom')).not.toBeInTheDocument();
   });
 });

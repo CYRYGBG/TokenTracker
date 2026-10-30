@@ -6,6 +6,35 @@ const { test } = require("node:test");
 const { createWebdavScheduler } = require("../src/lib/webdav/scheduler");
 const { createWebDavTestServer } = require("./helpers/webdav-server");
 
+test('partial imports retain the last complete success time and report the failed device reason', async(t)=>{
+  const dir=await fs.mkdtemp(path.join(os.tmpdir(),'tt-sync-partial-'));const dav=createWebDavTestServer();await dav.listen();
+  let fail=false;
+  const scheduler=createWebdavScheduler({trackerDir:dir,getConfig:async()=>({url:dav.baseUrl(),username:'user',enabled:true}),loadPassword:async()=> 'app-password',machineIdProvider:async()=> 'fixture-mac',fetchImpl:async(url,init)=>fail&&init.method==='PROPFIND'&&String(url).endsWith('/fixture-remote')?new Response('',{status:503}):fetch(url,init)});
+  t.after(async()=>{scheduler.stop();await dav.close();await fs.rm(dir,{recursive:true,force:true});});
+  assert.equal((await scheduler.syncNow()).ok,true);const success=(await scheduler.readState()).last_success_at;
+  dav.state.collections.add('/tokentracker-fork/devices/fixture-remote');fail=true;
+  assert.equal((await scheduler.syncNow()).partial,true);const state=await scheduler.readState();
+  assert.equal(state.last_success_at,success);assert.equal(state.imported['fixture-remote'].status,503);assert.equal(state.imported['fixture-remote'].code,'WEBDAV_HTTP');
+  fail=false;assert.equal((await scheduler.syncNow()).partial,false);assert.equal((await scheduler.readState()).partial,false);
+});
+
+test('sync persists safe timeout facts and clears failure after recovery', async (t) => {
+  const dir = await fs.mkdtemp(path.join(os.tmpdir(),'tt-sync-recovery-'));
+  const dav = createWebDavTestServer(); await dav.listen();
+  let fail = true;
+  const scheduler = createWebdavScheduler({trackerDir:dir,
+    getConfig:async()=>({url:dav.baseUrl(),username:'user',enabled:true}),
+    loadPassword:async()=> 'app-password',machineIdProvider:async()=> 'fixture-mac',
+    fetchImpl:async(...args)=>{ if(fail) throw Object.assign(new Error('sensitive-path-must-not-persist'),{name:'TimeoutError'}); return fetch(...args); },
+  });
+  t.after(async()=>{scheduler.stop();await dav.close();await fs.rm(dir,{recursive:true,force:true});});
+  assert.equal((await scheduler.syncNow()).code,'WEBDAV_TIMEOUT');
+  const failed=await scheduler.readState();assert.equal(failed.last_failure.timeout_ms,30000);assert.equal(failed.last_failure.operation,'MKCOL');assert.equal(failed.last_failure.message,undefined);
+  assert.equal(JSON.stringify(failed).includes('sensitive-path'),false);
+  fail=false;assert.equal((await scheduler.syncNow()).ok,true);
+  const recovered=await scheduler.readState();assert.equal(recovered.last_failure,null);assert.equal(recovered.partial,false);assert.ok(recovered.last_success_at);
+});
+
 test("automatic triggers share the selected interval across restarts; manual sync bypasses it", async (t) => {
   const dir = await fs.mkdtemp(path.join(os.tmpdir(), "tt-sync-cadence-"));
   const dav = createWebDavTestServer();

@@ -2237,3 +2237,49 @@ fork.devices.updated,ui,DashboardPage,ForkDeviceUsageCard,updated,Synced {{time}
 fork.menubar.five_hour_hint,ui,SettingsPage,MenuBarSection,five_hour_hint,Choose Codex 5h or Claude 5h in either slot. A dash means the limit is unavailable; sign in to the provider and refresh Limits. Provider visibility settings also apply.,,active
 fork.updates.channel_hint,ui,SettingsPage,MenuBarSection,channel_hint,Updates come only from CYRYGBG/TokenTracker personal releases. Disabled by default; enable to download and install updates automatically.,,active
 limits.zcode.reset_bank.unavailable,limits,LimitsPage,UsageLimitsPanel,text,"Reset credits unavailable. Refresh to retry.",,active
+reports.title,fork,ReportsPage,*,title,Usage reports,,active
+reports.period,fork,ReportsPage,*,period,Report period,,active
+reports.week,fork,ReportsPage,*,week,Weekly,,active
+reports.month,fork,ReportsPage,*,month,Monthly,,active
+reports.date,fork,ReportsPage,*,date,Report date,,active
+reports.refresh,fork,ReportsPage,*,refresh,Refresh report,,active
+reports.until,fork,ReportsPage,*,until,Through {{date}},,active
+reports.compare_range,fork,ReportsPage,*,compare_range,Current {{from}}–{{to}} · Previous {{previousFrom}}–{{previousTo}},,active
+reports.same_days,fork,ReportsPage,*,same_days,{{days}} days each,,active
+reports.vs_week,fork,ReportsPage,*,vs_week,Vs. previous week,,active
+reports.vs_month,fork,ReportsPage,*,vs_month,Vs. previous month,,active
+reports.unavailable,fork,ReportsPage,*,unavailable,Comparison unavailable,,active
+reports.no_previous,fork,ReportsPage,*,no_previous,No previous usage,,active
+reports.tokens,fork,ReportsPage,*,tokens,Token usage,,active
+reports.cost,fork,ReportsPage,*,cost,Estimated cost · {{currency}},,active
+reports.active,fork,ReportsPage,*,active,Active days,,active
+reports.active_value,fork,ReportsPage,*,active_value,{{active}} / {{days}} days,,active
+reports.average,fork,ReportsPage,*,average,Daily average {{tokens}} Tokens,,active
+reports.daily,fork,ReportsPage,*,daily,Daily usage · Tokens,,active
+reports.peak,fork,ReportsPage,*,peak,Peak on {{date}}: {{tokens}} Tokens ({{share}}).,,active
+reports.projects,fork,ReportsPage,*,projects,Project usage,,active
+reports.other_projects,fork,ReportsPage,*,other_projects,Other projects,,active
+reports.other_unassigned,fork,ReportsPage,*,other_unassigned,Other / unattributed projects,,active
+reports.unassigned,fork,ReportsPage,*,unassigned,Unattributed projects,,active
+reports.unassigned_title,fork,ReportsPage,*,unassigned_title,About unattributed usage,,active
+reports.unassigned_help,fork,ReportsPage,*,unassigned_help,Usage not matched to the project summary remains in the total. Source differences are shown below; inspect session details to determine why.,,active
+reports.unassigned_limited_help,fork,ReportsPage,*,unassigned_limited_help,The project API returns the top ten projects. These differences include additional projects and unattributed usage; all remain in the total.,,active
+reports.tools,fork,ReportsPage,*,tools,Tool composition,,active
+reports.devices,fork,ReportsPage,*,devices,Device distribution,,active
+reports.account,fork,ReportsPage,*,account,{{source}} · account-wide,,active
+reports.models,fork,ReportsPage,*,models,Top models,,active
+reports.top_five,fork,ReportsPage,*,top_five,Top five by Tokens,,active
+reports.empty,fork,ReportsPage,*,empty,No usage recorded for this period.,,active
+reports.failed,fork,ReportsPage,*,failed,Report could not be loaded. Try refreshing.,,active
+reports.incomplete,fork,ReportsPage,*,incomplete,Some data is incomplete or changed during loading. Comparisons are withheld; refresh to retry.,,active
+fork.sync.timeout_seconds,fork,*,*,timeout_seconds,The drive did not respond within {{seconds}} seconds. Check your network or proxy and retry.,,active
+fork.sync.timeout,fork,*,*,timeout,The drive request timed out. Check your network or proxy and retry.,,active
+fork.sync.unauthorized,fork,*,*,unauthorized,"The drive rejected access. Check the username, app password and directory permissions in Edit.",,active
+fork.sync.rate_limited,fork,*,*,rate_limited,The drive is rate limiting requests. Automatic retries will wait; try again later.,,active
+fork.sync.network,fork,*,*,network,"Could not connect to the drive. Check connectivity, proxy and drive availability.",,active
+fork.sync.credential,fork,*,*,credential,No saved app password. Save and test credentials in Edit.,,active
+fork.sync.config,fork,*,*,config,"The drive configuration is invalid. Check the HTTPS address, username and directory.",,active
+fork.sync.partial,fork,*,*,partial,Some device files could not be read or verified. Saved history is retained; retry synchronization.,,active
+fork.sync.failed,fork,*,*,failed,"The drive request failed. Check drive availability and directory permissions, then retry.",,active
+fork.sync.details,fork,*,*,details,Sync details,,active
+fork.sync.pending,fork,*,*,pending,A synchronization is already running or has not started. Status will update when it finishes.,,active

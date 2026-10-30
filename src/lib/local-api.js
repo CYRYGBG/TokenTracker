@@ -1200,6 +1200,7 @@ function createLocalApiHandler({ queuePath, serverVersion = null, trackerDataDir
         json(res, { ...(await webdavStatusSummary()), device_names: deviceNames, sync: {
           last_success_at: state.last_success_at || null,
           last_failure: state.last_failure || null,
+          partial: Boolean(state.partial),
           backoff_until_ms: state.backoff_until_ms || 0,
           paused_auth: Boolean(state.paused_auth),
           docs: state.docs || {},

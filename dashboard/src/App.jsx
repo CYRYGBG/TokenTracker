@@ -21,6 +21,7 @@ const SettingsPage = lazy(() =>
   import("./pages/SettingsPage.jsx").then((m) => ({ default: m.SettingsPage })),
 );
 const WrappedPage = lazy(() => import("./pages/WrappedPage.jsx"));
+const ReportsPage = lazy(() => import("./pages/ReportsPage.jsx").then(m => ({ default: m.ReportsPage })));
 export default function App() {
   const location = useLocation();
   const path = location.pathname.replace(/\/+$/, "") || "/";
@@ -29,6 +30,7 @@ export default function App() {
     "/dashboard": DashboardPage,
     "/sessions": SessionsPage,
     "/limits": LimitsPage,
+    "/reports": ReportsPage,
     "/settings": SettingsPage,
     "/wrapped": WrappedPage,
   };

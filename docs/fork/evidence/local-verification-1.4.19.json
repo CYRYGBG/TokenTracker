@@ -1,0 +1,53 @@
+{
+  "checkedAt": "2026-10-30T03:27:49.290909+00:00",
+  "version": "1.4.19",
+  "node": {
+    "total": 3724,
+    "passed": 3707,
+    "skipped": 17,
+    "failed": 0
+  },
+  "dashboard": {
+    "files": 150,
+    "passed": 1290,
+    "failed": 0,
+    "boundedWorkers": 3,
+    "initialUnboundedRun": "one pre-existing LeaderboardPage timeout; isolated retry and bounded full runs passed"
+  },
+  "checks": [
+    "typecheck",
+    "copy",
+    "locale",
+    "ui-hardcode",
+    "guardrails",
+    "versions",
+    "bot-frames",
+    "architecture",
+    "production-build"
+  ],
+  "runtime22Targeted": "passed; WebDAV, personal profile, history retention, bounded zstd",
+  "browser": {
+    "productionBuild": true,
+    "realLocalReadOnlyData": true,
+    "periodSwitch": true,
+    "currencyPreference": true,
+    "widths": [
+      320,
+      1280
+    ],
+    "narrowHorizontalOverflow": false,
+    "consoleErrors": []
+  },
+  "syncFix": {
+    "staleBannerReproducedFromReadOnlyLocalState": true,
+    "manualCompletionEvent": true,
+    "periodicVisibleRefresh": true,
+    "timeoutFactsAndRecoveryTested": true,
+    "partialImportPreservesLastCompleteSuccess": true,
+    "partialAndSkippedUiOutcomesTested": true
+  },
+  "realStatisticsUploaded": false,
+  "installedThisRun": false,
+  "githubActionsUsed": false,
+  "windowsRealMachineVerified": false
+}

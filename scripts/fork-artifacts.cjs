@@ -117,7 +117,7 @@ async function tree(dir) {
     const report = {
       checkedAt: new Date().toISOString(),
       version: require("../package.json").version,
-      upstream: "9dc925d89e7c526c9d5831b689a8bac427e7d8ea",
+      upstream: execFileSync('git', ['rev-parse', 'upstream/main'], {cwd: root, encoding: 'utf8'}).trim(),
       dashboard: "dashboard/dist",
       embeddedServer: "TokenTrackerBar/EmbeddedServer",
       architecture: "darwin-arm64",

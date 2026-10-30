@@ -75,10 +75,13 @@ class WebDavClient {
       if (error?.name === "TimeoutError" || error?.name === "AbortError") {
         const wrapped = new Error(`webdav ${method} ${path} timed out`);
         wrapped.code = "WEBDAV_TIMEOUT";
+        wrapped.timeout_ms = timeoutMs || this.timeoutMs;
+        wrapped.operation = method;
         throw wrapped;
       }
       const wrapped = new Error(`webdav ${method} ${path} failed: ${error?.message || error}`);
       wrapped.code = "WEBDAV_NETWORK";
+      wrapped.operation = method;
       throw wrapped;
     }
     const retryAfterHeader = res.headers?.get?.("retry-after");

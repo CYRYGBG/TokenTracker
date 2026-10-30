@@ -286,7 +286,7 @@ test("network failures wrap as WEBDAV_NETWORK and timeouts as WEBDAV_TIMEOUT", a
       setTimeout(() => reject(err), 10);
     }),
   });
-  await assert.rejects(() => slow.request("/x", { method: "GET" }), (error) => error.code === "WEBDAV_TIMEOUT");
+  await assert.rejects(() => slow.request("/x", { method: "GET" }), (error) => error.code === "WEBDAV_TIMEOUT" && error.timeout_ms === 1000 && error.operation === 'GET');
 });
 
 test("joinUrlPath composes clean paths and parseRetryAfterMs handles formats", () => {

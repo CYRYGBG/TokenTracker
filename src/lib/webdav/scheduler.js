@@ -281,7 +281,7 @@ async function runSyncCycle({
     const highWater = await store.highWater();
     const docs = await dav.list(`${rootDir}/devices/${remoteMachineId}`);
     if (!docs.ok) {
-      imported[remoteMachineId] = { ok: false, status: docs.status };
+      imported[remoteMachineId] = { ok: false, status: docs.status, code: 'WEBDAV_HTTP' };
       notes.push(`import listing failed for ${remoteMachineId}`);
       continue;
     }
@@ -298,7 +298,7 @@ async function runSyncCycle({
       if (!current || file.parsed.seq > current.parsed.seq) highestBaseByKind.set(file.parsed.kind, file);
     }
     let appliedAny = false;
-    let failedAny = false;
+    let failedAny = false, failure = null;
     for (const file of files) {
       if (file.parsed.variant === "base" && highestBaseByKind.get(file.parsed.kind) !== file) continue;
       if (file.parsed.seq < (highWater[file.parsed.kind] || 0)) continue;
@@ -308,6 +308,7 @@ async function runSyncCycle({
       const got = await dav.get(`${rootDir}/devices/${remoteMachineId}/${file.name}`);
       if (!got.ok || got.notFound || got.body == null) {
         failedAny = true;
+        failure = { code: 'WEBDAV_HTTP', status: got.status };
         continue;
       }
       try {
@@ -320,6 +321,7 @@ async function runSyncCycle({
         // Corrupt/half file: skip and report; the device's next export or the
         // base rebuild repairs it. Never abort the whole import.
         failedAny = true;
+        failure = { code: 'WEBDAV_INVALID_DOCUMENT' };
         notes.push(`skipped corrupt ${remoteMachineId}/${file.name}: ${error.reason || error.message}`);
       }
     }
@@ -329,18 +331,18 @@ async function runSyncCycle({
         await store.saveDeviceInfo(JSON.parse(info.body));
       } catch { /* non-fatal */ }
     }
-    imported[remoteMachineId] = { ok: !failedAny, updated: appliedAny };
+    imported[remoteMachineId] = { ok: !failedAny, updated: appliedAny, ...(failure || {}) };
   }
 
   state.imported = imported;
   state.paused_auth = false;
   state.partial = Object.values(imported).some(v=>!v.ok);
-  state.last_success_at = new Date(now()).toISOString();
+  if (!state.partial) state.last_success_at = new Date(now()).toISOString();
   state.last_failure = null;
   state.backoff_step = 0;
   state.backoff_until_ms = 0;
   state.notes = notes.slice(-20);
-  return { ok: true, exported: exportPlan.map((plan) => plan.kind), imported, state };
+  return { ok: true, partial: state.partial, exported: exportPlan.map((plan) => plan.kind), imported, state };
 }
 
 function normalizeCollectionHref(href) {
@@ -430,7 +432,9 @@ function createWebdavScheduler({ trackerDir, loadPassword, getConfig, machineIdP
       state.last_failure = {
         at: new Date(nowMs).toISOString(),
         code: error.code || "WEBDAV_ERROR",
-        message: error.message,
+        ...(Number.isInteger(error.status) ? { status: error.status } : {}),
+        ...(Number(error.timeout_ms) > 0 ? { timeout_ms: Number(error.timeout_ms) } : {}),
+        ...(['GET','PUT','PROPFIND','MKCOL','MOVE','OPTIONS','DELETE'].includes(error.operation) ? { operation: error.operation } : {}),
       };
       if ((error.code === "WEBDAV_UNAUTHORIZED" || [401,403].includes(error.status))) {
         // Auth failures pause automatic retries; manual sync still allowed.

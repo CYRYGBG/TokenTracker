@@ -38,6 +38,7 @@ export function getNavGroups() {
     {id:'usage',to:'/dashboard',icon:BarChart3,label:copy('nav.usage')},
     {id:'sessions',to:'/sessions',icon:History,label:copy('nav.sessions')},
     {id:'limits',to:'/limits',icon:Gauge,label:copy('nav.limits')},
+    {id:'reports',to:'/reports',icon:Activity,label:copy('reports.title')},
     {id:'settings',to:'/settings',icon:SettingsIcon,label:copy('nav.settings')},
   ]}];
 }

@@ -2,6 +2,7 @@ import { saveLocalUsageExport } from "../lib/native-bridge";
 import { copy } from "../lib/copy";
 import React, { useEffect, useMemo, useState } from "react";
 import { forkApi } from "../lib/fork-api";
+import { describeSyncFailure, FORK_SYNC_CHANGED_EVENT } from '../lib/fork-sync-status';
 import { Button } from "../ui/components/Button.jsx";
 import {
   SectionCard,
@@ -94,17 +95,29 @@ export default function ForkSyncSection() {
   }
   useEffect(() => {
     load().catch((e) => setError(e.message));
+    let active = true, request = 0;
+    const refreshStatus = async () => {
+      const id = ++request;
+      try { const value = await forkApi('/api/webdav/status'); if (active && id === request) setStatus(value); } catch {}
+    };
+    const visible = () => { if (!document.hidden) refreshStatus(); };
+    const timer = setInterval(visible,15000);
+    window.addEventListener(FORK_SYNC_CHANGED_EVENT,refreshStatus);
+    window.addEventListener('focus',visible);
+    return () => { active=false; clearInterval(timer); window.removeEventListener(FORK_SYNC_CHANGED_EVENT,refreshStatus); window.removeEventListener('focus',visible); };
   }, []);
   async function run(fn, message) {
     setBusy(true);
     setError("");
     setNotice("");
     try {
-      await fn();
+      const result = await fn();
       await load();
-      setNotice(message);
+      if (result?.partial) setError(describeSyncFailure({code:'WEBDAV_PARTIAL'}));
+      else setNotice(result?.skipped ? copy('fork.sync.pending') : message);
     } catch (e) {
-      setError(e.message);
+      setError(e.code ? describeSyncFailure(e) : e.message);
+      await load({preserveDraft:editing}).catch(()=>{});
     } finally {
       setBusy(false);
     }
@@ -321,7 +334,7 @@ export default function ForkSyncSection() {
                 disabled={busy}
                 onClick={() =>
                   run(async () => {
-                    await forkApi("/api/webdav/sync-now", { method: "POST" });
+                    return forkApi("/api/webdav/sync-now", { method: "POST" });
                   }, copy("fork.personal.d9c1fcf2bb"))
                 }
               >
@@ -334,10 +347,10 @@ export default function ForkSyncSection() {
           {copy("fork.personal.2a0b1ad677")}{" "}
           {formatSyncMinute(status?.sync?.last_success_at) || copy("fork.personal.9ef840e69f")}
         </p>
-        {status?.sync?.last_failure ? (
+        {(status?.sync?.last_failure || status?.sync?.partial) ? (
           <p className="text-sm text-red-600">
             {copy("fork.personal.8c9d0e1f2a")}
-            {status.sync.last_failure.code ? ` (${status.sync.last_failure.code})` : ""}
+            {describeSyncFailure(status.sync.last_failure || {code:'WEBDAV_PARTIAL'})}
           </p>
         ) : null}
         <ul className="text-sm">
@@ -346,7 +359,7 @@ export default function ForkSyncSection() {
               {status?.device_names?.[id] || id}：
               {s.ok
                 ? copy("fork.personal.76ce8e3d5e")
-                : copy("fork.personal.d82674407c")}
+                : describeSyncFailure(s.code ? s : {code:'WEBDAV_PARTIAL',status:s.status})}
             </li>
           ))}
         </ul>

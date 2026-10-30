@@ -29,6 +29,7 @@ vi.mock("./pages/SessionsPage.jsx", () => ({
 vi.mock("./pages/LimitsPage.jsx", () => ({
   LimitsPage: () => <h1>{TEXT.limits}</h1>,
 }));
+vi.mock('./pages/ReportsPage.jsx', () => ({ ReportsPage: () => <h1>{'Usage reports'}</h1> }));
 vi.mock("./pages/SettingsPage.jsx", () => ({
   SettingsPage: () => <h1>{TEXT.settings}</h1>,
 }));
@@ -60,6 +61,7 @@ it.each([
 it.each([
   ["/sessions", "Session details"],
   ["/limits", "Provider limits"],
+  ['/reports', 'Usage reports'],
   ["/settings", "Local settings"],
   ["/devices?app=1", "Local settings"],
 ])("retains %s in the local shell", async (route, title) => {
