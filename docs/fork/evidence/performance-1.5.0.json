@@ -1,0 +1,54 @@
+{
+ "checkedAt": "2026-10-31T08:01:13.995Z",
+ "host": {
+  "platform": "darwin",
+  "arch": "arm64",
+  "node": "v25.9.0"
+ },
+ "metricNote": "writeBytes = fs writeFile/appendFile payload bytes in this process; parses = exporter.buildBucketsRows invocations; ms = process-local wall time. Not SSD wear, not battery.",
+ "scenarios": {
+  "storage": {
+   "fixture": "5500 sessions ≈ 10.15 MiB, revision of a single row + 30 small revisions",
+   "old_1_4_20": {
+    "initialWriteBytes": 10154135,
+    "noChangeWriteBytes": 10154135,
+    "singleRevisionWriteBytes": 10154135,
+    "sourceMissingRetainWriteBytes": 0,
+    "sourceMissingRetainedRows": 5500,
+    "repeatedSmallTotalWriteBytes": 304624050,
+    "repeatedSmallMs": 593,
+    "compactions": 0,
+    "finalJournalBytes": null
+   },
+   "new_1_5_0": {
+    "initialWriteBytes": 10154409,
+    "noChangeWriteBytes": 274,
+    "singleRevisionWriteBytes": 2480,
+    "sourceMissingRetainWriteBytes": 274,
+    "sourceMissingRetainedRows": 5500,
+    "repeatedSmallTotalWriteBytes": 74400,
+    "repeatedSmallMs": 1219,
+    "compactions": 0,
+    "finalJournalBytes": 68386
+   },
+   "summary": "single revision write bytes 10,154,135 → 2,480; 30 small changes 304,624,050 → 74,400; no-change cycle 10,154,135 → 274 (lock bookkeeping only); source-missing retention unchanged (5500 rows)"
+  },
+  "report": {
+   "oldRequestCount": 6,
+   "oldParses": 5,
+   "oldMs": 169,
+   "newRequestCount": 1,
+   "newParses": 1,
+   "newMs": 37
+  },
+  "syncPayload": {
+   "rows": 5500,
+   "oldFullSegBytes": 1603519,
+   "newDeltaSegBytes": 508,
+   "zeroChangeSegBytes": 216,
+   "reductionRatio": 0.00032
+  }
+ },
+ "measurementScript": "scripts/measure-perf-1.5.0.js (re-runnable; extracts the 1.4.20 baseline from the git tag)",
+ "limits": "fs write-call bytes and in-process timings, not SSD wear, network speed or battery; no battery/energy claims"
+}

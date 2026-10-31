@@ -1,0 +1,31 @@
+{
+ "checkedAt": "2026-10-31T17:35:00+08:00",
+ "probeMethod": "the RELEASED 1.4.20 updater channel code extracted via git archive personal-v1.4.20 and compiled as standalone probes",
+ "macos": {
+  "code": "TokenTrackerBar/TokenTrackerBar/Models/PersonalUpdateChannel.swift at 1.4.20 + probe (same pattern as release-1.4.20 probe)",
+  "result": {
+   "previousUpdater": "1.4.20",
+   "offeredVersion": "1.5.0",
+   "dmgURLValid": true,
+   "checksumVerified": true,
+   "installed": false
+  },
+  "verifiedAgainst": "public latest release metadata + real anonymous DMG download (65,057,572 bytes, sha d9e5eabe…), SHA256SUMS digest parsed with 1.4.20 code and matched",
+  "wrongAssetRejected": true
+ },
+ "windows": {
+  "code": "TokenTrackerWin/UpdateReleaseClient.cs + UpdateIntegrity.cs at 1.4.20 (net8.0 managed probe, run on macOS CLR)",
+  "result": {
+   "version": "1.5.0",
+   "setupUrl": "https://github.com/CYRYGBG/TokenTracker/releases/download/personal-v1.5.0/TokenTrackerPersonal-Windows-x64-Setup.exe",
+   "expectedBytes": 299795239,
+   "checksumMatches": true,
+   "fallbackUsed": false,
+   "installed": false
+  },
+  "verifiedAgainst": "public API via 1.4.20 client; checksum of the byte-identical local Setup (remote digest equality proven separately) against public SHA256SUMS"
+ },
+ "inAppCheck": "the locally installed 1.4.20 app was NOT driven to check updates this round; the released channel code proves discoverability, platform asset selection and checksum validation; user may click 检查更新 to see the 1.5.0 prompt (no auto-install per authorization)",
+ "fallbackEvidence": "the new 1.5.0 rate-limit/cooldown/web fallback is covered by the 96-fixture harness (dist/reviewed-1.5.0.noindex/update-fallback-harness/run.sh, re-runnable); a real public rate-limit event was not provoked, so live-fallback behavior is claimed only at harness level",
+ "notes": "no auto-install performed; default auto-update remains off"
+}

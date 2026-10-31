@@ -1,0 +1,38 @@
+{
+ "checkedAt": "2026-10-31T17:35:00+08:00",
+ "version": "1.5.0",
+ "repo": "CYRYGBG/TokenTracker",
+ "tag": "personal-v1.5.0",
+ "tagSha": "5d30c0bc5704b6299a207dad75b76b26120293de",
+ "sourceCommit": "5d30c0bc5704b6299a207dad75b76b26120293de",
+ "branch": "codex/personal-release-20261027",
+ "releaseId": 429824123,
+ "releaseUrl": "https://github.com/CYRYGBG/TokenTracker/releases/tag/personal-v1.5.0",
+ "isLatest": true,
+ "draftPublished": true,
+ "prerelease": false,
+ "assets": {
+  "TokenTrackerPersonal-macOS-arm64.dmg": {
+   "bytes": 65057572,
+   "sha256": "d9e5eabe51c1f1729dd301a6c0d634ed54a51857e056a104348da6a2303d7be7",
+   "remoteDigestMatch": true
+  },
+  "TokenTrackerPersonal-Windows-x64-Setup.exe": {
+   "bytes": 299795239,
+   "sha256": "f719b14fb849a90d76e9e1bfd3a1de54d7c6e48eb8e61bf4ab180851989ee9fb",
+   "remoteDigestMatch": true
+  },
+  "SHA256SUMS.txt": {
+   "bytes": 212,
+   "sha256": "6fa656dd55fcbd28635e35cda899572c683b4c28f1492d662f73912fa203e29e"
+  }
+ },
+ "anonymousHead": {
+  "TokenTrackerPersonal-macOS-arm64.dmg": 200,
+  "TokenTrackerPersonal-Windows-x64-Setup.exe": 200,
+  "SHA256SUMS.txt": 200
+ },
+ "publicSumsIdentical": true,
+ "actionsState": "repo workflows untouched (not enabled or modified this round); no npm publish; no upstream writes; no local overwrite-install",
+ "notes": "two commits: 8f99cc51 (implementation) + 5d30c0bc (cross-platform test fixtures); both platform artifacts rebuilt from 5d30c0bc; tag pinned to that commit"
+}

@@ -1,0 +1,31 @@
+{
+ "checkedAt": "2026-10-31T08:50:00+08:00",
+ "version": "1.5.0",
+ "sourceCommit": "5d30c0bc5704b6299a207dad75b76b26120293de",
+ "branch": "codex/personal-release-20261027",
+ "builder": "scripts/build-personal-macos.py (CLT swiftc release, real pinned Vortex ef5392088d4aeb255c4eee83157dbdafcd31bf07)",
+ "nativeBinarySha256": "acff6213a8e34d4f2cf200748bedcf776f595583cf5c66a4472e02e0c5926777",
+ "nativeSourceCount": 86,
+ "nativeSourcesMatched": true,
+ "dmgBytes": 65057572,
+ "dmgSha256": "d9e5eabe51c1f1729dd301a6c0d634ed54a51857e056a104348da6a2303d7be7",
+ "hdiutilVerify": "VALID",
+ "mountedChecks": {
+  "version": "1.5.0",
+  "bundleId": "com.cyrygbg.tokentracker.personal",
+  "codesign": "ad-hoc deep strict OK",
+  "payloadIdentical": [
+   "src",
+   "bin",
+   "dashboard/dist"
+  ]
+ },
+ "signature": "ad-hoc (no developer notarization)",
+ "manifest": "dist/reviewed/macos-build.json",
+ "notes": [
+  "swiftc -typecheck of all app+shared sources: 0 errors, 30 pre-existing warnings",
+  "update fallback harness 96/96 via dist/reviewed-1.5.0.noindex/update-fallback-harness/run.sh",
+  "menu-bar animation harness 12/12 via dist/reviewed-1.5.0.noindex/menu-bar-animation-harness/run.sh",
+  "bundled CLI isolated-HOME smoke on port 17885: local-auth handshake serverVersion=1.5.0, / 200, personal data dir created"
+ ]
+}

@@ -20,9 +20,9 @@
 - [x] 2. 本地增量存储（`fork-journal.js` 定稿；大夹具/断尾/损坏/跨进程/并发/备份/升级 16 项专项 `test/fork-journal-store.test.js`；调用方事务化）
 - [x] 3. 同步增量（seg 仅变化行+`webdav/published` 发布基线；上传失败/提交中断/重装/旧版混用/1.4.20 读端兼容 5 项 `test/webdav-delta-seg.test.js`）
 - [x] 4. 读取/报表复用（scopedQueueRows 去重读、bucketSnapshot 在途合并、deviceUsage 单快照、`/api/fork/report` 聚合=六端点逐字段一致；`test/fork-report-aggregate.test.js`）
-- [ ] 5. 唤醒/凭证（凭证存在性缓存+测试已完成；Swift 动画 timer 进行中）
-- [ ] 6. 重试/更新（重试退避分离+正文释放+上传瞬时重试 8 项测试绿；Mac 更新限流回退进行中）
-- [ ] 7. 双平台验证和发布（Node 全量 3781 绿、dashboard 1290 绿+构建、根校验过；性能五场景已测；构建/发布待完成）
+- [x] 5. 唤醒/凭证（凭证存在性缓存+测试；Swift 动画 timer 停用+12 项 harness 可重跑）
+- [x] 6. 重试/更新（重试退避分离+正文释放+上传瞬时重试 8 项测试绿；Mac 更新限流回退 96 项 harness 可重跑）
+- [x] 7. 双平台验证和发布（personal-v1.5.0 已发布设 latest，tag=5d30c0bc；详见 STATUS 发布节与 docs/fork/evidence/*1.5.0.json）
 
 ## 风险边界
 

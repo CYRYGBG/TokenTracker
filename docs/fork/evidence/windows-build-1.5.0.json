@@ -1,0 +1,36 @@
+{
+ "checkedAt": "2026-10-31T08:50:00+08:00",
+ "version": "1.5.0",
+ "sourceCommit": "5d30c0bc5704b6299a207dad75b76b26120293de",
+ "machine": "macOS arm64 cross-build",
+ "dotnet": "8.0.132",
+ "selfContained": "win-x64",
+ "compiler": "Inno Setup 6.7.3 via isolated CrossOver bottle tt-inno10 (win10 template)",
+ "matchedInputs": 321,
+ "packageFiles": 2569,
+ "sourceShaRecordedByVerifier": "5d30c0bc5704b6299a207dad75b76b26120293de",
+ "setupBytes": 299795239,
+ "setupSha256": "f719b14fb849a90d76e9e1bfd3a1de54d7c6e48eb8e61bf4ab180851989ee9fb",
+ "filesManifest": "dist/release-1.5.0.noindex/windows-package.json",
+ "windowsNode22WineTargeted": {
+  "runtime": "Windows Node 22.22.2 (packaged EmbeddedServer/node.exe) under CrossOver tt-smoke64",
+  "files": [
+   "webdav-delta-seg",
+   "webdav-credential-store",
+   "webdav-client",
+   "webdav-sync-store",
+   "webdav-two-device-sync",
+   "webdav-retry-schedule",
+   "fork-journal-store",
+   "codex-session-revision"
+  ],
+  "passed": 68,
+  "failed": 0,
+  "skipped": 2,
+  "skippedReason": "1.4.20 library extraction needs git/bsdtar which a bare Wine prefix lacks; the read-side contract is verified on macOS"
+ },
+ "windowsRealMachineVerified": false,
+ "notes": [
+  "verify-windows-package: payload byte-identical to checkout, no private files, single main bundle"
+ ]
+}

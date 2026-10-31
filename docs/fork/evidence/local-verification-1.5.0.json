@@ -1,0 +1,91 @@
+{
+ "checkedAt": "2026-10-31T17:35:00+08:00",
+ "version": "1.5.0",
+ "sourceCommit": "5d30c0bc5704b6299a207dad75b76b26120293de",
+ "results": [
+  {
+   "name": "node full suite",
+   "command": "node --test --test-concurrency=2 test/*.test.js",
+   "tests": 3781,
+   "passed": 3764,
+   "failed": 0,
+   "skipped": 17,
+   "log": "/tmp/tt-150-full-node-final.log",
+   "skipReason": "existing platform/corpus skips (Qoder CN corpus, Windows-only POSIX assertions, etc.)"
+  },
+  {
+   "name": "dashboard vitest",
+   "command": "npx vitest run --maxWorkers=2 --minWorkers=1 (in dashboard/)",
+   "files": 150,
+   "tests": 1290,
+   "failed": 0,
+   "log": "/tmp/tt-150-vitest.log"
+  },
+  {
+   "name": "dashboard typecheck",
+   "command": "npx tsc --noEmit -p dashboard",
+   "failed": 0
+  },
+  {
+   "name": "root validators",
+   "command": "validate:copy / locale / ui-hardcode / guardrails / versions / bot-frames / architecture",
+   "failed": 0,
+   "note": "copy registry reports pre-existing unused-key warnings only"
+  },
+  {
+   "name": "dashboard production build",
+   "command": "npm run dashboard:build",
+   "failed": 0
+  },
+  {
+   "name": "swift full-source typecheck",
+   "command": "swiftc -typecheck (app+shared sources, pinned Vortex module)",
+   "errors": 0,
+   "warnings": 30,
+   "note": "all warnings pre-existing style/Sendable notes"
+  },
+  {
+   "name": "update fallback harness (new 1.5.0 code)",
+   "command": "bash dist/reviewed-1.5.0.noindex/update-fallback-harness/run.sh",
+   "passed": 96,
+   "failed": 0
+  },
+  {
+   "name": "menu-bar animation harness (new 1.5.0 code)",
+   "command": "bash dist/reviewed-1.5.0.noindex/menu-bar-animation-harness/run.sh",
+   "passed": 12,
+   "failed": 0
+  },
+  {
+   "name": "windows node 22 targeted under wine",
+   "runtime": "packaged EmbeddedServer node.exe (22.22.2) in CrossOver tt-smoke64",
+   "passed": 68,
+   "failed": 0,
+   "skipped": 2,
+   "files": [
+    "webdav-delta-seg",
+    "webdav-credential-store",
+    "webdav-client",
+    "webdav-sync-store",
+    "webdav-two-device-sync",
+    "webdav-retry-schedule",
+    "fork-journal-store",
+    "codex-session-revision"
+   ]
+  }
+ ],
+ "storageFixtures": {
+  "largeHistory": "test/fork-journal-store.test.js (≥10 MiB, 16 tests)",
+  "deltaSeg": "test/webdav-delta-seg.test.js (5 tests incl. 1.4.20 read side via git archive)",
+  "retrySchedule": "test/webdav-retry-schedule.test.js (8 tests)",
+  "reportAggregate": "test/fork-report-aggregate.test.js (4 tests)",
+  "codexRevision": "test/codex-session-revision.test.js"
+ },
+ "notVerified": [
+  "Windows real-machine install/GUI/resident behavior",
+  "72h long-run observation",
+  "real jianguoyun network measurement",
+  "live public GitHub rate-limit fallback (harness-level only)",
+  "in-app check-update click on the installed 1.4.20 app (left to user)"
+ ]
+}
