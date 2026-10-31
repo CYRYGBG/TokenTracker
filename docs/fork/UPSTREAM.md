@@ -1,5 +1,11 @@
 # UPSTREAM 跟踪与 Fork 改动地图
 
+## 2026-10-31 personal-v1.5.0 实施检查点
+
+经代理 fetch upstream/main 仍为 `a9ef316fbe58cf594dbefa7cdbfd5f71cfa212f1`,与上一检查点一致,无新增需要摘取的采集/计价/安全修复。本轮实施:
+- 按文件摘取 `0258ac0b` 的 Codex ledger/session 一致性修复(reset sentinel 谓词移入 codex-usage-record.js 共享;session-analytics 仅使 Codex 摘要缓存失效,新增 codex_usage_version 元数据;observed 模型归属策略进入 hourly cursor)。
+- fork 独立实现(非上游内容):fork-journal 增量存储、WebDAV 差异 seg+发布基线、共享快照读取与 /api/fork/report 聚合、失败退避分离与上传瞬时重试、凭证存在性缓存。origin/main 上的 5 个 CI 探测提交(4a10250f..c54ac652)不纳入发布分支。
+
 ## 2026-10-31 常驻性能与同步请求时限检查点
 
 经代理 fetch upstream/main 至 `e28c90dd`（完整 SHA 见构建/发布证据）；相对 `2ea40108` 的 #932/#933/#935 均为官网徽标与链接，不涉及本轮 SQLite/历史构建/WebDAV 超时，不采纳。origin 分支新增的 `10a0995a`、`beb600c9`、`799038a2` 构建修复已快进复用，保留既有发布历史；本轮在 Mac 本地双平台构建，不发起或修改 Actions。

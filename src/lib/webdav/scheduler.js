@@ -37,6 +37,49 @@ function webdavDirFor(trackerDir) {
   return path.join(trackerDir, "webdav");
 }
 
+// Per-kind record of what this device last PUBLISHED successfully. Unlike the
+// locally observed union (fork-history/wire-<kind>.json), it only advances
+// after a confirmed upload, so retries, crashes between the upload and the
+// local commit, and restore/rebase paths can never skip an unsent revision.
+function publishedPathFor(trackerDir, kind) {
+  return path.join(webdavDirFor(trackerDir), "published", `${kind}.json`);
+}
+// Key-order-insensitive row identity. Rows recovered from the server come
+// back re-shaped by the import sanitizer, so a plain JSON.stringify would
+// flag every recovered row as changed forever; canonical hashing compares
+// content, not construction order.
+const canonicalize = (value) => {
+  if (Array.isArray(value)) return value.map(canonicalize);
+  if (value && typeof value === "object") {
+    return Object.fromEntries(
+      Object.entries(value)
+        .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))
+        .map(([k, v]) => [k, canonicalize(v)]),
+    );
+  }
+  return value;
+};
+const rowHash = (row) =>
+  require("node:crypto").createHash("sha256").update(JSON.stringify(canonicalize(row))).digest("hex");
+async function loadPublishedBaseline(trackerDir, kind) {
+  try {
+    const baseline = JSON.parse(await fs.readFile(publishedPathFor(trackerDir, kind), "utf8"));
+    if (
+      !baseline ||
+      !Number.isSafeInteger(baseline.seq) ||
+      !baseline.hashes ||
+      typeof baseline.hashes !== "object"
+    )
+      return null;
+    return baseline;
+  } catch {
+    return null;
+  }
+}
+async function savePublishedBaseline(trackerDir, kind, baseline) {
+  await writeJsonAtomic(publishedPathFor(trackerDir, kind), baseline);
+}
+
 async function readJson(filePath, fallback) {
   try {
     return JSON.parse(await fs.readFile(filePath, "utf8"));
@@ -160,8 +203,21 @@ async function runSyncCycle({
   const exportPlan = [];
   for (const kind of kinds) {
     state.input_hashes[kind]=exporter.stableRowsHash(local[kind]);
+    // The publish baseline records the content this device last CONFIRMED
+    // uploading. Delta segments are computed against it; recovery kicks in
+    // whenever the retained union no longer covers the published keys (wiped
+    // history) or the server is ahead in a way the baseline cannot vouch for.
+    const published = await loadPublishedBaseline(trackerDir, kind);
+    let rows = await durable.retain(trackerDir,`wire-${kind}`,local[kind],keys[kind]);
+    const rowKeySet = new Set(rows.map((row) => keys[kind](row)));
+    const missingPublishedRows = Boolean(
+      published && Object.keys(published.hashes).some((key) => !rowKeySet.has(key)),
+    );
+    const serverMatchesPublished = Boolean(
+      published && published.seq === serverSeqs[kind] && serverSeqs[kind] > 0 && !missingPublishedRows,
+    );
     // Recover own last remote view BEFORE rebase after a restored backup.
-    const restored = Number(state.docs?.[kind]?.seq || 0) < serverSeqs[kind];
+    const restored = (Number(state.docs?.[kind]?.seq || 0) < serverSeqs[kind] && !serverMatchesPublished) || missingPublishedRows;
     let recovered = [];
     if (restored) {
       const ownStore = createDeviceImportStore({importsDir:path.join(webdavDirFor(trackerDir),'recovery'),machineId});
@@ -177,9 +233,9 @@ async function runSyncCycle({
       recovered = await ownStore[{buckets:'readMergedBuckets',projects:'readMergedProjects',sessions:'readMergedSessions',prefs:'readMergedPrefs'}[kind]]();
       // Newer remote values win over an older local backup on collisions.
       local[kind] = [...new Map([...local[kind],...recovered].map(r=>[keys[kind](r),r])).values()];
+      rows = await durable.retain(trackerDir,`wire-${kind}`,local[kind],keys[kind]);
       notes.push(`rebased ${kind} after device restore`);
     }
-    const rows = await durable.retain(trackerDir,`wire-${kind}`,local[kind],keys[kind]);
     const hash = exporter.stableRowsHash(rows);
     const lastSeq = Math.max(Number(state.docs?.[kind]?.seq || 0), serverSeqs[kind]);
     const lastHash = state.docs?.[kind]?.hash;
@@ -187,20 +243,55 @@ async function runSyncCycle({
       continue; // no change, no upload
     }
     const nextSeq = lastSeq + 1;
+    // Delta segments are computed against the last SUCCESSFULLY published row
+    // set. A missing or out-of-date baseline (first export after this feature,
+    // restore from backup) forces a full base once; from then on segments
+    // carry only changed rows.
+    const baselineUsable = Boolean(published && published.seq === lastSeq);
     // Re-base when the segment chain grows too long, after a device restore
-    // (server seq ahead of local state), or on first export.
-    const rebase = state.force_base || restored || lastSeq === 0 || remoteSegmentsSinceBase[kind] >= SEGMENTS_BEFORE_BASE;
+    // (server seq ahead of local state), on first export, or without a usable
+    // publish baseline.
+    let rebase = state.force_base || restored || lastSeq === 0 || remoteSegmentsSinceBase[kind] >= SEGMENTS_BEFORE_BASE || !baselineUsable;
+    let segRows = rows;
+    if (!rebase) {
+      segRows = rows.filter((row) => published.hashes[keys[kind](row)] !== rowHash(row));
+      if (!segRows.length) {
+        // The union hash moved (e.g. reordering) but no row content differs
+        // from what the server already holds — record the hash, upload nothing.
+        state.docs = state.docs || {};
+        state.docs[kind] = { seq: lastSeq, hash, at: new Date(now()).toISOString() };
+        continue;
+      }
+    }
     const fileName = rebase ? baseFileName(kind, nextSeq) : segmentFileName(kind, nextSeq);
     exportPlan.push({
       kind,
-      rows,
+      rows: rebase ? rows : segRows,
       hash,
       seq: nextSeq,
       rebase,
       fileName,
       sinceSeq: rebase ? null : lastSeq,
+      baseline: published,
     });
   }
+
+  // A transient connection reset mid-upload (the dominant real-world sync
+  // failure on consumer cloud drives, seen as WEBDAV_NETWORK on PUT) used to
+  // kill the whole cycle and push the next attempt a full backoff out. The
+  // publish is idempotent (unique part name + MOVE), so one immediate retry
+  // converts most blips into an invisible recovery.
+  const TRANSIENT_UPLOAD_CODES = new Set(["WEBDAV_NETWORK", "WEBDAV_TIMEOUT"]);
+  const uploadWithRetry = async (name, content, label) => {
+    try {
+      return await dav.putAtomic(name, content);
+    } catch (error) {
+      if (!TRANSIENT_UPLOAD_CODES.has(error?.code)) throw error;
+      notes.push(`${label} hit ${error.code}; retrying once`);
+      await new Promise((resolve) => setTimeout(resolve, 2000));
+      return dav.putAtomic(name, content);
+    }
+  };
 
   for (const plan of exportPlan) {
     const content = serializeDocument({
@@ -210,7 +301,7 @@ async function runSyncCycle({
       sinceSeq: plan.sinceSeq,
       rows: plan.rows,
     });
-    const put = await dav.putAtomic(`${deviceDir}/${plan.fileName}`, content);
+    const put = await uploadWithRetry(`${deviceDir}/${plan.fileName}`, content, `upload ${plan.kind}`);
     if (!put.ok) {
       throw Object.assign(new Error(`upload ${plan.kind} failed (${put.status})`), {
         code: put.status === 401 ? "WEBDAV_UNAUTHORIZED" : "WEBDAV_UPLOAD_FAILED",
@@ -220,6 +311,19 @@ async function runSyncCycle({
     }
     state.docs = state.docs || {};
     state.docs[plan.kind] = { seq: plan.seq, hash: plan.hash, at: new Date(now()).toISOString() };
+    // Only after a confirmed upload does the publish baseline advance. A
+    // failure or crash before this line leaves the baseline stale, so the
+    // next cycle re-sends the affected rows (never skips them).
+    const baseline = plan.rebase
+      ? { seq: plan.seq, hashes: Object.fromEntries(plan.rows.map((row) => [keys[plan.kind](row), rowHash(row)])) }
+      : {
+          seq: plan.seq,
+          hashes: {
+            ...(plan.baseline?.hashes || {}),
+            ...Object.fromEntries(plan.rows.map((row) => [keys[plan.kind](row), rowHash(row)])),
+          },
+        };
+    await savePublishedBaseline(trackerDir, plan.kind, baseline);
     notes.push(`exported ${plan.kind} seq ${plan.seq}${plan.rebase ? " (base)" : ""}`);
 
     // Bounded history housekeeping on our OWN files only: after publishing a
@@ -255,7 +359,15 @@ async function runSyncCycle({
   };
   const deviceHash = exporter.stableRowsHash([{...deviceDoc,updated_at:null}]);
   if (state.device_hash !== deviceHash || exportPlan.length) {
-    const devicePut = await dav.put(`${deviceDir}/device.json`, JSON.stringify(deviceDoc, null, 2) + "\n");
+    let devicePut;
+    try {
+      devicePut = await dav.put(`${deviceDir}/device.json`, JSON.stringify(deviceDoc, null, 2) + "\n");
+    } catch (error) {
+      if (!TRANSIENT_UPLOAD_CODES.has(error?.code)) throw error;
+      notes.push(`device.json hit ${error.code}; retrying once`);
+      await new Promise((resolve) => setTimeout(resolve, 2000));
+      devicePut = await dav.put(`${deviceDir}/device.json`, JSON.stringify(deviceDoc, null, 2) + "\n");
+    }
     if (!devicePut.ok) throw Object.assign(new Error(`device.json upload failed (${devicePut.status})`), {code:[401,403].includes(devicePut.status)?'WEBDAV_UNAUTHORIZED':'WEBDAV_UPLOAD_FAILED',status:devicePut.status,retryAfterMs:devicePut.retryAfterMs});
     state.device_hash = deviceHash;
   }
@@ -402,10 +514,16 @@ function createWebdavScheduler({ trackerDir, loadPassword, getConfig, machineIdP
       }
       if (!normalized.enabled && !manual) return { ok: true, skipped: "disabled" };
       const state = await readState();
-      if(!manual && (state.paused_auth || Number(state.backoff_until_ms||0)>Date.now()))return {ok:true,skipped:"backoff"};
+      // A failure schedules a retry at the backoff expiry, independent of the
+      // normal interval. Once that time arrives the cycle must run even if
+      // the regular interval has not elapsed (30-minute interval + 1-minute
+      // backoff must retry near the backoff, not at the next interval).
+      const pendingRetryMs = Number(state.next_attempt_ms || 0);
+      if (!manual && pendingRetryMs > Date.now()) return { ok: true, skipped: "backoff" };
+      if (!manual && state.paused_auth) return { ok: true, skipped: "auth-paused" };
       const lastAttemptMs = Date.parse(state.last_attempt_at || state.last_success_at || "");
       const elapsed = Date.now() - lastAttemptMs;
-      if (!manual && Number.isFinite(lastAttemptMs) && elapsed >= 0 && elapsed < intervalMs(config)) {
+      if (!manual && !pendingRetryMs && Number.isFinite(lastAttemptMs) && elapsed >= 0 && elapsed < intervalMs(config)) {
         return { ok: true, skipped: "interval" };
       }
       // Polling, file-change debounce and restarted processes share the same
@@ -424,6 +542,11 @@ function createWebdavScheduler({ trackerDir, loadPassword, getConfig, machineIdP
         fetchImpl,
       });
       if(result.ok === false) {state.last_failure={at:new Date().toISOString(),code:result.code};if(result.code === "MISSING_CREDENTIAL")state.paused_auth=true;}
+      else {
+        // Success restores the normal cadence: any pending failure retry is
+        // cleared together with the backoff.
+        delete state.next_attempt_ms;
+      }
       await persistState(result.state || state);
       return result;
     } catch (error) {
@@ -439,6 +562,7 @@ function createWebdavScheduler({ trackerDir, loadPassword, getConfig, machineIdP
       if ((error.code === "WEBDAV_UNAUTHORIZED" || [401,403].includes(error.status))) {
         // Auth failures pause automatic retries; manual sync still allowed.
         state.paused_auth = true;
+        delete state.next_attempt_ms;
       } else {
         state.paused_auth = false;
         state.backoff_step = Math.min((state.backoff_step || 0) + 1, BACKOFF_STEPS_MS.length);
@@ -446,6 +570,9 @@ function createWebdavScheduler({ trackerDir, loadPassword, getConfig, machineIdP
           ? error.retryAfterMs
           : BACKOFF_STEPS_MS[state.backoff_step - 1];
         state.backoff_until_ms = nowMs + waitMs;
+        // The retry fires near the backoff expiry, independent of the
+        // configured sync interval.
+        state.next_attempt_ms = state.backoff_until_ms;
       }
       await persistState(state);
       return { ok: false, code: error.code || "WEBDAV_ERROR", error };
@@ -469,7 +596,14 @@ function createWebdavScheduler({ trackerDir, loadPassword, getConfig, machineIdP
       const state = await readState();
       const nowMs = Date.now();
       if (state.paused_auth) return schedule(config);
-      if (Number(state.backoff_until_ms || 0) > nowMs) return schedule(config);
+      // A pending failure retry wakes the loop at the backoff expiry, not at
+      // the next full interval; otherwise keep the configured cadence.
+      const pendingRetryMs = Number(state.next_attempt_ms || 0);
+      if (pendingRetryMs > nowMs) {
+        timer = setTimeout(tick, Math.max(250, pendingRetryMs - nowMs));
+        timer.unref?.();
+        return;
+      }
       await cycle();
       schedule(config);
     };
@@ -504,7 +638,7 @@ function createWebdavScheduler({ trackerDir, loadPassword, getConfig, machineIdP
   }
 
   async function resetRetry() {
-    const state=await readState();state.paused_auth=false;state.backoff_until_ms=0;state.backoff_step=0;state.last_failure=null;await persistState(state);
+    const state=await readState();state.paused_auth=false;state.backoff_until_ms=0;state.backoff_step=0;state.last_failure=null;delete state.next_attempt_ms;await persistState(state);
     // A shorter interval must not wait for the old (possibly 24h) timer.
     if (timer) start();
   }

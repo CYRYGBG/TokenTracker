@@ -62,6 +62,17 @@ final class MenuBarAnimator {
     /// Frames still reach `onImageUpdated` for other consumers without
     /// replacing the button's current image.
     var updatesButton = true
+    /// False while no surface displays the animated frames at all (status item
+    /// hidden or text-only, Dynamic Island not showing its wing glyph). The
+    /// decorative timers stop entirely — no redraws, no frame notifications —
+    /// until a consumer reappears; `applyCurrentState` then restores the
+    /// animation for the current state and style.
+    var hasFrameConsumer = true {
+        didSet {
+            guard hasFrameConsumer != oldValue else { return }
+            applyCurrentState()
+        }
+    }
 
     private lazy var idleFrame = buildFrame(eyesClosed: false, yShift: 0)
     private lazy var blinkFrame = buildFrame(eyesClosed: true, yShift: 0)
@@ -106,6 +117,9 @@ final class MenuBarAnimator {
     func noteActivity() {
         let wasSprinting = isSprinting
         sprintUntil = Date().addingTimeInterval(MenuBarRunnerPace.sprintWindow)
+        // With no consumer the sprint expiry has nothing to re-apply; the next
+        // consumer transition re-applies the current state and pace.
+        guard hasFrameConsumer else { return }
         sprintTimer?.invalidate()
         sprintTimer = Timer.scheduledTimer(
             withTimeInterval: MenuBarRunnerPace.sprintWindow + 0.1,
@@ -121,6 +135,16 @@ final class MenuBarAnimator {
         stopAnimation()
         cancelBlink()
 
+        // No surface displays the frames: park one static image (so a later
+        // consumer never shows a stale style or mid-animation pose) and keep
+        // every decorative timer off, including the sprint re-apply.
+        guard hasFrameConsumer else {
+            sprintTimer?.invalidate()
+            sprintTimer = nil
+            setButtonImage(parkedImage)
+            return
+        }
+
         switch iconStyle {
         case .static:
             setButtonImage(fallbackIcon)
@@ -132,6 +156,27 @@ final class MenuBarAnimator {
             applyBot()
         case .pet:
             applyPet()
+        }
+    }
+
+    /// One still frame for the current style, used while suppressed so
+    /// `currentImage` matches the style a consumer would resume into.
+    private var parkedImage: NSImage {
+        switch iconStyle {
+        case .static:
+            return fallbackIcon
+        case .clawd:
+            return idleFrame
+        case .cat:
+            return catFrames.first ?? idleFrame
+        case .bot:
+            return botFrameProvider.frames()?.idle.first ?? idleFrame
+        case .pet:
+            // Same routing as `applyPet`: a vector character renders bot clips.
+            if PetCharacterStore.shared.character.renderer == .vector {
+                return botFrameProvider.frames()?.idle.first ?? idleFrame
+            }
+            return petFrameProvider.frames(for: PetCharacterStore.shared.character)?.idle.first ?? idleFrame
         }
     }
 
@@ -311,7 +356,10 @@ final class MenuBarAnimator {
               !reduceMotion, iconStyle == .clawd else { return }
         setButtonImage(blinkFrame)
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) { [weak self] in
-            guard let self, self.currentState == .idle || self.currentState == .sleeping,
+            // `hasFrameConsumer` also covers suppression landing mid-blink:
+            // `cancelBlink` cannot reach this asyncAfter continuation.
+            guard let self, self.hasFrameConsumer,
+                  self.currentState == .idle || self.currentState == .sleeping,
                   self.iconStyle == .clawd else { return }
             self.setButtonImage(self.idleFrame)
             self.scheduleNextBlink()

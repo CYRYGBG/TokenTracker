@@ -113,25 +113,44 @@ async function scope(trackerDir, url) {
   }
   return saved.device || "all";
 }
-async function buckets(trackerDir, url) {
-  const device = await scope(trackerDir, url);
-  const machineId = getOrCreateMachineId(path.join(trackerDir, "queue.jsonl"));
-  const rawRows = await require("./fork-costs").capture(
-    trackerDir,
-    exporter.buildBucketsRows({
-      queuePath: path.join(trackerDir, "queue.jsonl"),
-      machineId,
-    }),
-  );
-  const localRows = await ownSnapshot(
-    trackerDir,
-    "buckets",
-    rawRows,
-    exporter.bucketRowKey,
-  );
+// One read+merge pass over the local bucket data and every remote import.
+// Report rendering, device usage and scoped queue reads all need the same
+// rows, so the snapshot can be computed once and shared; concurrent callers
+// of separate requests coalesce onto a single in-flight pass.
+const bucketSnapshots = new Map();
+async function bucketSnapshot(trackerDir, url) {
+  const pending = bucketSnapshots.get(trackerDir);
+  if (pending) return pending;
+  const task = (async () => {
+    const device = await scope(trackerDir, url);
+    const machineId = getOrCreateMachineId(path.join(trackerDir, "queue.jsonl"));
+    const rawRows = await require("./fork-costs").capture(
+      trackerDir,
+      await exporter.buildBucketsRows({
+        queuePath: path.join(trackerDir, "queue.jsonl"),
+        machineId,
+      }),
+    );
+    const localRows = await ownSnapshot(
+      trackerDir,
+      "buckets",
+      rawRows,
+      exporter.bucketRowKey,
+    );
+    const devices = await remote(trackerDir);
+    return { device, machineId, localRows, devices };
+  })();
+  bucketSnapshots.set(trackerDir, task);
+  try {
+    return await task;
+  } finally {
+    if (bucketSnapshots.get(trackerDir) === task) bucketSnapshots.delete(trackerDir);
+  }
+}
+async function mergedBucketsFor(snapshot, device) {
+  const { machineId, localRows, devices } = snapshot;
   if (device === "local" || device === machineId)
     return mergeBucketsAcrossDevices({ localRows, remoteDevices: [] });
-  const devices = await remote(trackerDir);
   if (device !== "all" && !devices.some((d) => d.machineId === device))
     throw new Error("selected device unavailable");
   const selected = devices.filter(
@@ -146,6 +165,10 @@ async function buckets(trackerDir, url) {
       })),
     ),
   });
+}
+async function buckets(trackerDir, url, { snapshot } = {}) {
+  const snap = snapshot || (await bucketSnapshot(trackerDir, url));
+  return mergedBucketsFor(snap, snap.device);
 }
 async function projects(trackerDir, url) {
   const device = await scope(trackerDir, url);
@@ -224,56 +247,61 @@ async function collectSessions(
     groups.set(row.session_hash, list);
   }
   const file = path.join(trackerDir, "fork-history", "session-groups.json");
-  const retained = await durable.serial(file, async () => {
-    const prior = await durable.read(file, {});
-    const before = JSON.stringify(prior);
-    for (const [key, rows] of groups) {
-      // Incomplete reads cannot revise a durable record downward.
-      if (
-        (observed.skippedFiles || observed.incompleteDirs?.length) &&
-        prior[key]
-      )
-        continue;
-      const row = rows[0];
-      // Ignore pricing-only changes when deciding whether usage was revised.
-      const signature = JSON.stringify({
-        tokens: row.tokens,
-        total: row.total_tokens,
-        model: row.model,
-        start: row.started_at,
-        end: row.ended_at,
-        models: row.model_usage?.map((m) =>
-          Object.fromEntries(
-            Object.entries(m).filter(
-              ([k]) => k === "model" || k.endsWith("_tokens"),
+  const snapshot = path.join(trackerDir, "fork-history", "sessions.json");
+  const retained = await durable.serial(file, () =>
+    // One cross-process transaction covers both derived files; committing
+    // them through separate write() calls could interleave with another
+    // process's own read-modify-commit between the two.
+    durable.withTransaction([file, snapshot], async () => {
+      const prior = await durable.read(file, {});
+      const before = JSON.stringify(prior);
+      for (const [key, rows] of groups) {
+        // Incomplete reads cannot revise a durable record downward.
+        if (
+          (observed.skippedFiles || observed.incompleteDirs?.length) &&
+          prior[key]
+        )
+          continue;
+        const row = rows[0];
+        // Ignore pricing-only changes when deciding whether usage was revised.
+        const signature = JSON.stringify({
+          tokens: row.tokens,
+          total: row.total_tokens,
+          model: row.model,
+          start: row.started_at,
+          end: row.ended_at,
+          models: row.model_usage?.map((m) =>
+            Object.fromEntries(
+              Object.entries(m).filter(
+                ([k]) => k === "model" || k.endsWith("_tokens"),
+              ),
             ),
           ),
-        ),
-      });
-      const old = prior[key]?.[0];
-      row.fork_usage_revision = signature;
-      row.fork_frozen_cost_usd =
-        old?.fork_usage_revision === signature
-          ? (old.fork_frozen_cost_usd ?? old.cost_usd)
-          : row.cost_usd;
-      row.cost_usd = row.fork_frozen_cost_usd;
-      prior[key] = [row];
-    }
-    const retained = Object.values(prior).flat();
-    const snapshot = path.join(trackerDir, "fork-history", "sessions.json");
-    let missing = false;
-    try {
-      await fs.access(snapshot);
-    } catch (e) {
-      if (e.code === "ENOENT") missing = true;
-      else throw e;
-    }
-    if (before !== JSON.stringify(prior) || missing) {
-      await durable.write(file, prior);
-      await durable.write(snapshot, retained);
-    }
-    return retained;
-  });
+        });
+        const old = prior[key]?.[0];
+        row.fork_usage_revision = signature;
+        row.fork_frozen_cost_usd =
+          old?.fork_usage_revision === signature
+            ? (old.fork_frozen_cost_usd ?? old.cost_usd)
+            : row.cost_usd;
+        row.cost_usd = row.fork_frozen_cost_usd;
+        prior[key] = [row];
+      }
+      const retained = Object.values(prior).flat();
+      let missing = false;
+      try {
+        await fs.access(snapshot);
+      } catch (e) {
+        if (e.code === "ENOENT") missing = true;
+        else throw e;
+      }
+      if (before !== JSON.stringify(prior) || missing) {
+        await durable.writeUnlocked(file, prior);
+        await durable.writeUnlocked(snapshot, retained);
+      }
+      return retained;
+    }),
+  );
   return retained;
 }
 async function sessions(trackerDir, url, { home, scan = true } = {}) {
@@ -348,8 +376,10 @@ async function devices(trackerDir) {
 }
 
 // Match the official card's device/account split, using the same merged rows
-// and account-level deduplication as the dashboard itself.
-async function deviceUsage(trackerDir, inRange) {
+// and account-level deduplication as the dashboard itself. One bucket
+// snapshot feeds every per-device total and the account sources instead of a
+// fresh full load per device.
+async function deviceUsage(trackerDir, inRange, { snapshot } = {}) {
   const { isAccountLevelSource } = require("./source-metadata");
   const known = await devices(trackerDir);
   const state = await durable.read(path.join(trackerDir, "webdav", "state.json"), {});
@@ -358,15 +388,21 @@ async function deviceUsage(trackerDir, inRange) {
     total_tokens: sum.total_tokens + (Number(row.total_tokens) || 0),
     billable_total_tokens: sum.billable_total_tokens + (Number(row.billable_total_tokens ?? row.total_tokens) || 0),
   }), { total_tokens: 0, billable_total_tokens: 0 });
-  const forDevice = (id) => ({ searchParams: new URLSearchParams({ device: id }) });
+  const snap = snapshot || (await bucketSnapshot(trackerDir));
   const rows = await Promise.all(known.map(async (device) => ({
     id: device.id, machine_id: device.id, device_name: device.name || device.id,
     platform: device.platform, isCurrent: device.local,
     last_synced_at: device.local ? state.last_success_at || null : device.updated_at || null,
-    ...totals((await buckets(trackerDir, forDevice(device.id))).filter((row) => !isAccountLevelSource(row.source))),
+    ...totals(
+      (device.local
+        ? await mergedBucketsFor(snap, "local")
+        : (await mergedBucketsFor(snap, device.id)) || []).filter(
+        (row) => !isAccountLevelSource(row.source),
+      ),
+    ),
   })));
   const accounts = new Map();
-  for (const row of await buckets(trackerDir, forDevice("all"))) {
+  for (const row of await mergedBucketsFor(snap, "all")) {
     if (!isAccountLevelSource(row.source) || !inRange(row)) continue;
     const previous = accounts.get(row.source) || [];
     previous.push(row); accounts.set(row.source, previous);
@@ -380,6 +416,7 @@ module.exports = {
   remote,
   preferences,
   scope,
+  bucketSnapshot,
   buckets,
   projects,
   collectSessions,

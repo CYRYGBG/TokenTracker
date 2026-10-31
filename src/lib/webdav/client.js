@@ -163,8 +163,12 @@ class WebDavClient {
       headers: { Depth: "1", "Content-Type": "application/xml" },
       body,
     });
-    if (out.status === 404) return { ok: true, notFound: true, entries: [] };
+    if (out.status === 404) {
+      await out.res.body?.cancel?.().catch(() => {});
+      return { ok: true, notFound: true, entries: [] };
+    }
     if (out.status !== 207) {
+      await out.res.body?.cancel?.().catch(() => {});
       return { ok: false, status: out.status, retryAfterMs: out.retryAfterMs, entries: [] };
     }
     const xml = await this.readResponseText(out, path, "PROPFIND");
@@ -173,8 +177,12 @@ class WebDavClient {
 
   async get(path) {
     const out = await this.request(path, { method: "GET" });
-    if (out.status === 404) return { ok: true, notFound: true, body: null };
+    if (out.status === 404) {
+      await out.res.body?.cancel?.().catch(() => {});
+      return { ok: true, notFound: true, body: null };
+    }
     if (out.status !== 200) {
+      await out.res.body?.cancel?.().catch(() => {});
       return { ok: false, status: out.status, retryAfterMs: out.retryAfterMs, body: null };
     }
     return { ok: true, notFound: false, body: await this.readResponseText(out, path, "GET") };

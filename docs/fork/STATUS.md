@@ -1,5 +1,52 @@
 # STATUS — 个人同步版事实状态
 
+## 2026-10-31 personal-v1.5.0 六项改进实现完成(实现与验证事实;构建/发布状态见下文后续条目)
+
+本节记录接续实现对话完成的六项改进与同步失败修复。上游核对:经代理 fetch,upstream/main 仍为 `a9ef316fbe58cf594dbefa7cdbfd5f71cfa212f1`;origin 同名分支无新增;origin/main 的 5 个 CI 探测提交不纳入。版本已三处受管同步为 1.5.0(sync-versions/validate 过)。
+
+**1. Codex 会话与首页账本一致性**:按文件摘取 upstream `0258ac0b`(codex-rollout-parser/codex-usage-record/rollout/session-analytics,session-analytics 手工适配保留 fork DSH 路径);reset sentinel 谓词移入 codex-usage-record.js 单份共享;session ledger 模式(ledgerUsage)处理 fork 继承前缀、total-only 旧事件、时间戳去重、observed 模型归属(hourly cursor modelAttributionPolicy,含对齐行的零行收回);Codex 摘要缓存经 `codex_usage_version` 单独失效,其他 provider 缓存不动。验收:`codex-session-ledger-parity`(同日/跨日 fork、重复副本、total-only、缓存升级/重启)与 `codex-observed-model-attribution`(跨模型切换/重启/inode 重扫/默认策略不变/对齐收回)全绿;集成验证 `codex-session-revision.test.js` 证明修订写回 fork 长期历史、随 seg 整行向下修订、费用仅因用量修订重冻结、源删保史、无变化周期零重发。
+
+**2. 本地增量存储(fork-journal.js 定稿)**:≥256 KiB 的 fork-cost-basis/session-groups/sessions/wire-*/imports-recovery envelope 走"旧 JSON 基线 + `.journal` SHA-256 校验追加事务(仅变化行)";无变化不落盘(此前旧版无变化也整写 10.15 MB/次);单事务达 max(1 MiB, base/2) 预算直接重写基线,避免"先追加再压实"双写;压实先原子提交新基线再清日志,中断可幂等重放;断尾追加不算提交、下次写入在锁内截断;完整记录损坏读取显式报错(FORK_JOURNAL_CORRUPT)、下次写入隔离 `.journal.corrupt-*` 并从基线自愈;读-改-提交统一进单一跨进程锁(fork-store update/withTransaction,多文件按全局排序加锁),fork-costs/fork-view collectSessions/backup restore/importer/fork-prefs 全部事务化,消除两进程旧快照互相覆盖。缓存按 dev/ino/size/mtimeNs/ctimeNs+journal 尾部识别,内存上限 32 MiB LRU,读端返回独立克隆。验收:`fork-journal-store.test.js` 16 项(≥10 MiB 夹具单行修订/相同输入零写入/重复小变更增长与默认阈值压实摊销/直接重写/断尾/损坏隔离/不支持版本/旧 JSON 升级/原子替换/克隆/第二进程/双写并发/读写竞争/imports 向下修订/生产阈值钉死/备份往返)。
+
+**3. WebDAV seg 真实增量**:seg 仅携带相对"上次成功发布内容"(`webdav/published/<kind>.json` 键序无关逐行哈希表)的整行 upsert(新增/修订/向下修订;缺失键不删除),base 仍全量;登记表仅在上传确认成功后推进——失败重试重发、上传成功本地提交中断自动对齐不重传、登记表缺失/落后强制一次全量 base(升级首变/重装恢复);recovery/rebase 语义保留。`fork_sync:1`/文件名/hash/自校验/since_seq 链不变,1.4.20 读端兼容用 `git archive personal-v1.4.20` 提取的旧 importer 实测。验收:`webdav-delta-seg.test.js` 5 项(仅变化行/零变化零上传/失败重试重发+基线不提前/提交中断对齐/服务器一致跳过恢复/旧服务器状态重基地/1.4.20 读端/自校验契约)。
+
+**4. 共享读取与报表计算**:scopedQueueRows 先决策读路径再触盘,消除个人版"async 读一次+fork-view 同步全读一次"的重复;fork-view 新增 bucketSnapshot(单次读+合并,在途请求合并),buckets/deviceUsage 接受共享快照,deviceUsage 由逐设备 N+1 次全量改单快照分组;新增 `/api/fork/report` 聚合端点,从一次加载产出与六个端点逐字段一致的负载(summary/previous/daily/breakdown/projects/devices,forkMeta 装饰对齐);dashboard `use-fork-report` 改为单请求,不改 UI 文案/布局/颜色。验收:`fork-report-aggregate.test.js` 4 项(六端点逐字段一致/顺序六请求 ≥5 次解析链 vs 聚合 1 次/并发合并单次且不返回陈旧/同大小改写、设备新增、 breakdown 一致性即时可见)。
+
+**5. 动画与凭证查询**:MenuBarAnimator 新增 `hasFrameConsumer` 门控——文字额度且无图标消费者(按钮图更新关闭且灵动岛不在消费帧)时停掉动画/眨眼/冲刺 timer 并驻停单帧,`noteActivity` 无副作用,眨眼续延补守卫防泄漏;岛启用且面板可见且左翼为 todayTokens 时仍正常消费帧;StatusBarController 在全部三处 updatesButton 写入点刷新门控并监听岛面板显隐;额度刷新/队列采集/点击面板/reduce-motion 分支不动。`/api/webdav/status` 改用 `webdavCredentialExists`:macOS keychain 只列属性不读密码(无 `-w`)、Windows DPAPI/file 纯 fs stat 不启动 PowerShell,30 秒有界缓存,保存/清除即失效、URL/用户名变化自然换键、未知错误不缓存可重试;真实同步仍走完整凭证读取。验证:动画 harness `dist/reviewed-1.5.0.noindex/menu-bar-animation-harness/run.sh` 12/12(抑制零帧零唤醒跨 31 秒泵、快速开关无双份 timer、驻停单帧、眨眼节奏恢复);凭证测试并入 `webdav-credential-store.test.js`(存在性不解密/TTL 缓存/失效/keychain 属性探测无 `-w`/锁定错误不缓存可重试/DPAPI 纯文件判定)。
+
+**6. 恢复与更新可靠性**:失败退避与正常间隔分离——退避到期时刻持久化 `next_attempt_ms`,调度器在该时刻附近唤醒重试(30 分钟间隔+1 分钟退避→约 1 分钟重试,24 小时同理),阶梯 1/5/15/60 分钟与 Retry-After(秒/HTTP-date)/reset 照旧,401/403 暂停自动但手动可用,成功清除待重试,重启从持久化恢复,全部触发源仍单轮互斥;PUT/MOVE 瞬时 WEBDAV_NETWORK/WEBDAV_TIMEOUT 在周期内幂等重试一次(真实故障:1.4.20 大文件上传被网盘重置导致 WEBDAV_NETWORK,见本机 state.json);GET/PROPFIND 404/错误响应正文显式释放。macOS 更新复用上游 `7e65d770` 限流识别/冷却/网页回退思想(详见下方 6b 条目):仅认 CYRYGBG/TokenTracker personal-vX.Y.Z 稳定 tag 与本平台资产,API 与回退同校验 SHA256SUMS,严格拒绝上游仓库/其他 host/凭证 URL/预发布/错误资产/checksum。验收:`webdav-retry-schedule.test.js` 8 项(30 分钟/24 小时退避实际触发、阶梯、Retry-After、401 暂停手动可用、重启恢复、timer 唤醒、瞬时重试发布成功)+更新 harness 96 项(见下)。
+
+**7. 全量自验**:Node 全量 `node --test --test-concurrency=2 test/*.test.js` = 3781 项,3764 通过/17 跳过(既有平台/语料类跳过)/0 失败(日志 /tmp/tt-150-full-node-final.log);dashboard Vitest 150 文件/1290 项通过,typecheck 干净,生产构建通过;copy/locale/ui-hardcode/guardrails/versions/bot-frames/架构校验通过;全仓 Swift typecheck 0 错误(30 个既有警告);更新回退 harness 96 项与动画 harness 12 项均从 `dist/reviewed-1.5.0.noindex/` run.sh 可重跑实测通过。性能五场景(`scripts/measure-perf-1.5.0.js`,口径=进程内 fs 写入调用字节/解析链次数/墙钟,非 SSD 磨损非电池):≥10 MiB 历史单条修订写入 10,154,135→2,480 字节;30 次连续小变更 304,624,050→74,400 字节(压实 0 次,journal 68 KB<1 MiB 预算);无变化周期旧版整写 10,154,135 字节→新版仅 274 字节锁簿记;报表刷新 6 请求 5 次解析链 133ms→1 请求 1 次 32ms;两设备单行变更 seg 载荷 1,603,519→508 字节(0.032%)。measurement JSON:dist/perf-1.5.0.noindex/performance-1.5.0-measured.json。旧版每写耗时更低(30 次 593ms vs 1219ms)如实记录:新路径以每次约 20ms 的差分/克隆开销换 ~4000× 写入减少,不宣称电池收益。
+
+**同步失败排查(用户报告"经常同步失败")**:本机 state.json 显示 last_failure=WEBDAV_NETWORK/PUT、退避顶格 60 分钟;系统代理全关、应用未配代理,为直连上传大文件被重置。本轮三项缓解:差异 seg 使上传载荷从 MB 级降至 KB 级、失败退避到期即重试(不再等满正常间隔)、上传瞬时错误周期内幂等重试一次。未宣称网速/耗电改善,等待用户实际观察。
+
+未验证/边界:Windows 实机安装/GUI/常驻未验收(无实机);长期 72h 观察未做;合并/发布流程见后续条目;本节提交后 dist 中旧 1.4.20 安装包不得冒充 1.5.0。
+
+## 2026-10-31 macOS 个人版更新检查限流冷却与网页回退（HANDOFF-1.5.0 项6b，已实现未提交）
+
+- 适配 upstream `7e65d770`（官方版限流识别/冷却/网页回退）到个人版更新通道，不复制官方仓库 URL、官方资产名或官方文案；未动 Windows 代码，仅只读对比 `TokenTrackerWin/UpdateReleaseClient.cs` 确认限流判定与冷却语义一致（429 即限流；403 需 x-ratelimit-remaining:0 / Retry-After / "rate limit" body 之一为证据；冷却取 Retry-After（秒或 HTTP-date）与（配额耗尽时）x-ratelimit-reset 的较大者，无时间则固定 60 秒）。
+- 改动文件：新增 `TokenTrackerBar/TokenTrackerBar/Services/PersonalUpdateReleaseClient.swift`（UI-free：`GitHubRelease` 移入此文件；`PersonalUpdateRateLimit`、`PersonalReleasePageParser` 纯逻辑类型；客户端持有 API 冷却状态并实现回退）；修改 `UpdateChecker.swift`（API 抓取替换为客户端调用；handleResult 在冷却时显示限流状态、失败弹窗附可重试时间、fallback 成功后保留冷却指示）；`PersonalUpdateChannel.swift` 新增 `assetURLString(tag:name:)` 规范 URL 构造器（API 与回退路径都要求绝对等于规范 URL）；`Strings.swift` 新增 `updateRateLimitedStatus`、`updateRateLimitedRetryAt` 两键五语言。默认不自动更新语义、静默检查开关、bundle ID/版本/codesign 校验、SHA-256 校验失败即失败、完整复制替换流程全部未动。
+- 个人版回退规则：只允许解析 `https://github.com/CYRYGBG/TokenTracker/releases` 列表页（无 personal 标签时再试其 `.atom`）；tag 严格匹配 `personal-vX.Y.Z` 稳定三段（预发布/四段/上游仓库 tag 一律不匹配）；资产从该 tag 的 `expanded_assets` 片段解析，下载 URL 必须经 `PersonalUpdateChannel.assetURL` 验证（精确 `/releases/download/<tag>/<资产名>` 路径、https github.com、无端口/凭证/query/fragment、精确 `TokenTrackerPersonal-macOS-arm64.dmg`）；`SHA256SUMS.txt` 必须来自同一 tag，缺失/格式错即更新失败，绝不放宽。
+- 验证（CLT，真实执行）：`swiftc -typecheck` 两个 UI-free 文件独立通过；/tmp swift harness（URLProtocol stub + 注入时钟）编译运行 96 项断言全部通过，覆盖：正常 API（无回退）、403 带证据回退并钉住 tag/资产/size/digest、429+Retry-After 秒、403+Retry-After HTTP-date、普通 403 不进冷却不回退、冷却期内跳过 API 到 reset 后回 API、fallback 失败保留冷却、Retry-After/reset 取较长者、无时间固定 60s 不虚构重试时刻、列表页/atom 解析取最高稳定 tag（拒绝上游仓库 tag/预发布/四段）、重定向落到非官方路径被拒（invalidReleasePage）、expanded_assets 错误资产名/query 凭证/外 host/http/凭证 URL 拒绝、SHA256SUMS 缺条目/短 hex/错文件/空拒绝、assetURL 14 例与限流纯逻辑矩阵；harness 已持久化到 gitignored `dist/reviewed-1.5.0.noindex/update-fallback-harness/`(run.sh 可一键重跑 96 项,已实测)。整仓 Swift 编译证明：复用构建脚本相同 swiftc 调用（`-whole-module-optimization -swift-version 5 -target arm64-apple-macosx12.0`，-I 复用 dist/personal-build.noindex 内已有 Vortex 模块，只读）对 app 全部源码 `-typecheck` 返回 0，无新告警；`xcodegen generate` + patch-pbxproj-icon 已重跑（xcodeproj 为 gitignored 生成物），新文件已进 app/QA target。未构建 DMG、未动 dist 产物、未提交/推送。
+- 发现未处理：listing/atom/expanded_assets 是 GitHub 服务端渲染页面，若 GitHub 改版可能失效（fail-closed，表现为更新检查失败而非降级）；冷却状态仅内存（重启丢失，与上游/Windows 一致）；body 含 "rate limit" 的 403 按上游语义视为证据（极端情况下可能把含该字样的普通 403 误判为限流，冷却有界且可恢复）；静默自动更新经回退成功下载时不显示限流状态（进度通道优先，与上游一致）；对 HEAD size 与 SHA256SUMS 下载不做限流判定（github.com 下载域不在 REST API 配额内，同上游/Windows）。
+
+## 2026-10-31 personal-v1.5.0 已启动，按用户要求交接实现
+
+- 用户明确授权把只读调查表格六项全部实施并发布更高版本；本轮选定 personal-v1.5.0。随后用户改为要求编写可交给另一个对话自行实现/验收的明确提示词，原对话最后复核。因此本对话已停止继续实现，未构建或发布 1.5.0，未启动另一对话或后台任务。
+- 接续提示词：`HANDOFF-1.5.0.md`，完整列出六项改动、现场、测试/故障注入/性能与兼容验收、双平台构建/发布和返回复核证据；分阶段计划 `PLAN-1.5.0.md`。当前 HEAD 仍为 `4cffe4ac69f0913079302080ad124187ad1d9022`，分支 codex/personal-release-20261027，以下改动均未提交/推送，需在本工作区接续。
+- 已按文件摘取 upstream `0258ac0b` 的 Codex ledger/session 修复，手工适配 session-analytics 的 fork 差异；新增两个上游测试文件。Codex parity/observed attribution + fork-session-worker 共 11 项通过。未完成完整升级、跨设备修订验收，不能标记全项完成。
+- `fork-journal.js` 和 `fork-store.js` 仅为大历史增量存储原型；尚缺专门覆盖大于 256 KiB、压实/断尾/校验损坏/跨进程事务/备份回退的测试与评审。初步定向 fork prefs/worker/end-to-end + WebDAV store/two-device 共 31 项通过（`/tmp/tt-150-store-initial.log`），不能据此认定日志分支可发布。其他六项中的大量实现仍未开展，应用版本仍为 1.4.20，现有 dist 包不可作为新版上传。
+- 工作区原样保留代码/新模块/测试及文档供接续；不改用户源数据/配置/凭证、不覆盖本机安装、不操作 Actions。下一步由接手对话按提示词实现、验证并双平台发布，再返回本对话复核。
+
+## 2026-10-31 后续优化只读调查（未实施）
+
+- 用户本轮仅要求调查与汇报，不开发、不发布。经代理 fetch upstream/origin；upstream 从 `e28c90dd` 更新至 `a9ef316fbe58cf594dbefa7cdbfd5f71cfa212f1`（8 个提交），origin 发布分支无新增。本机安装版本已为 1.4.20；本轮未安装、未改代码/配置/统计/凭证、未触发手动采集或真实网盘测试，仅补本节事实记录。
+- 未主动操作应用的 121.2 秒观察窗口捕获后台 Node 的周期负载：5 秒间隔 ps 样本最高 CPU 43.8%，进程实际磁盘读取增量 379,813,888 字节、写入增量 42,565,632 字节，采样物理占用峰值 316.5 MiB、末值 126.1 MiB。原生 app 写入增量为 0。口径为各 PID 的 proc_pid_rusage v2；不含独立采集子进程的 I/O，不是 dirty-memory 指标，也不是整机能耗。观察期间源工具仍在使用、自动采集/同步发生，不将该窗口外推为固定每两分钟写入或每日耗电；未完成无源变化/休眠/Windows 对照。
+- 已确认剩余放大路径：会话/分组/导出历史等使用整份 JSON 比较与原子重写；本机 sessions 约 8.7 MB、wire-sessions 约 6.4 MB。同步调度器直接将 retain 后完整 rows 放进 seg 文档，已有 `diffRowsByKey` 仅用于测试、尚未接入调度器；单类数据变更仍传完整历史。周/月报 6 个并行请求及 deviceUsage 的逐设备查询重复读取/解析本地与导入快照，个人版 scopedQueueRows 绕过现有异步 queue reader 的缓存结果，再调用同步全量 reader。后续应优先评估真实行增量、共享快照/请求合并、减少整文件重写；不改变历史保留、修订及幂等语义。
+- 次要问题：文字菜单栏仅禁用按钮图片写入，动画/眨眼 Timer 仍工作；同步设置页可见时每 15 秒读取状态，每次都会调用系统凭证读取（macOS security / Windows PowerShell DPAPI），不是首页 ForkScope 轮询也读取凭证。自动同步退避与正常间隔共同生效，短退避结束不意味着立即重试，长间隔配置可使恢复延后；macOS 个人版更新仍仅走 GitHub latest API，没有新版上游的限流网页回退。上述静态结论尚未逐项量化功耗或复现真实服务限流。
+- 用已安装 Node 22，将 upstream 新增 `codex-session-ledger-parity.test.js` 的前三个合成夹具直接运行在当前源码：同日分叉、跨日分叉、仅 total 的旧 usage 三例均复现不一致；例如同日夹具会话模型合计 150、小时账本合计 100，另一例得到 60 而期望 42。仅使用临时合成日志，已自动清理；缓存迁移第四例跳过。不是用户真实历史对账，也未导入上游修复。建议将 `0258ac0b` 的 Codex 一致性修复列为高优先级评估；其缓存失效与 fork 持久历史/远端快照修订仍需单独回归。
+- 上游 `45f82619` 为 ZCode 分区最后成功缓存、`ad1107c4`/`125f1c1e` 为登录归属/跨区域额度、`7e65d770` 为 macOS 更新限流回退、`03bfd5b2` 为部分模型静态价格覆盖，均未采纳。个人版已有 usage-limits 外层 ZCode 缓存与账号隔离，不将上游新增缓存误报为当前完全没有缓存；后续需比对分区/过期/认证错误语义及重复存储风险。无全量回归或构建，因为本轮未实施变更；等待用户决定范围。
+
 ## 2026-10-31 personal-v1.4.20 双平台应用内更新交付完成
 
 - 已于 2026-10-31 10:17:41（Asia/Shanghai）公开发布 [personal-v1.4.20](https://github.com/CYRYGBG/TokenTracker/releases/tag/personal-v1.4.20)，release ID `429662838`，设为 latest。构建/标签源码固定 `267f731e3544c0ff49e34338829cd83fe8fc69b1`；两平台在 Mac 本地构建，未运行 Actions、未发布 npm、未写上游/main。分支已推送；发布后仅补文档和证据，不移动标签。

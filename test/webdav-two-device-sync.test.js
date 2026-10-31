@@ -205,19 +205,36 @@ test("device restore with stale local state re-bases instead of regressing", asy
     let stateA = { version: 1, docs: {}, imported: {} };
     let resultA = await cycle(deviceA, stateA); stateA = resultA.state;
 
-    // Device restore: local sync state lost. The next export must not reuse
-    // sequence 1 (it takes server max + 1) and must not corrupt imports.
+    // Device restore: local sync state lost. The server still holds exactly
+    // the last published content, so the restored state catches up to the
+    // server sequence without re-uploading sequence 1.
     const stateRestored = { version: 1, docs: {}, imported: {} };
     resultA = await cycle(deviceA, stateRestored);
     stateA = resultA.state;
-    assert.ok(stateA.docs.buckets.seq >= 2, `expected seq >= 2 after restore, got ${stateA.docs.buckets.seq}`);
+    assert.equal(stateA.docs.buckets.seq, 1, "catches up to the server sequence");
+    const namesAfterRestore = [...harness.state.files.keys()]
+      .map((p) => path.basename(p))
+      .filter((n) => n.startsWith("buckets-")).sort();
+    assert.deepEqual(namesAfterRestore, ["buckets-base-0000000001.jsonl"], "no duplicate publish for unchanged content");
+
+    // The next real change takes server max + 1 — sequence 1 is never reused
+    // with different content.
+    await appendQueue(deviceA.trackerDir, [
+      bucket("codex", "gpt-5.4", "2026-10-25T15:00:00.000Z", 200),
+    ]);
+    resultA = await cycle(deviceA, stateA); stateA = resultA.state;
+    assert.ok(stateA.docs.buckets.seq >= 2, `expected seq >= 2 after the next change, got ${stateA.docs.buckets.seq}`);
+    assert.ok(
+      [...harness.state.files.keys()].some((p) => p.endsWith("buckets-seg-0000000002.jsonl")),
+      "the new rows go out as segment 2 with since_seq 1",
+    );
 
     let stateB = { version: 1, docs: {}, imported: {} };
     let resultB = await cycle(deviceB, stateB); stateB = resultB.state;
     resultB = await cycle(deviceB, stateB); stateB = resultB.state;
     const viewB = await mergedViewFor(deviceB);
-    const row = viewB.find((r) => r.source === "codex");
-    assert.equal(row.total_tokens, 1000);
+    const codexTotal = viewB.filter((r) => r.source === "codex").reduce((acc, row) => acc + row.total_tokens, 0);
+    assert.equal(codexTotal, 1200);
   });
 });
 

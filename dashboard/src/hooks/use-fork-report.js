@@ -16,36 +16,22 @@ export function useForkReport(period, timeZone, refreshKey) {
     const refresh = async () => {
       const id = ++request;
       setState({ data: null, error: null, loading: true, identity });
-      const query = (from, to) =>
-        new URLSearchParams({
-          from,
-          to,
-          device_id: "all",
-          tz: timeZone || "",
-          tz_offset_minutes: String(-new Date().getTimezoneOffset()),
-        });
-      const current = query(period.from, period.to),
-        previous = query(period.previousFrom, period.previousTo);
+      // One aggregate request: the backend computes every payload from a
+      // single shared history load instead of six parallel full reads.
+      const query = new URLSearchParams({
+        from: period.from,
+        to: period.to,
+        previous_from: period.previousFrom,
+        previous_to: period.previousTo,
+        device_id: "all",
+        tz: timeZone || "",
+        tz_offset_minutes: String(-new Date().getTimezoneOffset()),
+      });
       try {
-        const [summary, prior, daily, breakdown, projects, devices] =
-          await Promise.all([
-            forkApi(`/functions/tokentracker-usage-summary?${current}`),
-            forkApi(`/functions/tokentracker-usage-summary?${previous}`),
-            forkApi(`/functions/tokentracker-usage-daily?${current}`),
-            forkApi(`/functions/tokentracker-usage-model-breakdown?${current}`),
-            forkApi(`/functions/tokentracker-project-usage-summary?${current}`),
-            forkApi(`/api/fork/device-usage?${current}`),
-          ]);
+        const report = await forkApi(`/api/fork/report?${query}`);
         if (active && request === id)
           setState({
-            data: buildReport(period, {
-              summary,
-              previous: prior,
-              daily,
-              breakdown,
-              projects,
-              devices,
-            }),
+            data: buildReport(period, report),
             error: null,
             loading: false,
             identity,

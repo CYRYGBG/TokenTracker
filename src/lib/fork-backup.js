@@ -163,27 +163,32 @@ async function restoreBackup(trackerDir, backup) {
         added += missing.length;
       }
     } else if (kind === "sessions") {
-      const file = path.join(trackerDir, "fork-history", "session-groups.json");
-      await durable.serial(file, async () => {
-        const current = await durable.read(file, {});
+      const groupsFile = path.join(trackerDir, "fork-history", "session-groups.json");
+      const sessionsFile = path.join(trackerDir, "fork-history", "sessions.json");
+      await durable.withTransaction([groupsFile, sessionsFile], async () => {
+        const current = await durable.read(groupsFile, {});
+        let changed = false;
         for (const row of doc.rows)
           if (!current[row.session_hash]) {
             current[row.session_hash] = [{ ...row, restored: true }];
             added++;
+            changed = true;
           }
-        await durable.write(file, current);
-        await durable.write(
-          path.join(trackerDir, "fork-history", "sessions.json"),
-          Object.values(current).flat(),
-        );
+        if (changed) {
+          await durable.writeUnlocked(groupsFile, current);
+          await durable.writeUnlocked(
+            sessionsFile,
+            Object.values(current).flat(),
+          );
+        }
       });
     } else {
       const file = path.join(trackerDir, "fork-prefs.json");
-      await durable.serial(file, async () => {
+      await durable.withTransaction([file], async () => {
         const current = await prefs.local(trackerDir);
         const known = new Set(current.map((r) => r.id));
         const missing = doc.rows.filter((r) => !known.has(r.id));
-        await durable.write(file, [...current, ...missing]);
+        if (missing.length) await durable.write(file, [...current, ...missing]);
         added += missing.length;
       });
     }

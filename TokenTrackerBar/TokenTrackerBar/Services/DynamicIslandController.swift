@@ -126,7 +126,10 @@ final class DynamicIslandController: NSObject {
     private static let collapseDelay: TimeInterval = 0.25
 
     private let viewModel: DashboardViewModel
-    private let state = DynamicIslandState()
+    /// Internal so `StatusBarController` can watch `$isPanelVisible` and
+    /// pause/resume the shared menu-bar animator while the island wing is
+    /// (or is not) displaying its frames.
+    let state = DynamicIslandState()
     private var panel: IslandPanel?
     /// Retained separately because we host its view inside `IslandHitView`
     /// rather than assigning `contentViewController` (which would replace our

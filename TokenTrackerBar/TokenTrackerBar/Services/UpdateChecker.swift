@@ -6,8 +6,12 @@ final class UpdateChecker {
 
     static let shared = UpdateChecker()
 
-    private let repo = PersonalUpdateChannel.repository
     private let releaseURL: String = "https://github.com/CYRYGBG/TokenTracker/releases/latest"
+
+    /// HTTP resolution with rate-limit cooldown and releases-page fallback
+    /// (adapted from the upstream macOS fix 7e65d77 to the personal channel).
+    /// UI-free and driven by the CLT harness; see PersonalUpdateReleaseClient.swift.
+    private let releaseClient = PersonalUpdateReleaseClient()
 
     /// Observable status for menu item display
     private(set) var statusText: String? = nil {
@@ -83,67 +87,13 @@ final class UpdateChecker {
         }
     }
 
-    // MARK: - GitHub API (URLSession — respects system proxy)
-
-    private struct GitHubRelease: Decodable {
-        let tag_name: String
-        let name: String?
-        let body: String?
-        let html_url: String
-        let assets: [Asset]
-        let draft: Bool?
-        let prerelease: Bool?
-        var expectedDigest: String?
-
-        struct Asset: Decodable {
-            let name: String
-            let browser_download_url: String
-            let size: Int
-        }
-
-        var tagVersion: String {
-            PersonalUpdateChannel.version(tag_name) ?? ""
-        }
-
-        var dmgAsset: Asset? {
-            let isArm64: Bool = {
-                var sysinfo = utsname()
-                uname(&sysinfo)
-                let machine = withUnsafePointer(to: &sysinfo.machine) {
-                    $0.withMemoryRebound(to: CChar.self, capacity: 1) { String(cString: $0) }
-                }
-                return machine == "arm64"
-            }()
-            let suffix = isArm64 ? "arm64.dmg" : "x64.dmg"
-            return assets.first { $0.name == "TokenTrackerPersonal-macOS-\(suffix)" }
-        }
-    }
+    // MARK: - Release Resolution (URLSession — respects system proxy)
 
     nonisolated private func fetchLatestRelease() async throws -> GitHubRelease {
-        let urlString = "https://api.github.com/repos/\(repo)/releases/latest"
-        guard let url = URL(string: urlString) else { throw UpdateError.emptyResponse }
-
-        var request = URLRequest(url: url, timeoutInterval: 15)
-        request.setValue("application/vnd.github+json", forHTTPHeaderField: "Accept")
-
-        let (data, response) = try await URLSession.shared.data(for: request)
-        guard let http = response as? HTTPURLResponse, http.statusCode == 200 else {
-            throw UpdateError.curlFailed((response as? HTTPURLResponse)?.statusCode ?? -1)
-        }
-        guard !data.isEmpty else { throw UpdateError.emptyResponse }
-        var release = try JSONDecoder().decode(GitHubRelease.self, from: data)
-        guard release.draft != true, release.prerelease != true,
-              PersonalUpdateChannel.version(release.tag_name) != nil,
-              let asset = release.dmgAsset,
-              PersonalUpdateChannel.assetURL(asset.browser_download_url, tag: release.tag_name, name: asset.name) != nil,
-              let checksums = release.assets.first(where: { $0.name == PersonalUpdateChannel.checksumsAsset }),
-              let checksumURL = PersonalUpdateChannel.assetURL(checksums.browser_download_url, tag: release.tag_name, name: checksums.name) else { throw UpdateError.noRelease }
-        let (checksumData, checksumResponse) = try await URLSession.shared.data(from: checksumURL)
-        guard (checksumResponse as? HTTPURLResponse)?.statusCode == 200, checksumData.count <= 65536,
-              let body = String(data: checksumData, encoding: .utf8),
-              let digest = PersonalUpdateChannel.digest(body, name: asset.name) else { throw UpdateError.noRelease }
-        release.expectedDigest = digest
-        return release
+        // The client owns throttling detection, cooldown and the releases-page
+        // fallback; the returned release is already validated (stable
+        // personal-vX.Y.Z tag, exact platform asset, same-tag SHA256SUMS digest).
+        try await releaseClient.fetchLatestRelease()
     }
 
     // MARK: - Result Handling
@@ -151,6 +101,11 @@ final class UpdateChecker {
     private func handleResult(_ result: Result<GitHubRelease, Error>, silent: Bool) {
         switch result {
         case .success(let release):
+            // The API may have been throttled even though the releases-page
+            // fallback succeeded. promptUpdate/finishUpdate clear statusText,
+            // so reapply the cooldown status unless the download progress
+            // owns the channel.
+            let rateLimited = releaseClient.isAPICoolingDown
             let current = currentVersion()
             if compareVersions(current, release.tagVersion) == .orderedAscending {
                 if silent, let dmg = release.dmgAsset {
@@ -169,9 +124,15 @@ final class UpdateChecker {
                     startDownloadAndInstall(dmg, expectedDigest: release.expectedDigest ?? "", targetVersion: release.tagVersion, interactive: false)
                 } else {
                     promptUpdate(release: release, currentVersion: current)
+                    if rateLimited {
+                        statusText = Strings.updateRateLimitedStatus
+                    }
                 }
             } else {
                 finishUpdate()
+                if rateLimited {
+                    statusText = Strings.updateRateLimitedStatus
+                }
                 if !silent {
                     statusText = Strings.upToDateMessage(current)
                     showAlert(title: Strings.upToDateTitle, message: Strings.upToDateMessage(current), style: .informational)
@@ -179,11 +140,24 @@ final class UpdateChecker {
             }
         case .failure(let error):
             finishUpdate()
+            // Rate-limit context: the API is cooling down, so a failure here
+            // means the releases-page fallback failed too. Show that in the
+            // menu status channel instead of a bare HTTP error.
+            let coolingDown = releaseClient.isAPICoolingDown
+            var message = error.localizedDescription
+            if let retryAt = releaseClient.apiRetryAt, retryAt > Date() {
+                message += "\n\n" + Strings.updateRateLimitedRetryAt(Self.retryTimeText(retryAt))
+            }
+            if coolingDown {
+                statusText = Strings.updateRateLimitedStatus
+            }
             if !silent {
-                statusText = "\(Strings.updateCheckFailedTitle): \(error.localizedDescription)"
+                if !coolingDown {
+                    statusText = "\(Strings.updateCheckFailedTitle): \(error.localizedDescription)"
+                }
                 showAlert(
                     title: Strings.updateCheckFailedTitle,
-                    message: "\(error.localizedDescription)\n\n\(Strings.manualCheckHint)",
+                    message: "\(message)\n\n\(Strings.manualCheckHint)",
                     style: .warning,
                     showReleasePage: true
                 )
@@ -555,15 +529,24 @@ final class UpdateChecker {
         var count = 0
     }
 
+    /// "Retry after" line for alerts, formatted in the app's resolved locale so
+    /// the date matches the surrounding alert text (mirrors the Windows
+    /// ApiRetryAtMessage).
+    private static func retryTimeText(_ date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: NativeLocalization.currentResolvedLocale)
+        formatter.dateStyle = .short
+        formatter.timeStyle = .short
+        return formatter.string(from: date)
+    }
+
     private enum UpdateError: LocalizedError {
-        case curlFailed(Int)
         case emptyResponse
         case installFailed(String)
         case noRelease
 
         var errorDescription: String? {
             switch self {
-            case .curlFailed(let code): return Strings.networkRequestFailed(code: code)
             case .emptyResponse: return Strings.emptyServerResponse
             case .installFailed(let reason): return Strings.installFailed(reason)
             case .noRelease: return Strings.noReleaseAvailable

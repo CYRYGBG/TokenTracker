@@ -156,15 +156,20 @@ async function local(trackerDir) {
 }
 async function append(trackerDir, device, input, remoteEvents = []) {
   const file = path.join(trackerDir, "fork-prefs.json");
-  return store.serial(file, async () => {
-    const own = await local(trackerDir);
-    const seq =
-      Math.max(0, ...own.map((e) => e.seq), ...remoteEvents.map((e) => e.seq)) +
-      1;
-    const event = sanitize({ id: crypto.randomUUID(), device, seq, ...input });
-    await store.write(file, [...own, event]);
-    return event;
-  });
+  return store.serial(file, () =>
+    // The event seq is derived from the stored events; the read and the
+    // commit must stay inside one cross-process lock or two writers can
+    // assign the same seq and one event is lost.
+    store.withTransaction([file], async () => {
+      const own = await local(trackerDir);
+      const seq =
+        Math.max(0, ...own.map((e) => e.seq), ...remoteEvents.map((e) => e.seq)) +
+        1;
+      const event = sanitize({ id: crypto.randomUUID(), device, seq, ...input });
+      await store.write(file, [...own, event]);
+      return event;
+    }),
+  );
 }
 function alias(key, aliases) {
   const seen = new Set();

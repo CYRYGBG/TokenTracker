@@ -121,6 +121,13 @@ function createDeviceImportStore({ importsDir, machineId }) {
     throw new Error("invalid device id");
   const dir = importDirFor(importsDir, machineId);
   const durable = require("../fork-store");
+  // Production import dirs (<tracker>/webdav/imports|recovery) are handled by
+  // the incremental journal; arbitrary directories (unit-test fixtures) fall
+  // back to whole-file atomic writes with identical semantics.
+  const commit = (file, value) =>
+    durable.handles(file)
+      ? durable.writeUnlocked(file, value)
+      : durable.write(file, value);
   async function load(kind) {
     if (!KINDS.includes(kind)) throw new Error("unsupported document kind");
     const current = await durable.read(path.join(dir, `${kind}.json`), null);
@@ -151,66 +158,74 @@ function createDeviceImportStore({ importsDir, machineId }) {
     )
       throw new Error("document identity mismatch");
     const kind = header.kind;
-    return durable.serial(dir, async () => {
-      const current = await load(kind);
-      if (
-        header.seq === current.seq &&
-        current.hash &&
-        header.sha256 !== current.hash
-      )
-        throw Object.assign(new Error("snapshot conflict"), {
-          code: "SNAPSHOT_CONFLICT",
-        });
-      if (header.seq <= current.seq)
-        return {
-          applied: false,
-          reason: "at-or-below-high-water",
+    const file = path.join(dir, `${kind}.json`);
+    return durable.serial(file, () =>
+      // The read-merge-commit runs inside one cross-process lock so a second
+      // serve process cannot commit an envelope built from a stale snapshot.
+      durable.withTransaction([file], async () => {
+        const current = await load(kind);
+        if (
+          header.seq === current.seq &&
+          current.hash &&
+          header.sha256 !== current.hash
+        )
+          throw Object.assign(new Error("snapshot conflict"), {
+            code: "SNAPSHOT_CONFLICT",
+          });
+        if (header.seq <= current.seq)
+          return {
+            applied: false,
+            reason: "at-or-below-high-water",
+            seq: header.seq,
+          };
+        if (header.since_seq != null && header.since_seq > current.seq)
+          throw Object.assign(new Error("missing predecessor"), {
+            code: "MISSING_PREDECESSOR",
+          });
+        const map = new Map(current.rows.map((row) => [rowKey(kind, row), row]));
+        for (const row of rows) {
+          if (!row || typeof row !== "object" || !rowKey(kind, row))
+            throw new Error("invalid row");
+          const clean = sanitizeImportRow(kind, row, machineId);
+          map.set(rowKey(kind, clean), clean);
+        }
+        // Rows + high water commit in ONE atomic step. A crash cannot commit
+        // only the cursor and strand a partially written view.
+        await commit(file, {
           seq: header.seq,
-        };
-      if (header.since_seq != null && header.since_seq > current.seq)
-        throw Object.assign(new Error("missing predecessor"), {
-          code: "MISSING_PREDECESSOR",
+          hash: header.sha256,
+          rows: [...map.values()],
         });
-      const map = new Map(current.rows.map((row) => [rowKey(kind, row), row]));
-      for (const row of rows) {
-        if (!row || typeof row !== "object" || !rowKey(kind, row))
-          throw new Error("invalid row");
-        const clean = sanitizeImportRow(kind, row, machineId);
-        map.set(rowKey(kind, clean), clean);
-      }
-      // Rows + high water commit in ONE atomic rename. A crash cannot commit
-      // only the cursor and strand a partially written view.
-      await durable.write(path.join(dir, `${kind}.json`), {
-        seq: header.seq,
-        hash: header.sha256,
-        rows: [...map.values()],
-      });
-      return { applied: true, upserts: rows.length, seq: header.seq };
-    });
+        return { applied: true, upserts: rows.length, seq: header.seq };
+      }),
+    );
   }
   async function restoreMissing({ header, rows }) {
     if (header.device !== machineId || !KINDS.includes(header.kind))
       throw new Error("backup identity mismatch");
-    return durable.serial(dir, async () => {
-      const current = await load(header.kind);
-      const map = new Map(current.rows.map((r) => [rowKey(header.kind, r), r]));
-      let added = 0;
-      for (const row of rows)
-        if (!map.has(rowKey(header.kind, row))) {
-          map.set(rowKey(header.kind, row), row);
-          added++;
-        }
-      if (added)
-        await durable.write(path.join(dir, `${header.kind}.json`), {
-          seq: Math.max(current.seq, header.seq),
-          hash:
-            header.seq > current.seq
-              ? header.recovery_hash || null
-              : current.hash,
-          rows: [...map.values()],
-        });
-      return added;
-    });
+    const file = path.join(dir, `${header.kind}.json`);
+    return durable.serial(file, () =>
+      durable.withTransaction([file], async () => {
+        const current = await load(header.kind);
+        const map = new Map(current.rows.map((r) => [rowKey(header.kind, r), r]));
+        let added = 0;
+        for (const row of rows)
+          if (!map.has(rowKey(header.kind, row))) {
+            map.set(rowKey(header.kind, row), row);
+            added++;
+          }
+        if (added)
+          await commit(file, {
+            seq: Math.max(current.seq, header.seq),
+            hash:
+              header.seq > current.seq
+                ? header.recovery_hash || null
+                : current.hash,
+            rows: [...map.values()],
+          });
+        return added;
+      }),
+    );
   }
   async function highWater() {
     const pairs = await Promise.all(

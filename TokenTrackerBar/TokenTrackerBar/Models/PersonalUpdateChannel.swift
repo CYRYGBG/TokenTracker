@@ -19,6 +19,15 @@ enum PersonalUpdateChannel {
         return url
     }
 
+    /// Canonical download URL string for an asset of `tag`. The personal
+    /// channel only accepts exactly this shape (mirrors the Windows client's
+    /// DownloadBase equality check), so API-provided URLs and releases-page
+    /// fallback URLs must both reduce to it.
+    static func assetURLString(tag: String, name: String) -> String? {
+        guard version(tag) != nil else { return nil }
+        return "https://github.com/\(repository)/releases/download/\(tag)/\(name)"
+    }
+
     static func digest(_ body: String, name: String) -> String? {
         for line in body.split(separator: "\n") {
             let parts = line.split(maxSplits: 1, whereSeparator: { $0 == " " || $0 == "\t" })

@@ -413,6 +413,16 @@ enum Strings {
         t("Version \(version) is the latest version.", "\(version) 已是最新版本。", "\(version) 已是最新版本。", "バージョン \(version) は最新です。", "버전 \(version)이(가) 최신입니다.")
     }
     static var updateCheckFailedTitle: String { t("Update Check Failed", "检查更新失败", "檢查更新失敗", "アップデートの確認に失敗", "업데이트 확인 실패") }
+    /// Menu status shown while the GitHub API cooldown from a throttled check
+    /// is active (the check itself may have been served by the releases-page
+    /// fallback).
+    static var updateRateLimitedStatus: String {
+        t("GitHub API rate limited. Try again later.", "GitHub API 已限流，请稍后重试。", "GitHub API 已限流，請稍後重試。", "GitHub API がレート制限中のため、しばらくしてから再試行してください。", "GitHub API 사용량이 제한되었습니다. 잠시 후 다시 시도하세요.")
+    }
+    /// Alert line naming when the API may be retried (Windows ApiRetryAtMessage parity).
+    static func updateRateLimitedRetryAt(_ time: String) -> String {
+        t("GitHub API can be retried after: \(time)", "GitHub 接口可重试时间：\(time)", "GitHub 介面可重試時間：\(time)", "GitHub API の再試行可能日時：\(time)", "GitHub API 재시도 가능 시간: \(time)")
+    }
     static var manualCheckHint: String { t("You can also check manually:", "你也可以手动检查：", "你也可以手動檢查：", "手動で確認することもできます：", "수동으로 확인할 수도 있습니다:") }
     static func newVersionTitle(_ version: String) -> String {
         t("New Version Available — \(version)", "发现新版本 — \(version)", "發現新版本 — \(version)", "新しいバージョンがあります — \(version)", "새 버전 사용 가능 — \(version)")

@@ -236,11 +236,31 @@ final class StatusBarController: NSObject {
             islandEnabled: islandEnabled
         )
         animator?.updatesButton = statusItem.isVisible && !(showStats && !buildMenuBarDisplayValues().isEmpty)
+        refreshAnimatorFrameConsumer()
         // Frames skipped the button while hidden; catch it up so a paused
         // animation (sleeping, reduced motion) doesn't show a stale icon.
         if animator != nil, statusItem.isVisible, !wasVisible {
             updateStatsDisplay()
         }
+    }
+
+    /// The animator's frames have a consumer while the status item shows the
+    /// icon or the Dynamic Island wing renders the animated glyph. While
+    /// neither is true the animator parks its decorative timers entirely (no
+    /// redraws, no frame notifications). Call after every `updatesButton`
+    /// write and whenever the island panel appears or disappears.
+    private func refreshAnimatorFrameConsumer() {
+        guard let animator else { return }
+        animator.hasFrameConsumer = animator.updatesButton || islandConsumesAnimatorFrames()
+    }
+
+    /// Matches `DynamicIslandView.buildMetricWingView`: the island's collapsed
+    /// left wing shows the animated menu-bar glyph only while the panel is on
+    /// screen and its primary slot displays today's tokens.
+    private func islandConsumesAnimatorFrames() -> Bool {
+        dynamicIslandController.isEnabled
+            && dynamicIslandController.state.isPanelVisible
+            && MenuBarDisplayPreferences.read().first == MenuBarDisplayMetric.todayTokens.rawValue
     }
 
     private func observeApplicationActivity() {
@@ -273,6 +293,7 @@ final class StatusBarController: NSObject {
 
         animator = MenuBarAnimator(button: button)
         animator?.updatesButton = statusItem.isVisible && !(showStats && !buildMenuBarDisplayValues().isEmpty)
+        refreshAnimatorFrameConsumer()
         animator?.onImageUpdated = { image in
             NotificationCenter.default.post(name: .menuBarIconFrameUpdated, object: image)
         }
@@ -379,6 +400,13 @@ final class StatusBarController: NSObject {
             .receive(on: RunLoop.main)
             .sink { [weak self] _ in self?.updateStatsDisplay() }
             .store(in: &cancellables)
+
+        // The island's wing renders the animator's frames while its panel is
+        // on screen; show/hide transitions pause or resume the animation.
+        dynamicIslandController.state.$isPanelVisible
+            .receive(on: RunLoop.main)
+            .sink { [weak self] _ in self?.refreshAnimatorFrameConsumer() }
+            .store(in: &cancellables)
     }
 
     private func updateStatsDisplay() {
@@ -397,6 +425,7 @@ final class StatusBarController: NSObject {
         if showStats && !displayItems.isEmpty {
             // Keep animation frames from replacing the text-only status item.
             animator?.updatesButton = false
+            refreshAnimatorFrameConsumer()
             let signature = statsTextSignature(displayItems)
             let textLayer: (image: NSImage, width: CGFloat)
             if let cached = statsTextCache, cached.signature == signature {
@@ -415,6 +444,7 @@ final class StatusBarController: NSObject {
             }
         } else {
             animator?.updatesButton = statusItem.isVisible
+            refreshAnimatorFrameConsumer()
             button.title = ""
             button.attributedTitle = emptyAttributedTitle
             button.imagePosition = .imageOnly

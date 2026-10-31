@@ -8,11 +8,13 @@ async function capture(trackerDir, rows, { reestimate = false } = {}) {
   const cached = caches.get(trackerDir);
   if (!reestimate && cached?.rows === rows) return cached.result;
   const file = path.join(trackerDir, "fork-cost-basis.json");
-  return durable.serial(file, async () => {
+  // update() keeps the read-transform-commit inside one cross-process lock.
+  // Persisting is delegated to update(): it skips the write entirely when the
+  // returned basis matches what is already stored.
+  let result;
+  await durable.update(file, {}, (basis) => {
     const pricing = require("./pricing");
-    const basis = await durable.read(file, {});
-    let changed = false;
-    const result = rows.map((row) => {
+    result = rows.map((row) => {
       if (row.kind) return row;
       if (!reestimate && Number.isFinite(row.fork_estimated_cost_usd))
         return row;
@@ -32,7 +34,6 @@ async function capture(trackerDir, rows, { reestimate = false } = {}) {
           version: pricing.getPricingStatus().version,
           at: new Date().toISOString(),
         };
-        changed = true;
       }
       return {
         ...row,
@@ -41,10 +42,10 @@ async function capture(trackerDir, rows, { reestimate = false } = {}) {
         fork_price_observed_at: basis[key].at,
       };
     });
-    if (changed) await durable.write(file, basis);
-    caches.set(trackerDir, { rows, result });
-    return result;
+    return basis;
   });
+  caches.set(trackerDir, { rows, result });
+  return result;
 }
 function invalidate(trackerDir) {
   caches.delete(trackerDir);

@@ -125,6 +125,91 @@ async function readProjectUsageContext(qp, url) {
   return { from, to, timeZoneContext, hasRange, dayInRange, projectRows };
 }
 
+// The entry aggregation shared by the project-usage-summary endpoint and the
+// /api/fork/report aggregate: identical rows, ordering, limits and the
+// per-source empty fallback.
+async function buildProjectUsageSummaryEntries(qp, url, limit) {
+  const { timeZoneContext, hasRange, dayInRange, projectRows } =
+    await readProjectUsageContext(qp, url);
+
+  const aggregateEntries = async (rows, keyOf, refOf) => {
+    const byKey = new Map();
+    let processed = 0;
+    for (const row of rows) {
+      if (++processed % AGGREGATION_BATCH_ROWS === 0) await yieldToRequests();
+      if (hasRange && !dayInRange(rowDayKey(row, timeZoneContext))) continue;
+      const key = keyOf(row);
+      if (!byKey.has(key)) {
+        byKey.set(key, {
+          project_key: key,
+          project_ref: refOf(row),
+          total_tokens: 0,
+          billable_total_tokens: 0,
+          input_tokens: 0,
+          output_tokens: 0,
+          cached_input_tokens: 0,
+          cache_creation_input_tokens: 0,
+          reasoning_output_tokens: 0,
+          conversation_count: 0,
+          sourceTotals: new Map(),
+        });
+      }
+      const agg = byKey.get(key);
+      agg.total_tokens += Number(row.total_tokens || 0);
+      agg.billable_total_tokens += Number(
+        row.billable_total_tokens ?? row.total_tokens ?? 0,
+      );
+      agg.input_tokens += Number(row.input_tokens || 0);
+      agg.output_tokens += Number(row.output_tokens || 0);
+      agg.cached_input_tokens += Number(row.cached_input_tokens || 0);
+      agg.cache_creation_input_tokens += Number(row.cache_creation_input_tokens || 0);
+      agg.reasoning_output_tokens += Number(row.reasoning_output_tokens || 0);
+      agg.conversation_count += Number(row.conversation_count || 0);
+      if (!agg.project_ref) agg.project_ref = refOf(row);
+      const src = row.source || "unknown";
+      agg.sourceTotals.set(
+        src,
+        (agg.sourceTotals.get(src) || 0) + Number(row.total_tokens || 0),
+      );
+    }
+    return Array.from(byKey.values())
+      .sort((a, b) => b.billable_total_tokens - a.billable_total_tokens)
+      .slice(0, limit)
+      .map(({ sourceTotals, ...entry }) => ({
+        ...entry,
+        total_tokens: String(entry.total_tokens),
+        billable_total_tokens: String(entry.billable_total_tokens),
+        sources: Array.from(sourceTotals.entries())
+          .sort((a, b) => b[1] - a[1])
+          .map(([source, totalTokens]) => ({ source, total_tokens: totalTokens })),
+      }));
+  };
+
+  let entries = await aggregateEntries(
+    projectRows,
+    (row) => row.project_key || "unknown",
+    (row) => row.project_ref || "",
+  );
+
+  // If no project-attributed rows exist yet (user hasn't synced project
+  // attribution, or never used a project-capable CLI), fall back to
+  // per-source aggregation over the main queue so the panel isn't
+  // totally empty. This path used to also exist for the non-empty case
+  // and produce wrong numbers; keep it only as the empty fallback.
+  if (entries.length === 0 && projectRows.length === 0) {
+    entries = await aggregateEntries(
+      await readQueueData(qp),
+      (row) => row.source || "unknown",
+      // Synthetic source-only row: leave project_ref empty rather than
+      // fabricating `https://${src}.ai`, which resolves to unrelated
+      // domains (e.g. codex.ai, cursor.ai) and was sent to the
+      // dashboard as a clickable href before v0.11.1 / this commit.
+      () => "",
+    );
+  }
+  return entries;
+}
+
 // Same signature-based caching as readQueueData: the project-usage endpoints
 // all fan out from one dashboard refresh, so without this every request
 // re-read and re-parsed the whole append-only project queue.
@@ -948,6 +1033,126 @@ function buildProxyHeaders(headers) {
   return out;
 }
 
+// Shared by the individual usage endpoints and the /api/fork/report
+// aggregate: one implementation so a single report request produces exactly
+// the payloads the six separate endpoints would have produced.
+function buildUsageSummaryPayload({ allDaily, from, to, scope, excludedSources, timeZoneContext }) {
+  const daily = allDaily.filter((d) => d.day >= from && d.day <= to);
+  const totals = daily.reduce(
+    (acc, r) => {
+      acc.total_tokens += r.total_tokens;
+      acc.billable_total_tokens += r.billable_total_tokens;
+      acc.total_cost_usd += r.total_cost_usd || 0;
+      acc.input_tokens += r.input_tokens;
+      acc.output_tokens += r.output_tokens;
+      acc.cached_input_tokens += r.cached_input_tokens;
+      acc.cache_creation_input_tokens += r.cache_creation_input_tokens;
+      acc.reasoning_output_tokens += r.reasoning_output_tokens;
+      acc.conversation_count += r.conversation_count;
+      return acc;
+    },
+    { total_tokens: 0, billable_total_tokens: 0, total_cost_usd: 0, input_tokens: 0, output_tokens: 0, cached_input_tokens: 0, cache_creation_input_tokens: 0, reasoning_output_tokens: 0, conversation_count: 0 },
+  );
+  const totalCost = totals.total_cost_usd;
+
+  const todayParts = getZonedParts(new Date(), timeZoneContext);
+  const todayStr = formatPartsDayKey(todayParts) || new Date().toISOString().slice(0, 10);
+
+  const shiftDay = (dayStr, delta) => {
+    const d = new Date(`${dayStr}T00:00:00Z`);
+    d.setUTCDate(d.getUTCDate() + delta);
+    return d.toISOString().slice(0, 10);
+  };
+  const collectDays = (n) => {
+    const out = [];
+    for (let i = n - 1; i >= 0; i--) {
+      const ds = shiftDay(todayStr, -i);
+      const dd = allDaily.find((x) => x.day === ds);
+      if (dd) out.push(dd);
+    }
+    return out;
+  };
+  const sumDays = (days) =>
+    days.reduce((a, r) => {
+      a.billable_total_tokens += r.billable_total_tokens;
+      a.conversation_count += r.conversation_count;
+      return a;
+    }, { billable_total_tokens: 0, conversation_count: 0 });
+
+  const l7 = collectDays(7);
+  const l30 = collectDays(30);
+  const l7t = sumDays(l7);
+  const l30t = sumDays(l30);
+  const l7fromStr = shiftDay(todayStr, -6);
+  const l30fromStr = shiftDay(todayStr, -29);
+
+  return {
+    from, to, days: daily.length, scope, excluded_sources: excludedSources,
+    totals: { ...totals, total_cost_usd: totalCost.toFixed(6) },
+    rolling: {
+      last_7d: { from: l7fromStr, to: todayStr, active_days: l7.length, totals: l7t },
+      last_30d: { from: l30fromStr, to: todayStr, active_days: l30.length, totals: l30t, avg_per_active_day: l30.length > 0 ? Math.round(l30t.billable_total_tokens / l30.length) : 0 },
+    },
+  };
+}
+
+async function buildModelBreakdownPayload({ rows, from, to, timeZoneContext, scope, excludedSources }) {
+  const pricingRevision = getPricingRevision();
+  const bySource = new Map();
+  let processed = 0;
+  for (const row of rows) {
+    if (++processed % AGGREGATION_BATCH_ROWS === 0) await yieldToRequests();
+    if (!row.hour_start) continue;
+    const day = rowDayKey(row, timeZoneContext);
+    if (day < from || day > to) continue;
+    const src = row.source || "unknown";
+    const mdl = row.model || "unknown";
+    if (!bySource.has(src))
+      bySource.set(src, { source: src, source_scope: getSourceScope(src), totals: { total_tokens: 0, billable_total_tokens: 0, input_tokens: 0, output_tokens: 0, cached_input_tokens: 0, cache_creation_input_tokens: 0, reasoning_output_tokens: 0, total_cost_usd: "0" }, models: new Map() });
+    const sa = bySource.get(src);
+    sa.totals.total_tokens += row.total_tokens || 0;
+    sa.totals.billable_total_tokens += row.billable_total_tokens ?? row.total_tokens ?? 0;
+    sa.totals.input_tokens += row.input_tokens || 0;
+    sa.totals.output_tokens += row.output_tokens || 0;
+    sa.totals.cached_input_tokens += row.cached_input_tokens || 0;
+    sa.totals.cache_creation_input_tokens += row.cache_creation_input_tokens || 0;
+    sa.totals.reasoning_output_tokens += row.reasoning_output_tokens || 0;
+    if (!sa.models.has(mdl))
+      sa.models.set(mdl, { model: mdl, model_id: mdl, pricing: getModelPricingInfo(mdl, { source: src }), totals: { total_tokens: 0, billable_total_tokens: 0, input_tokens: 0, output_tokens: 0, cached_input_tokens: 0, cache_creation_input_tokens: 0, reasoning_output_tokens: 0, total_cost_usd: "0" } });
+    const ma = sa.models.get(mdl);
+    const reportedCost = ["grok", "cline"].includes(src) && Number(row.total_cost_usd) > 0;
+    const costSource = reportedCost ? "provider_reported" : "model_pricing";
+    ma.cost_source = ma.cost_source && ma.cost_source !== costSource ? "mixed" : costSource;
+    ma.totals.total_tokens += row.total_tokens || 0;
+    ma.totals.billable_total_tokens += row.billable_total_tokens ?? row.total_tokens ?? 0;
+    ma.totals.input_tokens += row.input_tokens || 0;
+    ma.totals.output_tokens += row.output_tokens || 0;
+    ma.totals.cached_input_tokens += row.cached_input_tokens || 0;
+    ma.totals.cache_creation_input_tokens += row.cache_creation_input_tokens || 0;
+    ma.totals.reasoning_output_tokens += row.reasoning_output_tokens || 0;
+    // Price each row, exactly as aggregateByDay does for the hero (#653).
+    ma.totals.total_cost_usd = Number(ma.totals.total_cost_usd || 0) + computeRowCost(row);
+  }
+  if (pricingRevision !== getPricingRevision()) return null;
+
+  const sources = Array.from(bySource.values()).map((s) => {
+    s.models = Array.from(s.models.values())
+      .map((m) => ({
+        ...m,
+        totals: { ...m.totals, total_cost_usd: Number(m.totals.total_cost_usd || 0).toFixed(6) },
+      }))
+      .sort((a, b) => b.totals.total_tokens - a.totals.total_tokens);
+    const sourceCost = s.models.reduce((sum, m) => sum + Number(m.totals.total_cost_usd), 0);
+    s.totals.total_cost_usd = sourceCost.toFixed(6);
+    return s;
+  });
+
+  return {
+    from, to, days: 0, scope, excluded_sources: excludedSources, sources,
+    pricing: { model: "per-model", pricing_mode: "per_token_type", source: "litellm", effective_from: new Date().toISOString().slice(0, 10) },
+  };
+}
+
 // ---------------------------------------------------------------------------
 // Main handler factory
 // ---------------------------------------------------------------------------
@@ -958,17 +1163,26 @@ function createLocalApiHandler({ queuePath, serverVersion = null, trackerDataDir
     identity: () => ({ id: getOrCreateMachineId(qp), name: getSystemDeviceName(), platform: process.platform }) });
   async function scopedQueueRows(queuePath, url) {
     const scope = getRequestedUsageScope(url);
-    const ownRows = await readQueueData(queuePath);
+    // Decide the read path BEFORE touching the queue: the personal fork view
+    // reads and merges the queue itself, so the async reader must not load
+    // the same file a second time.
+    const view = require('./fork-view');
+    const remotes = await view.remote(trackerDataDir);
+    const requested = await view.scope(trackerDataDir,url);
     const selected = url.searchParams.get("device_id") || "";
     // Only offline IDs select a snapshot; other IDs retain the local fallback.
     const device = selected.startsWith("local:") ? selected : "";
-    const view = require('./fork-view');
-    const requested = await view.scope(trackerDataDir,url);
-    const remotes = await view.remote(trackerDataDir);
-    let allRows = device ? await localUsage.view(ownRows, device) :
-      process.env.TOKENTRACKER_PERSONAL === "1" || remotes.length || !['all','local',getOrCreateMachineId(qp)].includes(requested) ? await view.buckets(trackerDataDir,url) :
-      requested === 'all' ? await localUsage.view(ownRows, '') : ownRows;
-    if (process.env.TOKENTRACKER_PERSONAL === "1") allRows = await require("./fork-costs").capture(trackerDataDir,allRows);
+    const personal = process.env.TOKENTRACKER_PERSONAL === "1";
+    const useForkView = !device && (personal || remotes.length || !['all','local',getOrCreateMachineId(qp)].includes(requested));
+    let allRows;
+    if (useForkView) {
+      allRows = await view.buckets(trackerDataDir,url);
+    } else {
+      const ownRows = await readQueueData(queuePath);
+      allRows = device ? await localUsage.view(ownRows, device) :
+        requested === 'all' ? await localUsage.view(ownRows, '') : ownRows;
+    }
+    if (personal) allRows = await require("./fork-costs").capture(trackerDataDir,allRows);
     return { scope, allRows, rows: filterRowsByUsageScope(allRows, scope), excludedSources: listExcludedSources(allRows, scope) };
   }
   const normalizedServerVersion = typeof serverVersion === "string" ? serverVersion.trim() : "";
@@ -1033,9 +1247,13 @@ function createLocalApiHandler({ queuePath, serverVersion = null, trackerDataDir
     const scheduler = getWebdavScheduler();
     void scheduler; // scheduler instance created lazily; summary reads files only
     const config = readWebdavConfigSync();
-    const { loadWebdavPassword } = require("./webdav/credential-store");
+    // The status poll only needs to know WHETHER a credential is stored.
+    // Decrypting the password here spawned `security`/PowerShell on every
+    // 15-second dashboard refresh; the existence query never reads the secret
+    // and is bounded by a short cache (invalidated on save/clear).
+    const { webdavCredentialExists } = require("./webdav/credential-store");
     const credentialPresent = Boolean(
-      config?.username && await loadWebdavPassword({ username: config.username, url:config.url, trackerDir: trackerDataDir, platform: credentialPlatform }),
+      config?.username && await webdavCredentialExists({ username: config.username, url:config.url, trackerDir: trackerDataDir, platform: credentialPlatform }),
     );
     return {
       config: config ? {
@@ -1069,6 +1287,57 @@ function createLocalApiHandler({ queuePath, serverVersion = null, trackerDataDir
           } else if(req.method!=='GET'){json(res,{code:'method_not_allowed'},405);return true;}
           const state=await durable.read(path.join(trackerDataDir,'webdav','state.json'),{});
           json(res,{device:await view.scope(trackerDataDir),devices:await view.devices(trackerDataDir),partial:Boolean(state.last_failure||state.partial),last_failure:state.last_failure||null});
+        } else if(p==='/api/fork/report' && req.method==='GET') {
+          // One shared load for the whole weekly/monthly report instead of
+          // six parallel requests that each re-read and re-aggregate the
+          // same history. Payloads are identical to the individual endpoints.
+          const from=url.searchParams.get('from')||'';
+          const to=url.searchParams.get('to')||'';
+          const prevFrom=url.searchParams.get('previous_from')||'';
+          const prevTo=url.searchParams.get('previous_to')||'';
+          const timeZoneContext=getTimeZoneContext(url);
+          const view=require('./fork-view');
+          const personal=process.env.TOKENTRACKER_PERSONAL==='1';
+          let summaryRows, scope, excludedSources, devicePayload;
+          if(personal){
+            const snapshot=await view.bucketSnapshot(trackerDataDir,url);
+            const merged=await view.buckets(trackerDataDir,url,{snapshot});
+            const allRows=await require('./fork-costs').capture(trackerDataDir,merged);
+            scope=getRequestedUsageScope(url);
+            excludedSources=listExcludedSources(allRows,scope);
+            summaryRows=filterRowsByUsageScope(allRows,scope);
+            const inRange=(row)=>{
+              const day=rowDayKey(row,timeZoneContext);
+              return day&&(!from||day>=from)&&(!to||day<=to);
+            };
+            devicePayload=await view.deviceUsage(trackerDataDir,inRange,{snapshot});
+          } else {
+            const scoped=await scopedQueueRows(qp,url);
+            summaryRows=scoped.rows; scope=scoped.scope; excludedSources=scoped.excludedSources;
+            const inRange=(row)=>{
+              const day=rowDayKey(row,timeZoneContext);
+              return day&&(!from||day>=from)&&(!to||day<=to);
+            };
+            devicePayload=await view.deviceUsage(trackerDataDir,inRange);
+          }
+          const allDaily=await aggregateByDay(summaryRows,timeZoneContext);
+          const summary=buildUsageSummaryPayload({allDaily,from,to,scope,excludedSources,timeZoneContext});
+          const previous=buildUsageSummaryPayload({allDaily,from:prevFrom,to:prevTo,scope,excludedSources,timeZoneContext});
+          const breakdown=await buildModelBreakdownPayload({rows:summaryRows,from,to,timeZoneContext,scope,excludedSources});
+          if(!breakdown) return handleLocalApi(req,res,url);
+          const limitParam=Number(url.searchParams.get('limit'));
+          const limit=Number.isFinite(limitParam)&&limitParam>0?Math.min(Math.floor(limitParam),PROJECT_USAGE_MAX_ENTRIES):PROJECT_USAGE_MAX_ENTRIES;
+          const projects={generated_at:new Date().toISOString(),entries:await buildProjectUsageSummaryEntries(qp,url,limit)};
+          // The decorated /functions endpoints spread these meta fields into
+          // every payload; the aggregate matches so payloads stay identical
+          // whichever path produced them. device-usage (/api/fork/*) is not
+          // decorated, so its payload stays raw.
+          const state=await require('./fork-store').read(path.join(trackerDataDir,'webdav','state.json'),{});
+          const forkMeta={machine_id:getOrCreateMachineId(qp),device:await view.scope(trackerDataDir,url),partial:Boolean(state.last_failure||state.partial),failed_devices:Object.entries(state.imported||{}).filter(([,v])=>!v.ok).map(([k])=>k)};
+          res.forkMeta=forkMeta;
+          const withMeta=(payload)=>({...payload,...forkMeta});
+          json(res,{scope,excluded_sources:excludedSources,summary:withMeta(summary),previous:withMeta(previous),daily:withMeta({from,to,scope,excluded_sources:excludedSources,data:allDaily.filter((d)=>d.day>=from&&d.day<=to)}),breakdown:withMeta(breakdown),projects:withMeta(projects),devices:devicePayload});
+          return true;
         } else if(p==='/api/fork/device-usage' && req.method==='GET') {
           const from=url.searchParams.get('from')||'';
           const to=url.searchParams.get('to')||'';
@@ -1466,63 +1735,7 @@ function createLocalApiHandler({ queuePath, serverVersion = null, trackerDataDir
       const timeZoneContext = getTimeZoneContext(url);
       const { rows, scope, excludedSources } = await scopedQueueRows(qp, url);
       const allDaily = await aggregateByDay(rows, timeZoneContext);
-      const daily = allDaily.filter((d) => d.day >= from && d.day <= to);
-      const totals = daily.reduce(
-        (acc, r) => {
-          acc.total_tokens += r.total_tokens;
-          acc.billable_total_tokens += r.billable_total_tokens;
-          acc.total_cost_usd += r.total_cost_usd || 0;
-          acc.input_tokens += r.input_tokens;
-          acc.output_tokens += r.output_tokens;
-          acc.cached_input_tokens += r.cached_input_tokens;
-          acc.cache_creation_input_tokens += r.cache_creation_input_tokens;
-          acc.reasoning_output_tokens += r.reasoning_output_tokens;
-          acc.conversation_count += r.conversation_count;
-          return acc;
-        },
-        { total_tokens: 0, billable_total_tokens: 0, total_cost_usd: 0, input_tokens: 0, output_tokens: 0, cached_input_tokens: 0, cache_creation_input_tokens: 0, reasoning_output_tokens: 0, conversation_count: 0 },
-      );
-      const totalCost = totals.total_cost_usd;
-
-      const todayParts = getZonedParts(new Date(), timeZoneContext);
-      const todayStr = formatPartsDayKey(todayParts) || new Date().toISOString().slice(0, 10);
-
-      const shiftDay = (dayStr, delta) => {
-        const d = new Date(`${dayStr}T00:00:00Z`);
-        d.setUTCDate(d.getUTCDate() + delta);
-        return d.toISOString().slice(0, 10);
-      };
-      const collectDays = (n) => {
-        const out = [];
-        for (let i = n - 1; i >= 0; i--) {
-          const ds = shiftDay(todayStr, -i);
-          const dd = allDaily.find((x) => x.day === ds);
-          if (dd) out.push(dd);
-        }
-        return out;
-      };
-      const sumDays = (days) =>
-        days.reduce((a, r) => {
-          a.billable_total_tokens += r.billable_total_tokens;
-          a.conversation_count += r.conversation_count;
-          return a;
-        }, { billable_total_tokens: 0, conversation_count: 0 });
-
-      const l7 = collectDays(7);
-      const l30 = collectDays(30);
-      const l7t = sumDays(l7);
-      const l30t = sumDays(l30);
-      const l7fromStr = shiftDay(todayStr, -6);
-      const l30fromStr = shiftDay(todayStr, -29);
-
-      json(res, {
-        from, to, days: daily.length, scope, excluded_sources: excludedSources,
-        totals: { ...totals, total_cost_usd: totalCost.toFixed(6) },
-        rolling: {
-          last_7d: { from: l7fromStr, to: todayStr, active_days: l7.length, totals: l7t },
-          last_30d: { from: l30fromStr, to: todayStr, active_days: l30.length, totals: l30t, avg_per_active_day: l30.length > 0 ? Math.round(l30t.billable_total_tokens / l30.length) : 0 },
-        },
-      });
+      json(res, buildUsageSummaryPayload({ allDaily, from, to, scope, excludedSources, timeZoneContext }));
       return true;
     }
 
@@ -1712,65 +1925,9 @@ function createLocalApiHandler({ queuePath, serverVersion = null, trackerDataDir
       const to = url.searchParams.get("to") || "";
       const timeZoneContext = getTimeZoneContext(url);
       const { rows: scopedRows, scope, excludedSources } = await scopedQueueRows(qp, url);
-      const pricingRevision = getPricingRevision();
-      const bySource = new Map();
-      let processed = 0;
-      for (const row of scopedRows) {
-        if (++processed % AGGREGATION_BATCH_ROWS === 0) await yieldToRequests();
-        if (!row.hour_start) continue;
-        const day = rowDayKey(row, timeZoneContext);
-        if (day < from || day > to) continue;
-        const src = row.source || "unknown";
-        const mdl = row.model || "unknown";
-        if (!bySource.has(src))
-          bySource.set(src, { source: src, source_scope: getSourceScope(src), totals: { total_tokens: 0, billable_total_tokens: 0, input_tokens: 0, output_tokens: 0, cached_input_tokens: 0, cache_creation_input_tokens: 0, reasoning_output_tokens: 0, total_cost_usd: "0" }, models: new Map() });
-        const sa = bySource.get(src);
-        sa.totals.total_tokens += row.total_tokens || 0;
-        sa.totals.billable_total_tokens += row.billable_total_tokens ?? row.total_tokens ?? 0;
-        sa.totals.input_tokens += row.input_tokens || 0;
-        sa.totals.output_tokens += row.output_tokens || 0;
-        sa.totals.cached_input_tokens += row.cached_input_tokens || 0;
-        sa.totals.cache_creation_input_tokens += row.cache_creation_input_tokens || 0;
-        sa.totals.reasoning_output_tokens += row.reasoning_output_tokens || 0;
-        if (!sa.models.has(mdl))
-          sa.models.set(mdl, { model: mdl, model_id: mdl, pricing: getModelPricingInfo(mdl, { source: src }), totals: { total_tokens: 0, billable_total_tokens: 0, input_tokens: 0, output_tokens: 0, cached_input_tokens: 0, cache_creation_input_tokens: 0, reasoning_output_tokens: 0, total_cost_usd: "0" } });
-        const ma = sa.models.get(mdl);
-        const reportedCost = ["grok", "cline"].includes(src) && Number(row.total_cost_usd) > 0;
-        const costSource = reportedCost ? "provider_reported" : "model_pricing";
-        ma.cost_source = ma.cost_source && ma.cost_source !== costSource ? "mixed" : costSource;
-        ma.totals.total_tokens += row.total_tokens || 0;
-        ma.totals.billable_total_tokens += row.billable_total_tokens ?? row.total_tokens ?? 0;
-        ma.totals.input_tokens += row.input_tokens || 0;
-        ma.totals.output_tokens += row.output_tokens || 0;
-        ma.totals.cached_input_tokens += row.cached_input_tokens || 0;
-        ma.totals.cache_creation_input_tokens += row.cache_creation_input_tokens || 0;
-        ma.totals.reasoning_output_tokens += row.reasoning_output_tokens || 0;
-        // Price each row, exactly as aggregateByDay does for the hero (#653).
-        // computeRowCost is not linear for models with a Fast tier or
-        // long-context rates: priority_* / long_context_* mark a subset of the
-        // base columns rather than adding volume, so they survive only while the
-        // row is intact. Summing the base columns first and pricing once silently
-        // dropped every premium — same tokens, fewer dollars than the hero.
-        ma.totals.total_cost_usd = Number(ma.totals.total_cost_usd || 0) + computeRowCost(row);
-      }
-      if (pricingRevision !== getPricingRevision()) return handleLocalApi(req, res, url);
-
-      const sources = Array.from(bySource.values()).map((s) => {
-        s.models = Array.from(s.models.values())
-          .map((m) => ({
-            ...m,
-            totals: { ...m.totals, total_cost_usd: Number(m.totals.total_cost_usd || 0).toFixed(6) },
-          }))
-          .sort((a, b) => b.totals.total_tokens - a.totals.total_tokens);
-        const sourceCost = s.models.reduce((sum, m) => sum + Number(m.totals.total_cost_usd), 0);
-        s.totals.total_cost_usd = sourceCost.toFixed(6);
-        return s;
-      });
-
-      json(res, {
-        from, to, days: 0, scope, excluded_sources: excludedSources, sources,
-        pricing: { model: "per-model", pricing_mode: "per_token_type", source: "litellm", effective_from: new Date().toISOString().slice(0, 10) },
-      });
+      const payload = await buildModelBreakdownPayload({ rows: scopedRows, from, to, timeZoneContext, scope, excludedSources });
+      if (!payload) return handleLocalApi(req, res, url);
+      json(res, payload);
       return true;
     }
 
@@ -1848,95 +2005,11 @@ function createLocalApiHandler({ queuePath, serverVersion = null, trackerDataDir
 
     // --- project-usage-summary ---
     if (p === "/functions/tokentracker-project-usage-summary") {
-      // Use the per-project bucket log that rollout.js emits — it already
-      // carries the actual tokens attributed to each (project_key, source,
-      // hour_start). Falling back to "session-file count × total tokens"
-      // (the old behavior) produced pure fiction: every short-and-hot
-      // project got the same weight as every long-and-cold one.
       const limitParam = Number(url.searchParams.get("limit"));
       const limit = Number.isFinite(limitParam) && limitParam > 0
         ? Math.min(Math.floor(limitParam), PROJECT_USAGE_MAX_ENTRIES)
         : PROJECT_USAGE_MAX_ENTRIES;
-      const { timeZoneContext, hasRange, dayInRange, projectRows } =
-        await readProjectUsageContext(qp, url);
-
-      const aggregateEntries = async (rows, keyOf, refOf) => {
-        const byKey = new Map();
-        let processed = 0;
-        for (const row of rows) {
-          if (++processed % AGGREGATION_BATCH_ROWS === 0) await yieldToRequests();
-          if (hasRange && !dayInRange(rowDayKey(row, timeZoneContext))) continue;
-          const key = keyOf(row);
-          if (!byKey.has(key)) {
-            byKey.set(key, {
-              project_key: key,
-              project_ref: refOf(row),
-              total_tokens: 0,
-              billable_total_tokens: 0,
-              input_tokens: 0,
-              output_tokens: 0,
-              cached_input_tokens: 0,
-              cache_creation_input_tokens: 0,
-              reasoning_output_tokens: 0,
-              conversation_count: 0,
-              sourceTotals: new Map(),
-            });
-          }
-          const agg = byKey.get(key);
-          agg.total_tokens += Number(row.total_tokens || 0);
-          agg.billable_total_tokens += Number(
-            row.billable_total_tokens ?? row.total_tokens ?? 0,
-          );
-          agg.input_tokens += Number(row.input_tokens || 0);
-          agg.output_tokens += Number(row.output_tokens || 0);
-          agg.cached_input_tokens += Number(row.cached_input_tokens || 0);
-          agg.cache_creation_input_tokens += Number(row.cache_creation_input_tokens || 0);
-          agg.reasoning_output_tokens += Number(row.reasoning_output_tokens || 0);
-          agg.conversation_count += Number(row.conversation_count || 0);
-          if (!agg.project_ref) agg.project_ref = refOf(row);
-          const src = row.source || "unknown";
-          agg.sourceTotals.set(
-            src,
-            (agg.sourceTotals.get(src) || 0) + Number(row.total_tokens || 0),
-          );
-        }
-        return Array.from(byKey.values())
-          .sort((a, b) => b.billable_total_tokens - a.billable_total_tokens)
-          .slice(0, limit)
-          .map(({ sourceTotals, ...entry }) => ({
-            ...entry,
-            total_tokens: String(entry.total_tokens),
-            billable_total_tokens: String(entry.billable_total_tokens),
-            sources: Array.from(sourceTotals.entries())
-              .sort((a, b) => b[1] - a[1])
-              .map(([source, totalTokens]) => ({ source, total_tokens: totalTokens })),
-          }));
-      };
-
-      let entries = await aggregateEntries(
-        projectRows,
-        (row) => row.project_key || "unknown",
-        (row) => row.project_ref || "",
-      );
-
-      // If no project-attributed rows exist yet (user hasn't synced project
-      // attribution, or never used a project-capable CLI), fall back to
-      // per-source aggregation over the main queue so the panel isn't
-      // totally empty. This path used to also exist for the non-empty case
-      // and produce wrong numbers; keep it only as the empty fallback.
-      if (entries.length === 0 && projectRows.length === 0) {
-        entries = await aggregateEntries(
-          await readQueueData(qp),
-          (row) => row.source || "unknown",
-          // Synthetic source-only row: leave project_ref empty rather than
-          // fabricating `https://${src}.ai`, which resolves to unrelated
-          // domains (e.g. codex.ai, cursor.ai) and was sent to the
-          // dashboard as a clickable href before v0.11.1 / this commit.
-          () => "",
-        );
-      }
-
-      json(res, { generated_at: new Date().toISOString(), entries });
+      json(res, { generated_at: new Date().toISOString(), entries: await buildProjectUsageSummaryEntries(qp, url, limit) });
       return true;
     }
 

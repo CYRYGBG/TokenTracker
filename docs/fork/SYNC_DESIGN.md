@@ -11,6 +11,7 @@
 4. **不按本机时钟判新旧**：优先级 = (设备内单调 sequence, 内容规则)；时间戳仅作展示。
 5. **不假设 WebDAV 可选能力**：条件写（If-Match）不依赖；以"只写新文件名（不可变版本）"实现原子发布。逐项探测（OPTIONS/PROPFIND）并记录服务端能力。
 6. **有变化才传输**：内容哈希比对，未变化周期零上传；下载侧只取 sequence 大于已导入的新文件。
+- **seg 只携带相对上次成功发布的变化行**（2026-10-31，1.5.0 起）：每设备每 kind 在 `webdav/published/<kind>.json` 维护"上次成功上传内容"的逐行哈希登记表（键序无关的规范哈希），只有在上传确认成功后才推进；seg 载荷=当前行与登记表哈希不同的**整行 upsert**（新增+修订，含向下修订；缺失键不删除）。base 仍为全量。登记表缺失或落后于服务器序列（升级首变、重装恢复）时强制全量 base 一次，其后恢复差异 seg。上传失败不推进登记表→重试重发；上传成功但本地提交中断→下次周期检测到服务器序列与登记表一致且本地并集覆盖登记表键，直接对齐哈希不重传。旧版"全量 seg"与新"差异 seg"混用可收敛；`fork_sync:1`、文件名、hash、自校验与 since_seq 链保持不变，1.4.20 读端可直接应用新文件。
 
 ## 2. WebDAV 文件布局
 
@@ -110,7 +111,8 @@
 ```
 ~/.tokentracker-personal/tracker/webdav/
   config.json          # 非秘密设置（url、username、目录、设备名、启用、周期）
-  state.json           # 本设备导出状态：per-doc seq/内容哈希/已导 session_hash 集、退避、上次成功/失败
+  state.json           # 本设备导出状态：per-doc seq/内容哈希/退避/失败重试时间(next_attempt_ms)、上次成功/失败
+  published/<kind>.json # 上次成功发布的逐行哈希登记表（seg 差异基线，仅上传成功后推进）
   imports/
     <machineId>/
       device.json      # 导入侧缓存的对方设备信息
@@ -145,11 +147,14 @@
 ## 11. 2026-10-27 实现修订（优先于上文早期中间设计）
 
 - 每文档 kind 独立递增序号。当前 seg 携带该 kind 的完整 upsert 集，仍校验 since_seq 前驱；缺失键永不表示删除。prefs 也使用 base/seg 文件名，Lamport 事件保持稳定 ID。保留 3 个 base；只有自己成功发布新 base 后才整理自己的旧文件。
-- 本机长期明细在 `fork-history/session-groups.json` / `sessions.json`，不是只靠临时 sidecar 或已导出的索引。`wire-<kind>.json` 保留自己已发布的并集，不读取其他设备导入。自己的远端恢复完成后，API 读取恢复快照；input_hashes 区分旧本地备份与之后真正改变的本机记录。
+- 本机长期明细在 `fork-history/session-groups.json` / `sessions.json`，不是只靠临时 sidecar 或已导出的索引。
+- **本地增量存储**（2026-10-31，1.5.0 起）：大快照（≥256 KiB 的 fork-cost-basis、session-groups、sessions、wire-*、imports/recovery envelope）改用 `fork-journal.js`——旧 JSON 仍是可恢复基线，其旁的 `.journal` 记录带 SHA-256 校验的追加式行级事务（仅变化行），无变化不落盘；日志达到 max(1 MiB, base/2) 时原子压实回 JSON（先提交新基线再清日志，中断可幂等重放）；比预算更大的单次变更直接重写基线。读-改-提交事务在单一跨进程锁内（`fork-store.update`/`withTransaction`，多文件按排序加锁防死锁）；断尾追加不算提交、下次写入安全截断；完整记录损坏读取时显式报错、下次写入隔离 `.journal.corrupt-*` 并从基线自愈。备份导出/恢复、远端导入、重装恢复等所有读端都经 journal 感知读取，能看到最新逻辑视图。**回退旧版注意**：旧应用只认 JSON 基线，只能看到最后一次压实前的内容；保留 `.journal` 可让新版恢复全部历史，也可导出统计备份作为完整快照。`wire-<kind>.json` 保留自己已发布的并集，不读取其他设备导入。自己的远端恢复完成后，API 读取恢复快照；input_hashes 区分旧本地备份与之后真正改变的本机记录。
 - 导入改为每设备每 kind 单个 `<kind>.json`，一次原子提交 `{seq,hash,rows}`。避免 JSONL 与 applied.json 分开写时中断产生不一致；可读取旧版 JSONL + journal 迁移。文件名/header/device/kind/seq 一致性和行白名单均验证。
 - 相同 seq 的校验用于冲突检测。服务端有 ETag 时缓存收据，未变化不重复取内容；无 ETag 时复核当前高水位文件，牺牲少量读取来检测同版本内容被改写。零变化周期不会上传 device.json。
 - 传输只允许 HTTPS（明确的本地协议夹具除外），不跟随重定向转发认证。系统凭证账号按 URL+用户名哈希绑定；macOS/Windows 失败不降级为明文。旧版按用户名保存的密码需用户在设置中重新录入；没有自动读取/迁移真实密码。
-- 手动与后台共用调度器，并使用现有 openLock 跨进程互斥。轮询 5 分钟，队列或偏好变化 30 秒防抖；失败遵守 Retry-After 与指数退避，401/403 暂停。未配置 WebDAV 时不报告同步失败。serve 内独立采集会话元数据，不依赖网页挂载。
+- 手动与后台共用调度器，并使用现有 openLock 跨进程互斥。轮询 5 分钟，队列或偏好变化 30 秒防抖；失败遵守 Retry-After 与指数退避，401/403 暂停。未配置 WebDAV 时不报告同步失败。
+- **失败重试与正常间隔分离**（2026-10-31）：失败后退避到期时刻持久化为 `next_attempt_ms`，调度器在该时刻附近唤醒重试，不再等满正常间隔（30 分钟间隔+1 分钟退避→约 1 分钟重试；24 小时间隔同理）。1→5→15→60 分钟阶梯与 Retry-After 照旧；401/403 暂停自动重试；成功后清除待重试并恢复正常间隔；重启后从持久化状态恢复。所有触发源仍共用单轮互斥。
+- **上传瞬时错误周期内重试**：PUT/MOVE 收到 WEBDAV_NETWORK/WEBDAV_TIMEOUT（如网盘服务器在上传中途重置连接）时，利用发布幂等性（唯一 part 名+MOVE）立即重试一次，成功则该周期照常完成并在 notes 记录；连续失败才进入退避。GET/PROPFIND 的 404/错误响应正文显式释放，不遗留连接资源。serve 内独立采集会话元数据，不依赖网页挂载。
 - 本机/全部/指定设备是持久的 API 范围。错误时返回 partial/failed_devices，保留已导入历史；原生通过 X-TokenTracker-Account-View 兼容读取同一范围，不回退成另一范围数字。
 - 项目用上游 git remote 解析（去凭证、统一 SSH/HTTPS），GitHub 的键兼容 owner/repo；其他主机保留主机部分。无 Git 身份使用设备+本地路径哈希，不能仅按 basename 合并。API 上的项目别名可逆，保留原始来源。
 - 会话标题按用户确认的允许元数据处理，有不上传开关。关闭开关不承诺擦除已经存在的历史 base 或用户备份。远端、恢复后无源会话不返回本机恢复命令。
