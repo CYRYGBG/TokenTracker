@@ -182,6 +182,10 @@ async function collectSessions(
       path.join(trackerDir, "fork-history", "sessions.json"),
       [],
     );
+  if (require("node:worker_threads").isMainThread) {
+    await require("./fork-session-worker").collectSessionHistory({ trackerDir, home, force });
+    return durable.read(path.join(trackerDir, "fork-history", "sessions.json"), []);
+  }
   const {
     buildSessionAnalytics,
     mergeSessionFragments,
@@ -189,7 +193,9 @@ async function collectSessions(
   const observed = await buildSessionAnalytics({ home, force });
   const sessions = mergeSessionFragments([
     ...observed,
-    ...(await require("./fork-dsh-sessions").scanDshSessions(home)),
+    ...(await require("./fork-dsh-sessions").scanDshSessions(home, {
+      cacheFile: path.join(trackerDir, "fork-history", "dsh-cache.json"), force,
+    })),
   ]);
   // Store upstream fragments as a group, keyed by stable source/session hash.
   // Session browser performs the existing fragment merge once on read.

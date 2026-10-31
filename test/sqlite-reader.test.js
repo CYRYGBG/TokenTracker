@@ -18,6 +18,38 @@ function tempDbPath() {
   return dbPath;
 }
 
+test("opt-in Node SQLite skips CLI serialization and stays read-only", (t) => {
+  const dbPath = tempDbPath(); t.after(() => fs.rmSync(path.dirname(dbPath), { recursive: true, force: true }));
+  let closed = false;
+  const rows = readSqliteJsonRows(dbPath, "SELECT 7 AS n", {
+    preferNode: true, throwOnReadFailure: true,
+    execFileSync() { assert.fail("must not start CLI when Node succeeds"); },
+    requireFn: () => ({ DatabaseSync: class {
+      constructor(file, opts) { assert.equal(file, dbPath); assert.deepEqual(opts, { readOnly: true }); }
+      prepare() { return { all: () => [{ n: 7 }] }; }
+      close() { closed = true; }
+    } }),
+  });
+  assert.deepEqual(rows, [{ n: 7 }]); assert.equal(closed, true);
+});
+
+test("opt-in Node reader falls back only when the runtime lacks SQLite", (t) => {
+  const dbPath = tempDbPath(); t.after(() => fs.rmSync(path.dirname(dbPath), { recursive: true, force: true }));
+  const options = {
+    preferNode: true, throwOnReadFailure: true,
+    requireFn: () => { throw new Error("No such built-in module: node:sqlite"); },
+    execFileSync: () => '[{"n":9}]',
+  };
+  assert.deepEqual(readSqliteJsonRows(dbPath, "SELECT 9 AS n", options), [{ n: 9 }]);
+  for (const message of ["database is locked", "database disk image is malformed", "no such table: message"]) {
+    assert.throws(() => readSqliteJsonRows(dbPath, "SELECT 9 AS n", {
+      ...options,
+      requireFn: () => { throw new Error(message); },
+      execFileSync: () => { assert.fail("operational failures must not execute twice"); },
+    }), (error) => error.nodeSqliteError?.message === message);
+  }
+});
+
 test("readSqliteJsonRows uses sqlite3 CLI first", () => {
   const dbPath = tempDbPath();
   const rows = readSqliteJsonRows(dbPath, "SELECT 1 AS n", {

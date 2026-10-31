@@ -1,0 +1,117 @@
+{
+  "checkedAt": "2026-10-31T02:06:06.614661+00:00",
+  "logDir": "/var/folders/_b/79x4s4x92x34wvc_zgsnrp2c0000gn/T/tt-fork-verification-45WttJ",
+  "results": [
+    {
+      "name": "node-tests",
+      "exitCode": 0,
+      "signal": null,
+      "durationMs": 52217,
+      "log": "/tmp/tt-1420-node-final2.log",
+      "summary": [
+        "\u2139 tests 3737",
+        "\u2139 pass 3720",
+        "\u2139 fail 0",
+        "\u2139 cancelled 0",
+        "\u2139 skipped 17",
+        "\u2139 duration_ms 81882.050041"
+      ],
+      "note": "Initial stale SDK assertions updated for origin build repair. One pre-existing Antigravity 100ms timing assertion failed under concurrency=4; isolated retry passed, final concurrency=2 full suite passed without weakening that assertion."
+    },
+    {
+      "name": "dashboard-tests",
+      "exitCode": 0,
+      "signal": null,
+      "durationMs": 45017,
+      "log": "/var/folders/_b/79x4s4x92x34wvc_zgsnrp2c0000gn/T/tt-fork-verification-45WttJ/dashboard-tests.log",
+      "summary": [
+        " Test Files  150 passed (150)",
+        "      Tests  1290 passed (1290)",
+        "   Duration  44.37s (transform 1.53s, setup 3.80s, collect 23.04s, tests 20.64s, environment 21.11s, prepare 3.57s)"
+      ]
+    },
+    {
+      "name": "typecheck",
+      "exitCode": 0,
+      "signal": null,
+      "durationMs": 1172,
+      "log": "/var/folders/_b/79x4s4x92x34wvc_zgsnrp2c0000gn/T/tt-fork-verification-45WttJ/typecheck.log",
+      "summary": []
+    },
+    {
+      "name": "validate-copy",
+      "exitCode": 0,
+      "signal": null,
+      "durationMs": 223,
+      "log": "/var/folders/_b/79x4s4x92x34wvc_zgsnrp2c0000gn/T/tt-fork-verification-45WttJ/validate-copy.log",
+      "summary": []
+    },
+    {
+      "name": "validate-locale",
+      "exitCode": 0,
+      "signal": null,
+      "durationMs": 163,
+      "log": "/var/folders/_b/79x4s4x92x34wvc_zgsnrp2c0000gn/T/tt-fork-verification-45WttJ/validate-locale.log",
+      "summary": []
+    },
+    {
+      "name": "validate-guardrails",
+      "exitCode": 0,
+      "signal": null,
+      "durationMs": 230,
+      "log": "/var/folders/_b/79x4s4x92x34wvc_zgsnrp2c0000gn/T/tt-fork-verification-45WttJ/validate-guardrails.log",
+      "summary": []
+    },
+    {
+      "name": "validate-versions",
+      "exitCode": 0,
+      "signal": null,
+      "durationMs": 143,
+      "log": "/var/folders/_b/79x4s4x92x34wvc_zgsnrp2c0000gn/T/tt-fork-verification-45WttJ/validate-versions.log",
+      "summary": []
+    },
+    {
+      "name": "validate-ui-hardcode",
+      "exitCode": 0,
+      "signal": null,
+      "durationMs": 209,
+      "log": "/var/folders/_b/79x4s4x92x34wvc_zgsnrp2c0000gn/T/tt-fork-verification-45WttJ/validate-ui-hardcode.log",
+      "summary": []
+    },
+    {
+      "name": "validate-bot-frames",
+      "exitCode": 0,
+      "signal": null,
+      "durationMs": 278,
+      "log": "/var/folders/_b/79x4s4x92x34wvc_zgsnrp2c0000gn/T/tt-fork-verification-45WttJ/validate-bot-frames.log",
+      "summary": []
+    },
+    {
+      "name": "dashboard-build",
+      "exitCode": 0,
+      "signal": null,
+      "durationMs": 3451,
+      "log": "/var/folders/_b/79x4s4x92x34wvc_zgsnrp2c0000gn/T/tt-fork-verification-45WttJ/dashboard-build.log",
+      "summary": [
+        "\u2713 built in 2.99s"
+      ]
+    }
+  ],
+  "version": "1.4.20",
+  "additionalChecks": {
+    "windowsLogicTests": {
+      "passed": 172,
+      "failed": 0
+    },
+    "macosBuildPythonTests": {
+      "passed": 6,
+      "failed": 0
+    },
+    "bundledNode22Targeted": {
+      "total": 111,
+      "passed": 107,
+      "skipped": 4,
+      "failed": 0
+    }
+  }
+}

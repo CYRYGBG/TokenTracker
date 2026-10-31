@@ -1,5 +1,40 @@
 # STATUS — 个人同步版事实状态
 
+## 2026-10-31 personal-v1.4.20 实现与回归完成，双平台发布进行中
+
+- 用户明确授权完成磁盘读写/能耗优化和 WebDAV 180 秒超时修复，并以 macOS/Windows 应用内更新交付。origin 构建修复三提交已快进纳入；upstream `e28c90dd518b328315979b965391102ec1f026e0` 新增官网徽标变动不纳入。本轮不操作 Actions，保留另一会话已获授权的个人 Mac 构建状态。
+- ZCode 显式优先 Node 只读 SQLite，运行时缺模块才回退 CLI，锁定/SQL/权限等操作失败不重复执行。SQL 仅投影统计/去重/归属字段，将既有 native/legacy 历史分界保守地下推到数字时间条件；秒/毫秒兼容，特殊文本仍由原 JS 过滤。其他 provider 的默认 SQLite 顺序不改。
+- 历史构建移到工作线程并合并在途请求，强制刷新排在普通构建之后，跨进程租约串行合并，保留已删除源的历史；读取保存价格表与同步自定义价格，后台线程不额外刷新网络价格。Harness 按文件身份/大小/纳秒修改信息缓存归一化元数据，未变化时不再解压，不存正文，源修订/替换和强制刷新会失效。
+- 真实库只读统计字段对照一致；该 Node 查询场景原耗时约 32 秒、实际写入约 103 MB，新路径冷/热约 1.9/0.18 秒、实际写入约 7 MB，峰值物理占用约 343→159 MB。仅为查询进程的测量，不外推整机耗电或 SSD 寿命；详细私人来源/哈希未上传。公开安全指标见 `evidence/performance-1.4.20.json`。
+- Node 最终全量 3737（3720 通过、17 跳过、0 失败，concurrency=2）；首次发现 origin 旧 SDK 修复遗留两处测试断言，已改为验证材料兼容回退且禁止 glassEffect，未恢复宠物入口。另一轮 concurrency=4 的旧 Antigravity 100ms 预算断言偶发失败，单文件 13 通过/4 跳过，未放宽断言；最终全量已绿。新增线程响应性、自定义价格、双进程保史、缓存命中/同大小改写、SQL 元数据/时间边界及原 Node 20 回退测试通过。
+- Dashboard 全量 150 文件/1290 项通过，typecheck/copy/locale/guardrails/versions/ui-hardcode/bot-frames 和生产构建通过；C# Windows 逻辑/更新测试 172 通过；实际安装包 Node 22 定向 111 项（107 通过、4 跳过）通过；构建 Python 6 项通过。构建/发布状态待本节继续补记；当前未覆盖安装本机应用。
+
+## 2026-10-30 WebDAV 超时延长与磁盘读写优化计划（本地完成，未发布）
+
+- 用户要求制定具体后续磁盘优化方案，并反馈自动同步 30 秒超时过短。已核对该 30 秒为 WebDAV 单次网络请求预算，与本地 SQLite CLI 的 30 秒超时独立；前端 sync-now 没有额外 30 秒 AbortController。经代理 fetch upstream，仍为 `2ea4010899cc6681670110f2691c07fd7bbf8ce6`，无新增相关改动。
+- WebDAV 默认请求预算由 30 秒延长至 180 秒，自动同步、手动同步及连接测试统一生效；整轮多文件同步没有 30 秒总截止时间。保留显式请求时限与现有退避、认证暂停、单轮互斥、校验失败不导入等约定。
+- 修复 GET/PROPFIND 已收到响应头但正文超时或断线时，错误未被结构化的问题；现在正文读取沿用该请求的截止信号，保存 WEBDAV_TIMEOUT/WEBDAV_NETWORK、实际预算和操作类型。英文及简繁体文案改成“请求未完成”，同时适用于等待响应与文件传输阶段。
+- Node 定向 54 项通过（WebDAV 全组、两设备收敛/幂等/恢复、凭证、历史保留和 API 安全）；实际已安装包内 Node 22 运行网络客户端/调度 17 项通过。新增虚拟时钟 31 秒响应、真实回环服务器正文卡住、列表正文超时/下载断线、慢请求期间手动/自动同步互斥，以及失败退避/恢复回归。未接触真实网盘配置或上传测试数据。
+- Dashboard 同步范围/设置页 13 项、错误说明 1 项、typecheck、copy/locale 校验通过；首次 Vitest 命令从根目录启动时线程上下限冲突，修正为 dashboard 目录并指定 min=1/max=2 后通过。copy 校验保留已有未使用键警告，无新增校验错误。
+- 已新增 `PERFORMANCE_PLAN.md`：依次消除慢 CLI 失败后重读、缩小旧消息查询载荷、合并扫描/复用未变化元数据，再减少无变化写入/唤醒；逐步核对 Token/费用/去重/源删保史，使用实际 I/O 计数而非将 dirty-memory 事件当 SSD 写入量。性能优化本轮仍为方案，未宣称已修复能耗。
+- 本轮未改版本号、未改 SQLite/采集器、未构建或发布安装包、未推送、未覆盖安装本机应用；当前安装的 1.4.19 尚未获得 180 秒修复。下一步可按性能方案逐项实施与量化验证后组装新版本；Actions 保持禁用，无外部定时任务。
+
+## 2026-10-30 macOS 大量能耗排查（已定位，尚未修改或分发修复）
+
+- 核对本机实际运行安装版为 1.4.19。经代理 fetch upstream，仍为 `2ea4010899cc6681670110f2691c07fd7bbf8ce6`。本轮只读源码审查、临时进程采样和只读数据库对照，未修改采集逻辑、用户配置、凭证、已安装应用或发布资产；未新建后台服务。
+- 空闲 `top` 四次采样中 app/WebKit 基本为 0%，后台 Node 为 0–0.2%；Activity Monitor 当时当前能耗影响 0–0.1，但 12 小时电源为 332.10。`pmset` 未发现个人版持有睡眠阻止断言。低空闲 CPU 不能排除周期子进程负载。
+- 330 秒临时采样捕获后台 `sqlite3` 多次接近一个核心满载；直接父进程既有 serve Node，也有 serve 启动的本地 sync Node。捕获 SQL 指向 ZCode 数据库：原生 model_usage 读取及旧 message 表 `json_extract(data,'$.role')` 过滤、完整 data 输出和 `ORDER BY time_created`。查询计划为 `SCAN message` + `USE TEMP B-TREE FOR ORDER BY`。不将所有系统 WebKit/Node 进程归到本应用。
+- 系统本日磁盘写入诊断明确记录安装包内 Node PID 75191 在 5060 秒窗口中有 8589.94 MB file-backed memory dirtied，采样堆栈包含 `node::sqlite::StatementSync::All` 和 `pwrite`。这是系统写入诊断口径，不等同于用户统计文件增大 8.6 GB。常驻 Node 空闲物理占用约 79 MB、历史峰值约 705.8 MB；未发现持续前端动画满载证据。
+- 关键对照：以实际打包 Node、同一只读 SQL 和本机数据执行现有 sqlite-reader 路径，CLI 在 30009 ms 因 ETIMEDOUT 终止，随后自动退回 Node SQLite，同一读取总计 31518 ms；结果 19960 行、data 约 59.6 MB。直接 Node SQLite 两次同 SQL 分别 1819/564 ms（含结果哈希），行数、载荷字节数及结果 SHA256 一致。已验证“先失败 30 秒再重读”的浪费；尚未修改全局 SQLite 选择顺序，不能称已修复。
+- 次要开销：fork DSH 会话适配每次读取 12 个源文件，未改动时仍解压/重算，两次约 1005/839 ms、约 7.6 MB 压缩输入。会话历史收集与用量采集是独立调用方；analytics 自身已有 per-home single-flight/TTL/按文件复用，不能一概称所有工具每次全量重扫。macOS 启动环境明确为 APP_SHELL=macos，已排除 serve 的 personal/windows 一分钟兜底与原生五分钟循环同时启用这一假设。状态读取还会反复通过 security 子进程查询 Keychain，但本轮非主要 CPU 峰值来源。
+- 私有证据仅在 gitignored `dist/energy-review.noindex/`（idle-top、process-samples/summary、sqlite-baseline、node-sqlite-comparison、dsh-baseline、Activity Monitor 截图），原始系统诊断未上传。临时采样/对照进程已结束，Activity Monitor 恢复原先无筛选的磁盘页。本轮未跑全量测试或构建，因为应用源码未修改。
+- 后续修复重点：在兼容 Node 20 与既有 SQL/错误语义的前提下，避免已支持 Node SQLite 的安装版先重复执行慢 CLI；缩小 ZCode 旧格式历史读取、复用未变化的会话结果。必须补 SQLite 失败/锁定/不同运行时回归，并核对跨设备统计、连续两次采集幂等、源删保史及修复前后 CPU/写入证据后，才可声称节能修复并分发。当前不以拉长刷新间隔或关闭额度功能掩盖问题。
+
+## 2026-10-30 跨设备项目识别只读核对
+
+- 核对 1.4.19 实际实现：从工具记录的工作目录向上找 Git 配置，优先 origin、否则首个 remote；标准化 SSH/HTTPS、去凭证与 .git，fork 同步标识按规范化仓库引用生成，分支/本地路径不作为同仓库跨设备匹配依据。无可识别仓库引用时保留设备隔离的本地身份，或无法形成项目桶而留在未归属用量，不通过提示词/代码相似度推断。
+- 手动 project_alias_add/remove 规则随 prefs 同步；读取时应用别名并保留 original_project_key，可取消归并恢复来源。不同 origin、镜像/SSH 主机别名及工具缺少目录证据会影响自动关联；同仓库的分支/子目录通常共享项目身份。本轮只读审查，未修改应用、用户配置或已发布资产，未重新构建/发布。
+
 ## 2026-10-30 Windows 发起 macOS 构建修复（已构建验证）
 
 - 完成：修复提交 `10a0995a`、`beb600c9` 已推送个人发布分支。第二轮 [run 41046723933](https://github.com/CYRYGBG/TokenTracker/actions/runs/41046723933) 使用 macos-15 arm64，2 分 13 秒完整通过前端/EmbeddedServer/真实 Vortex/Swift Release/DMG/版本与签名检查及附件上传；源码固定 `beb600c901b65038ded36a3bb4b6a7dbbdc124f1`。不是仅修改脚本或只排队成功。

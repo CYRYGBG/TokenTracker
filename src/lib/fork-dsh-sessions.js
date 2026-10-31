@@ -1,7 +1,13 @@
 // Metadata adapter over the upstream Harness decoder and token normalization.
 const path = require("node:path");
 const os = require("node:os");
-async function scanDshSessions(home = os.homedir()) {
+const fs = require("node:fs/promises");
+const crypto = require("node:crypto");
+const durable = require("./fork-store");
+function identity(stat) {
+  return [stat.dev, stat.ino, stat.size, stat.mtimeNs, stat.ctimeNs].map(String).join(":");
+}
+async function scanDshSessions(home = os.homedir(), { cacheFile, force = false } = {}) {
   const rollout = require("./rollout");
   const { sessionHash } = require("./session-analytics");
   const pricing = require("./pricing");
@@ -11,12 +17,36 @@ async function scanDshSessions(home = os.homedir()) {
       : { ...process.env, TOKENTRACKER_DSH_HOME: path.join(home, ".dsh") };
   const files = await rollout.resolveDshSessionFiles(env);
   const sessions = [];
+  let prior = {};
+  if (cacheFile) {
+    try { prior = await durable.read(cacheFile, {}); }
+    catch (error) { if (!(error instanceof SyntaxError)) throw error; }
+  }
+  const cache = { version: 1, files: {} };
+  const reprice = (row) => {
+    row.model_usage = row.model_usage.map((m) => ({ ...m, cost_usd: pricing.computeRowCost({ ...m, source: "dsh" }) }));
+    row.cost_usd = row.model_usage.reduce((sum, m) => sum + m.cost_usd, 0);
+    return row;
+  };
   for (const file of files) {
     try {
+      const key = crypto.createHash("sha256").update(path.resolve(file)).digest("hex");
+      const signature = identity(await fs.stat(file, { bigint: true }));
+      const saved = prior.version === 1 ? prior.files?.[key] : null;
+      if (!force && saved?.signature === signature) {
+        cache.files[key] = saved;
+        if (saved.row) sessions.push(reprice(structuredClone(saved.row)));
+        continue;
+      }
       const result = rollout.extractDshSessionUsage(
         await rollout.readDshSessionText(file),
       );
-      if (!result.complete || !result.deltas.length) continue;
+      if (!result.complete) continue;
+      const unchanged = signature === identity(await fs.stat(file, { bigint: true }));
+      if (!result.deltas.length) {
+        if (unchanged) cache.files[key] = { signature, row: null };
+        continue;
+      }
       const id = result.sessionId || path.basename(path.dirname(file));
       const byModel = new Map(),
         byHour = new Map();
@@ -55,7 +85,7 @@ async function scanDshSessions(home = os.homedir()) {
         ...r,
         cost_usd: pricing.computeRowCost({ ...r, source: "dsh" }),
       }));
-      sessions.push({
+      const row = {
         source: "dsh",
         session_id: id,
         session_hash: sessionHash("dsh", id),
@@ -73,12 +103,15 @@ async function scanDshSessions(home = os.homedir()) {
         duration_ms: 0,
         usage_precision: "reported",
         analysis_availability: "usage-only",
-      });
+      };
+      sessions.push(row);
+      if (unchanged) cache.files[key] = { signature, row };
     } catch (e) {
       if (e.code === "EACCES" || e.code === "ENOENT") continue;
       throw e;
     }
   }
+  if (cacheFile && JSON.stringify(prior) !== JSON.stringify(cache)) await durable.write(cacheFile, cache);
   return sessions;
 }
 module.exports = { scanDshSessions };

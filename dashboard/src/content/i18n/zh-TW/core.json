@@ -962,7 +962,7 @@
   "reports.empty": "本期暫無用量紀錄。",
   "reports.failed": "報告載入失敗，請重新整理重試。",
   "reports.incomplete": "部分資料不完整或在讀取時發生變化，暫不顯示比較結果。請重新整理重試。",
-  "fork.sync.timeout_seconds": "網碟請求在 {{seconds}} 秒內未回應。請檢查網路或代理後重試。",
+  "fork.sync.timeout_seconds": "網碟請求在 {{seconds}} 秒內未完成。請檢查網路或代理後重試。",
   "fork.sync.timeout": "網碟請求逾時。請檢查網路或代理後重試。",
   "fork.sync.unauthorized": "網碟拒絕存取。請在編輯中檢查使用者名稱、應用程式密碼和目錄權限。",
   "fork.sync.rate_limited": "網碟請求過於頻繁，已延後自動重試，請稍後再試。",

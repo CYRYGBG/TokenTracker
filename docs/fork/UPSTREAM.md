@@ -1,5 +1,11 @@
 # UPSTREAM 跟踪与 Fork 改动地图
 
+## 2026-10-31 常驻性能与同步请求时限检查点
+
+经代理 fetch upstream/main 至 `e28c90dd`（完整 SHA 见构建/发布证据）；相对 `2ea40108` 的 #932/#933/#935 均为官网徽标与链接，不涉及本轮 SQLite/历史构建/WebDAV 超时，不采纳。origin 分支新增的 `10a0995a`、`beb600c9`、`799038a2` 构建修复已快进复用，保留既有发布历史；本轮在 Mac 本地双平台构建，不发起或修改 Actions。
+
+性能适配放在独立 `fork-zcode-metadata.js` 与 `fork-session-worker.js`：复用上游 ZCode/OpenCode 读取、归一化、去重与历史分界，仅减少 SQL 载荷、显式 opt-in Node 只读读取和扫描调度；Harness 缓存仅保存统计元数据。rollout.js 只透传查询适配选项，其他 provider 默认 SQLite 路径不变。WebDAV 请求默认 180 秒并统一正文错误分类，不更改字段白名单或导入去重。
+
 ## 2026-10-30 Windows → macOS 构建修复检查点
 
 本轮开始已 `git fetch upstream`，最新仍为 `2ea4010899cc6681670110f2691c07fd7bbf8ce6`，与下节记录一致。本轮不集成统计/额度变更，仅修个人构建链。`scripts/build-personal-macos.py` 增加宿主/SDK 前检、完整准备入口与可恢复的校验下载；个人 workflow 使用受支持 macos-15 arm64。旧 `ClawdCompanionView.swift` 的 macOS26 glassEffect 分支移除，统一沿用已有 material fallback，避免 SDK15 编译未知 API；不恢复宠物入口。实际 GitHub Swift Release/DMG 签名及下载哈希验证通过，证据见 STATUS 与 macos-build-repair-2026-10-30.json。官方后台/发布 workflow 继续禁用。

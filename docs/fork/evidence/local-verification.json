@@ -1,110 +1,117 @@
 {
-  "checkedAt": "2026-10-27T16:54:39.310Z",
-  "logDir": "<local-temp>/tt-fork-verification-NjkPpg",
+  "checkedAt": "2026-10-31T02:06:06.614661+00:00",
+  "logDir": "/var/folders/_b/79x4s4x92x34wvc_zgsnrp2c0000gn/T/tt-fork-verification-45WttJ",
   "results": [
     {
       "name": "node-tests",
       "exitCode": 0,
       "signal": null,
-      "durationMs": 373621,
-      "log": "<local-temp>/tt-fork-verification-NjkPpg/node-tests.log",
+      "durationMs": 52217,
+      "log": "/tmp/tt-1420-node-final2.log",
       "summary": [
-        "✔ the model dictionary is built in first-appearance order and emitted with the rows (0.257083ms)",
-        "  ✔ marks done without a rebuild when the #187 repair rebuilt in the same sync (19.494375ms)",
-        "ℹ tests 3702",
-        "ℹ pass 3685",
-        "ℹ fail 0",
-        "ℹ cancelled 0",
-        "ℹ skipped 17",
-        "ℹ duration_ms 373555.363833"
-      ]
+        "\u2139 tests 3737",
+        "\u2139 pass 3720",
+        "\u2139 fail 0",
+        "\u2139 cancelled 0",
+        "\u2139 skipped 17",
+        "\u2139 duration_ms 81882.050041"
+      ],
+      "note": "Initial stale SDK assertions updated for origin build repair. One pre-existing Antigravity 100ms timing assertion failed under concurrency=4; isolated retry passed, final concurrency=2 full suite passed without weakening that assertion."
     },
     {
       "name": "dashboard-tests",
       "exitCode": 0,
       "signal": null,
-      "durationMs": 347928,
-      "log": "<local-temp>/tt-fork-verification-NjkPpg/dashboard-tests.log",
+      "durationMs": 45017,
+      "log": "/var/folders/_b/79x4s4x92x34wvc_zgsnrp2c0000gn/T/tt-fork-verification-45WttJ/dashboard-tests.log",
       "summary": [
-        " Test Files  145 passed (145)",
-        "      Tests  1260 passed (1260)",
-        "   Duration  346.99s (transform 3.64s, setup 9.76s, collect 524.37s, tests 45.28s, environment 57.42s, prepare 15.34s)"
+        " Test Files  150 passed (150)",
+        "      Tests  1290 passed (1290)",
+        "   Duration  44.37s (transform 1.53s, setup 3.80s, collect 23.04s, tests 20.64s, environment 21.11s, prepare 3.57s)"
       ]
     },
     {
       "name": "typecheck",
       "exitCode": 0,
       "signal": null,
-      "durationMs": 2109,
-      "log": "<local-temp>/tt-fork-verification-NjkPpg/typecheck.log",
+      "durationMs": 1172,
+      "log": "/var/folders/_b/79x4s4x92x34wvc_zgsnrp2c0000gn/T/tt-fork-verification-45WttJ/typecheck.log",
       "summary": []
     },
     {
       "name": "validate-copy",
       "exitCode": 0,
       "signal": null,
-      "durationMs": 413,
-      "log": "<local-temp>/tt-fork-verification-NjkPpg/validate-copy.log",
+      "durationMs": 223,
+      "log": "/var/folders/_b/79x4s4x92x34wvc_zgsnrp2c0000gn/T/tt-fork-verification-45WttJ/validate-copy.log",
       "summary": []
     },
     {
       "name": "validate-locale",
       "exitCode": 0,
       "signal": null,
-      "durationMs": 307,
-      "log": "<local-temp>/tt-fork-verification-NjkPpg/validate-locale.log",
+      "durationMs": 163,
+      "log": "/var/folders/_b/79x4s4x92x34wvc_zgsnrp2c0000gn/T/tt-fork-verification-45WttJ/validate-locale.log",
       "summary": []
     },
     {
       "name": "validate-guardrails",
       "exitCode": 0,
       "signal": null,
-      "durationMs": 382,
-      "log": "<local-temp>/tt-fork-verification-NjkPpg/validate-guardrails.log",
+      "durationMs": 230,
+      "log": "/var/folders/_b/79x4s4x92x34wvc_zgsnrp2c0000gn/T/tt-fork-verification-45WttJ/validate-guardrails.log",
       "summary": []
     },
     {
       "name": "validate-versions",
       "exitCode": 0,
       "signal": null,
-      "durationMs": 247,
-      "log": "<local-temp>/tt-fork-verification-NjkPpg/validate-versions.log",
+      "durationMs": 143,
+      "log": "/var/folders/_b/79x4s4x92x34wvc_zgsnrp2c0000gn/T/tt-fork-verification-45WttJ/validate-versions.log",
       "summary": []
     },
     {
       "name": "validate-ui-hardcode",
       "exitCode": 0,
       "signal": null,
-      "durationMs": 351,
-      "log": "<local-temp>/tt-fork-verification-NjkPpg/validate-ui-hardcode.log",
+      "durationMs": 209,
+      "log": "/var/folders/_b/79x4s4x92x34wvc_zgsnrp2c0000gn/T/tt-fork-verification-45WttJ/validate-ui-hardcode.log",
       "summary": []
     },
     {
       "name": "validate-bot-frames",
       "exitCode": 0,
       "signal": null,
-      "durationMs": 435,
-      "log": "<local-temp>/tt-fork-verification-NjkPpg/validate-bot-frames.log",
+      "durationMs": 278,
+      "log": "/var/folders/_b/79x4s4x92x34wvc_zgsnrp2c0000gn/T/tt-fork-verification-45WttJ/validate-bot-frames.log",
       "summary": []
     },
     {
       "name": "dashboard-build",
       "exitCode": 0,
       "signal": null,
-      "durationMs": 6483,
-      "log": "<local-temp>/tt-fork-verification-NjkPpg/dashboard-build.log",
+      "durationMs": 3451,
+      "log": "/var/folders/_b/79x4s4x92x34wvc_zgsnrp2c0000gn/T/tt-fork-verification-45WttJ/dashboard-build.log",
       "summary": [
-        "✓ built in 5.85s"
+        "\u2713 built in 2.99s"
       ]
     }
   ],
-  "previousAttempts": [
-    {
-      "description": "Initial run: stale source-pattern assertions, version/UI guard failures and timeout/performance failures during an interrupted long run. Relevant assertions updated for the requested personal channel; targeted retry and full retry passed.",
-      "nodeFailures": 5,
-      "nodeCancelled": 1,
-      "dashboardFailures": 1,
-      "retryPassed": true
+  "version": "1.4.20",
+  "additionalChecks": {
+    "windowsLogicTests": {
+      "passed": 172,
+      "failed": 0
+    },
+    "macosBuildPythonTests": {
+      "passed": 6,
+      "failed": 0
+    },
+    "bundledNode22Targeted": {
+      "total": 111,
+      "passed": 107,
+      "skipped": 4,
+      "failed": 0
     }
-  ]
+  }
 }

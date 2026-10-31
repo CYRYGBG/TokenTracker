@@ -5521,11 +5521,12 @@ function opencodeDbIncrementalPredicate(alias, watermark) {
   return clauses.length > 0 ? ` AND (${clauses.join(" OR ")})` : "";
 }
 
-function buildV1Sql(watermark = null) {
+function buildV1Sql(watermark = null, metadataOnly = false, legacyBeforeMs = null) {
+  const data = metadataOnly ? `${require("./fork-zcode-metadata").usageMetadataSql("data")} AS data` : "data";
   return (
-    `SELECT rowid AS row_id, id, session_id, time_updated, data FROM message ` +
+    `SELECT rowid AS row_id, id, session_id, time_updated, ${data} FROM message ` +
     `WHERE json_extract(data, '$.role') = 'assistant'` +
-    `${opencodeDbIncrementalPredicate("", watermark)} ORDER BY time_created ASC`
+    `${opencodeDbIncrementalPredicate("", watermark)}${require("./fork-zcode-metadata").legacyBeforeSql("time_updated", legacyBeforeMs)} ORDER BY time_created ASC`
   );
 }
 
@@ -5533,7 +5534,8 @@ function buildV1Sql(watermark = null) {
 // project directory for downstream attribution; when it does not (type B
 // without session_v2, or an exotic fork) the join and directory column are
 // omitted and tokens are counted as-is.
-function buildV2Sql(sessionTable, watermark = null) {
+function buildV2Sql(sessionTable, watermark = null, metadataOnly = false, legacyBeforeMs = null) {
+  const data = metadataOnly ? require("./fork-zcode-metadata").usageMetadataSql("sm.data") : "sm.data";
   const joinClause = sessionTable
     ? `LEFT JOIN ${sessionTable} s ON s.id = sm.session_id `
     : "";
@@ -5542,10 +5544,10 @@ function buildV2Sql(sessionTable, watermark = null) {
     : "";
   return (
     `SELECT sm.rowid AS row_id, sm.id AS id, sm.session_id AS session_id, sm.time_updated AS time_updated, ` +
-    `${directorySelect}sm.data AS data ` +
+    `${directorySelect}${data} AS data ` +
     `FROM session_message sm ${joinClause}` +
     `WHERE sm.type = 'assistant'` +
-    `${opencodeDbIncrementalPredicate("sm.", watermark)} ORDER BY sm.time_created ASC`
+    `${opencodeDbIncrementalPredicate("sm.", watermark)}${require("./fork-zcode-metadata").legacyBeforeSql("sm.time_updated", legacyBeforeMs)} ORDER BY sm.time_created ASC`
   );
 }
 
@@ -5761,7 +5763,7 @@ function readOpencodeDbMessagesIncremental(dbPath, previousCursor = null, sqlite
     const v1 = readCursorGeneration({
       table: "message",
       isV2: false,
-      sql: buildV1Sql,
+      sql: (watermark) => buildV1Sql(watermark, sqliteOptions.usageMetadataOnly === true, sqliteOptions.legacyBeforeMs),
     });
     if (v1) {
       appendRows(v1.rows, false, out);
@@ -5772,7 +5774,7 @@ function readOpencodeDbMessagesIncremental(dbPath, previousCursor = null, sqlite
       const v2 = readCursorGeneration({
         table: "session_message",
         isV2: true,
-        sql: (watermark) => buildV2Sql(probe.sessionTable, watermark),
+        sql: (watermark) => buildV2Sql(probe.sessionTable, watermark, sqliteOptions.usageMetadataOnly === true, sqliteOptions.legacyBeforeMs),
       });
       if (v2) {
         appendRows(v2.rows, true, out);
@@ -6155,16 +6157,20 @@ function readZcodeNativeUsageMessages(dbPath, sqliteOptions = {}, { propagateRea
 // the new table cannot make older usage disappear from TokenTracker.
 function readZcodeDbMessages(dbPath, sqliteOptions = {}, { propagateReadFailure = false } = {}) {
   if (!dbPath || !fssync.existsSync(dbPath)) return [];
+  sqliteOptions = { preferNode: !sqliteOptions.execFileSync, usageMetadataOnly: true, ...sqliteOptions };
   const nativeMessages = readZcodeNativeUsageMessages(dbPath, sqliteOptions, { propagateReadFailure });
-  const legacyMessages = readOpencodeDbMessages(dbPath, sqliteOptions, { propagateReadFailure })
+  const nativeStartMs = (nativeMessages || []).reduce((earliest, message) => {
+    const timestampMs = coerceEpochMs(message?.timeUpdated);
+    return timestampMs > 0 ? Math.min(earliest, timestampMs) : earliest;
+  }, Number.POSITIVE_INFINITY);
+  const legacyOptions = { ...sqliteOptions,
+    legacyBeforeMs: sqliteOptions.usageMetadataOnly && Number.isFinite(nativeStartMs) ? nativeStartMs : null,
+  };
+  const legacyMessages = readOpencodeDbMessages(dbPath, legacyOptions, { propagateReadFailure })
     .filter((message) => isZcodeNativeMessage(message.data))
     .map(normalizeZcodeLegacyMessage);
   if (nativeMessages === null) return legacyMessages;
 
-  const nativeStartMs = nativeMessages.reduce((earliest, message) => {
-    const timestampMs = coerceEpochMs(message?.timeUpdated);
-    return timestampMs > 0 ? Math.min(earliest, timestampMs) : earliest;
-  }, Number.POSITIVE_INFINITY);
   if (!Number.isFinite(nativeStartMs)) return legacyMessages;
 
   const historicalMessages = legacyMessages.filter((message) => {

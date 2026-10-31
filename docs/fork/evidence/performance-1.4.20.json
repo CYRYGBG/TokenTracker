@@ -1,0 +1,28 @@
+{
+  "version": "1.4.20",
+  "readOnlyComparison": true,
+  "statisticalFieldsMatch": true,
+  "privateDataNotIncluded": true,
+  "baseline": {
+    "elapsed_ms": 31993,
+    "disk_bytes_written": 102674432,
+    "physical_footprint_peak": 342923296
+  },
+  "optimized": [
+    {
+      "elapsed_ms": 1918,
+      "disk_bytes_written": 6959104,
+      "physical_footprint_peak": 159166824
+    },
+    {
+      "elapsed_ms": 176,
+      "disk_bytes_written": 6803456,
+      "physical_footprint_peak": 159281392
+    }
+  ],
+  "measurementScope": "Node query process only; kernel proc_pid_rusage disk I/O, not dirty-memory volume or whole-application battery drain. Rows/hashes and source identifiers remain private. Cold/warm OS cache changes wall/read results.",
+  "notes": [
+    "Preserves upstream normalization, fork-copy dedup, native/legacy time boundary and historic rows.",
+    "No source database writes/index creation, no source-body snapshots, no installed app replacement."
+  ]
+}

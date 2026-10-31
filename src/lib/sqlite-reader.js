@@ -93,17 +93,36 @@ function readSqliteJsonRows(dbPath, sql, options = {}) {
   const label = options.label || "local";
 
   let cliError = null;
+  let nodeSqliteError = null;
+  if (options.preferNode) {
+    try {
+      return readSqliteRowsWithNode(dbPath, sql, { requireFn });
+    } catch (err) {
+      nodeSqliteError = err;
+      // Operational failures (locks, permissions, malformed SQL) are not a
+      // reason to run the same expensive query a second time through the CLI.
+      if (!isNodeSqliteUnavailable(err)) {
+        if (options.throwOnReadFailure) {
+          const error = new Error(`Cannot read ${label} SQLite database at ${dbPath}: ${formatError(err)}`);
+          error.nodeSqliteError = err;
+          throw error;
+        }
+        return [];
+      }
+    }
+  }
   try {
     return readSqliteRowsWithCli(dbPath, sql, { execFileSync, timeout, maxBuffer, readOnly: Boolean(options.readOnly) });
   } catch (err) {
     cliError = err;
   }
 
-  let nodeSqliteError = null;
-  try {
-    return readSqliteRowsWithNode(dbPath, sql, { requireFn });
-  } catch (err) {
-    nodeSqliteError = err;
+  if (!options.preferNode) {
+    try {
+      return readSqliteRowsWithNode(dbPath, sql, { requireFn });
+    } catch (err) {
+      nodeSqliteError = err;
+    }
   }
 
   if (isSqliteCliUnavailable(cliError) && isNodeSqliteUnavailable(nodeSqliteError)) {

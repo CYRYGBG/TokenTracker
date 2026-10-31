@@ -29,10 +29,40 @@ test('sync persists safe timeout facts and clears failure after recovery', async
   });
   t.after(async()=>{scheduler.stop();await dav.close();await fs.rm(dir,{recursive:true,force:true});});
   assert.equal((await scheduler.syncNow()).code,'WEBDAV_TIMEOUT');
-  const failed=await scheduler.readState();assert.equal(failed.last_failure.timeout_ms,30000);assert.equal(failed.last_failure.operation,'MKCOL');assert.equal(failed.last_failure.message,undefined);
+  const failed=await scheduler.readState();assert.equal(failed.last_failure.timeout_ms,180000);assert.equal(failed.last_failure.operation,'MKCOL');assert.equal(failed.last_failure.message,undefined);
   assert.equal(JSON.stringify(failed).includes('sensitive-path'),false);
+  assert.ok(failed.backoff_until_ms > Date.parse(failed.last_failure.at));
+  assert.equal((await scheduler.cycle()).skipped, 'backoff');
   fail=false;assert.equal((await scheduler.syncNow()).ok,true);
   const recovered=await scheduler.readState();assert.equal(recovered.last_failure,null);assert.equal(recovered.partial,false);assert.ok(recovered.last_success_at);
+});
+
+test('a slow request keeps one sync cycle in flight without duplicate automatic or manual uploads', async (t) => {
+  const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'tt-sync-slow-'));
+  const dav = createWebDavTestServer(); await dav.listen();
+  let release, entered;
+  const gate = new Promise((resolve) => { release = resolve; });
+  const started = new Promise((resolve) => { entered = resolve; });
+  let first = true;
+  const scheduler = createWebdavScheduler({
+    trackerDir: dir,
+    getConfig: async () => ({ url: dav.baseUrl(), username: 'user', enabled: true }),
+    loadPassword: async () => 'app-password', machineIdProvider: async () => 'fixture-mac',
+    fetchImpl: async (...args) => {
+      if (first) { first = false; entered(); await gate; }
+      return fetch(...args);
+    },
+  });
+  t.after(async () => { release(); scheduler.stop(); await dav.close(); await fs.rm(dir, { recursive: true, force: true }); });
+  const active = scheduler.syncNow();
+  try {
+    await started;
+    assert.equal((await scheduler.cycle()).skipped, 'already-running');
+    assert.equal((await scheduler.syncNow()).skipped, 'already-running');
+    assert.equal(dav.state.requests.length, 0);
+  } finally { release(); }
+  assert.equal((await active).ok, true);
+  assert.ok((await scheduler.readState()).last_success_at);
 });
 
 test("automatic triggers share the selected interval across restarts; manual sync bypasses it", async (t) => {

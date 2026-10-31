@@ -30,6 +30,8 @@
 
 **跟进 upstream 的规则（重要）**：
 
+2026-10-31 用户明确授权：完成已定位的常驻磁盘读写/能耗优化与 WebDAV 180 秒超时修复，验证后推送源码并发布 personal-v1.4.20 的 macOS arm64 / Windows x64 安装包；交付入口为两平台个人版应用内更新。不向上游/npm 写入，不覆盖安装本机应用。本轮在 Mac 本地构建，不操作既有 Actions 开关。
+
 1. 开始新的开发/修复/升级前，先 `git fetch upstream`（需代理，见 §7），与 `UPSTREAM.md` 记录的已检查 SHA 比较；离线时明确记录"未能核对"，不把旧缓存当最新。重点看：采集器（`parse*Incremental`）、扫描路径、增量游标、会话/请求去重、子代理归属、模型识别、缓存/推理 Token 归一化、价格表、数据修复、macOS/Windows 兼容、安全修复。
 2. 优先复用上游相关改进，再补 fork 适配。可合并（merge）或挑选（cherry-pick），但需理解依赖顺序；不盲目 cherry-pick 数据修复，也不无条件合并整个 upstream/main。
 3. 对已共享/已推送的历史不重写、不 force push。
@@ -140,7 +142,7 @@ React → useNativeSettings() 订阅
 ## 7. 本机环境事实
 
 - GitHub 直连超时；git 与 npm（原生模块下载）都需代理 `127.0.0.1:7897`（本仓库 git 已配置 `http.proxy`；npm 用环境变量 `HTTP_PROXY/HTTPS_PROXY`）。
-- 当前会话开发机（2026-10-30）：Windows x64，仓库 `D:\04.Code\TokenTracker`；此前 macOS arm64 / CLT / CrossOver 构建证据属于另一台 Mac，不代表本机具备这些工具。macOS AppKit 应用、codesign 和 DMG 需要真实 macOS 构建机，Windows/WSL 安装 Swift 不能替代。Apple Silicon Mac 上可运行 `python3 scripts/build-personal-macos.py --prepare`；Windows 侧只能发起远端 Mac 构建。GitHub Actions 之前被用户禁用，未获重新授权不得恢复；不适用的上游官方定时/发布工作流继续禁用。macOS 产物为个人 ad-hoc 签名，未做开发者公证。
+- 当前会话开发机（2026-10-31）：macOS arm64，仓库 `/Users/chenyingrui/Code/Token Tracker`，可用 CLT 原生构建与 CrossOver/.NET Windows 交叉构建。2026-10-30 另一会话在 Windows x64 (`D:\04.Code\TokenTracker`) 修复并验证过远端 macOS 构建。Windows/WSL 的 Swift 不能替代 AppKit/codesign/DMG；构建通过也不等同 Windows 实机通过。仅个人 macOS Actions 曾获单独恢复授权，其他官方工作流保持禁用，本轮使用本地构建。macOS 产物为个人 ad-hoc 签名，未做开发者公证。
 - 版本三处同步（package.json / project.yml / csproj）规则保留，但**不触发任何发布动作**；fork 版本策略见 STATUS.md。
 
 ## 8. 上游发布流程的关系（必读）

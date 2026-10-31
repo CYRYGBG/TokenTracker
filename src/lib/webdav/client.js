@@ -10,7 +10,20 @@
 // - Every response includes `status` so callers can branch without throwing
 //   for expected outcomes (404 on first export, 405 on existing collection).
 
-const DEFAULT_TIMEOUT_MS = 30_000;
+// Per request, including the response body, not a deadline for the whole
+// multi-file sync cycle. Large snapshots on slower drives need more than 30s.
+const DEFAULT_TIMEOUT_MS = 3 * 60_000;
+
+function requestError(error, { method, path, timeoutMs, signal }) {
+  const timedOut = signal?.aborted || error?.name === "TimeoutError" || error?.name === "AbortError";
+  const wrapped = new Error(timedOut
+    ? `webdav ${method} ${path} timed out`
+    : `webdav ${method} ${path} failed: ${error?.message || error}`);
+  wrapped.code = timedOut ? "WEBDAV_TIMEOUT" : "WEBDAV_NETWORK";
+  if (timedOut) wrapped.timeout_ms = timeoutMs;
+  wrapped.operation = method;
+  return wrapped;
+}
 
 function joinUrlPath(...parts) {
   const joined = parts
@@ -56,7 +69,8 @@ class WebDavClient {
   }
 
   async request(path, { method = "GET", headers = {}, body = null, timeoutMs } = {}) {
-    const signal = AbortSignal.timeout(timeoutMs || this.timeoutMs);
+    const requestTimeoutMs = timeoutMs || this.timeoutMs;
+    const signal = AbortSignal.timeout(requestTimeoutMs);
     const url = `${this.base}${encodePath(joinUrlPath(path))}`;
     let res;
     try {
@@ -72,17 +86,7 @@ class WebDavClient {
         redirect: "error",
       });
     } catch (error) {
-      if (error?.name === "TimeoutError" || error?.name === "AbortError") {
-        const wrapped = new Error(`webdav ${method} ${path} timed out`);
-        wrapped.code = "WEBDAV_TIMEOUT";
-        wrapped.timeout_ms = timeoutMs || this.timeoutMs;
-        wrapped.operation = method;
-        throw wrapped;
-      }
-      const wrapped = new Error(`webdav ${method} ${path} failed: ${error?.message || error}`);
-      wrapped.code = "WEBDAV_NETWORK";
-      wrapped.operation = method;
-      throw wrapped;
+      throw requestError(error, { method, path, timeoutMs: requestTimeoutMs, signal });
     }
     const retryAfterHeader = res.headers?.get?.("retry-after");
     if (!["GET","PROPFIND"].includes(method)) await res.body?.cancel?.().catch(()=>{});
@@ -91,7 +95,19 @@ class WebDavClient {
       headers: res.headers,
       retryAfterMs: parseRetryAfterMs(retryAfterHeader),
       res,
+      signal,
+      timeoutMs: requestTimeoutMs,
     };
+  }
+
+  async readResponseText(out, path, method) {
+    try {
+      return await out.res.text();
+    } catch (error) {
+      // fetch resolves at the headers. The same deadline must still describe
+      // slow/stalled bodies correctly rather than becoming WEBDAV_ERROR.
+      throw requestError(error, { method, path, timeoutMs: out.timeoutMs, signal: out.signal });
+    }
   }
 
   // OPTIONS: returns { davClass, allowed } and caches it on `capabilities`.
@@ -151,7 +167,7 @@ class WebDavClient {
     if (out.status !== 207) {
       return { ok: false, status: out.status, retryAfterMs: out.retryAfterMs, entries: [] };
     }
-    const xml = await out.res.text();
+    const xml = await this.readResponseText(out, path, "PROPFIND");
     return { ok: true, notFound: false, entries: parsePropfindEntries(xml, this.base) };
   }
 
@@ -161,7 +177,7 @@ class WebDavClient {
     if (out.status !== 200) {
       return { ok: false, status: out.status, retryAfterMs: out.retryAfterMs, body: null };
     }
-    return { ok: true, notFound: false, body: await out.res.text() };
+    return { ok: true, notFound: false, body: await this.readResponseText(out, path, "GET") };
   }
 
   async put(path, content) {

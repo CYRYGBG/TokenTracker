@@ -1021,7 +1021,7 @@
   "reports.empty": "本期暂无用量记录。",
   "reports.failed": "报告加载失败，请刷新重试。",
   "reports.incomplete": "部分数据不完整或在读取时发生变化，暂不显示比较结果。请刷新重试。",
-  "fork.sync.timeout_seconds": "网盘请求在 {{seconds}} 秒内未响应。请检查网络或代理后重试。",
+  "fork.sync.timeout_seconds": "网盘请求在 {{seconds}} 秒内未完成。请检查网络或代理后重试。",
   "fork.sync.timeout": "网盘请求超时。请检查网络或代理后重试。",
   "fork.sync.unauthorized": "网盘拒绝访问。请在编辑中检查用户名、应用密码和目录权限。",
   "fork.sync.rate_limited": "网盘请求过于频繁，已延后自动重试，请稍后再试。",

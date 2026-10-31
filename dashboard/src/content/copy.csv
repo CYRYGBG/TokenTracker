@@ -2272,7 +2272,7 @@ reports.top_five,fork,ReportsPage,*,top_five,Top five by Tokens,,active
 reports.empty,fork,ReportsPage,*,empty,No usage recorded for this period.,,active
 reports.failed,fork,ReportsPage,*,failed,Report could not be loaded. Try refreshing.,,active
 reports.incomplete,fork,ReportsPage,*,incomplete,Some data is incomplete or changed during loading. Comparisons are withheld; refresh to retry.,,active
-fork.sync.timeout_seconds,fork,*,*,timeout_seconds,The drive did not respond within {{seconds}} seconds. Check your network or proxy and retry.,,active
+fork.sync.timeout_seconds,fork,*,*,timeout_seconds,The drive request did not complete within {{seconds}} seconds. Check your network or proxy and retry.,,active
 fork.sync.timeout,fork,*,*,timeout,The drive request timed out. Check your network or proxy and retry.,,active
 fork.sync.unauthorized,fork,*,*,unauthorized,"The drive rejected access. Check the username, app password and directory permissions in Edit.",,active
 fork.sync.rate_limited,fork,*,*,rate_limited,The drive is rate limiting requests. Automatic retries will wait; try again later.,,active

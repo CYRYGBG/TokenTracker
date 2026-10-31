@@ -447,7 +447,7 @@ test("macOS floating pet grows its host for multi-row usage bubbles", () => {
   );
   assert.match(
     companionSource,
-    /\.glassEffect\(\s*\.regular,\s*in: BubbleShape\(direction: \.down\)\s*\)/,
+    /\.fill\(\.regularMaterial\)/,
   );
   assert.doesNotMatch(
     companionSource,
@@ -532,7 +532,7 @@ test("native pet catalogs preserve legacy selections until the Node migration ru
   assert.match(windowsTraySource, /migrationComplete[\s\S]*new\[\] \{ root \}[\s\S]*new\[\] \{ root, legacyRoot \}/);
 });
 
-test("desktop pet tooltips stay readable and use native macOS glass when available", () => {
+test("desktop pet tooltips keep the SDK-compatible native material fallback", () => {
   assert.match(petPageSource, /width: "min\(340px, calc\(100% - 40px\)\)"/);
   assert.match(petPageSource, /borderRadius: 999/);
   assert.match(petPageSource, /rgba\(255,255,255,0\.18\)/);
@@ -551,9 +551,10 @@ test("desktop pet tooltips stay readable and use native macOS glass when availab
   assert.match(petPageSource, /pet:limits/);
   assert.match(companionSource, /lineLimit\(layout == \.floating \? 2 : 3\)/);
   assert.match(companionSource, /PetBubbleSurface/);
-  assert.match(companionSource, /\.glassEffect\(/);
+  assert.match(companionSource, /\.fill\(\.regularMaterial\)/);
+  assert.doesNotMatch(companionSource, /\.glassEffect\(/);
   assert.doesNotMatch(companionSource, /NSGlassEffectView/);
-  assert.match(companionSource, /#available\(macOS 26/);
+  assert.doesNotMatch(companionSource, /#available\(macOS 26/);
   assert.match(companionSource, /activePetLimits/);
   assert.match(companionSource, /petLimitAtLimit/);
   assert.match(companionSource, /floatingUsageContent/);

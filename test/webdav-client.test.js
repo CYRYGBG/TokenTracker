@@ -289,6 +289,67 @@ test("network failures wrap as WEBDAV_NETWORK and timeouts as WEBDAV_TIMEOUT", a
   await assert.rejects(() => slow.request("/x", { method: "GET" }), (error) => error.code === "WEBDAV_TIMEOUT" && error.timeout_ms === 1000 && error.operation === 'GET');
 });
 
+test("default request budget allows responses beyond thirty seconds", async (t) => {
+  t.mock.timers.enable({ apis: ["setTimeout"] });
+  const budgets = [];
+  t.mock.method(AbortSignal, "timeout", (ms) => {
+    budgets.push(ms);
+    const controller = new AbortController();
+    setTimeout(() => controller.abort(new DOMException("Timed out", "TimeoutError")), ms);
+    return controller.signal;
+  });
+  const client = new WebDavClient({
+    baseUrl: "https://example.invalid", username: "u", password: "p",
+    fetchImpl: (_url, { method, signal }) => new Promise((resolve, reject) => {
+      signal.addEventListener("abort", () => reject(signal.reason), { once: true });
+      setTimeout(() => resolve(new Response(method === "GET" ? "snapshot" : "<multistatus/>", {
+        status: method === "GET" ? 200 : 207,
+      })), 31_000);
+    }),
+  });
+  const download = client.get("/snapshot");
+  t.mock.timers.tick(31_000);
+  assert.equal((await download).body, "snapshot");
+  const listing = client.list("/devices");
+  t.mock.timers.tick(31_000);
+  assert.equal((await listing).ok, true);
+  assert.deepEqual(budgets, [180_000, 180_000]);
+});
+
+test("response body timeout retains the request deadline and operation", async (t) => {
+  const server = http.createServer((_req, res) => {
+    res.writeHead(200, { "Content-Type": "application/octet-stream" });
+    res.write("unfinished snapshot");
+    // Headers arrive immediately, but the body never completes.
+  });
+  await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
+  t.after(async () => {
+    server.closeAllConnections();
+    await new Promise((resolve) => server.close(resolve));
+  });
+  const client = new WebDavClient({
+    baseUrl: `http://127.0.0.1:${server.address().port}`, username: "u", password: "p", timeoutMs: 1000,
+  });
+  await assert.rejects(() => client.get("/snapshot"), (error) =>
+    error.code === "WEBDAV_TIMEOUT" && error.timeout_ms === 1000 && error.operation === "GET");
+});
+
+test("listing body timeouts and download interruptions preserve structured reasons", async () => {
+  const client = new WebDavClient({
+    baseUrl: "https://example.invalid", username: "u", password: "p",
+    fetchImpl: async (_url, { method }) => ({
+      status: method === "PROPFIND" ? 207 : 200,
+      headers: new Headers(),
+      text: async () => { throw method === "PROPFIND"
+        ? new DOMException("Timed out", "TimeoutError") : new TypeError("Connection lost"); },
+    }),
+  });
+  await assert.rejects(() => client.list("/devices"), (error) =>
+    error.code === "WEBDAV_TIMEOUT" && error.timeout_ms === 180_000 && error.operation === "PROPFIND");
+  await assert.rejects(() => client.get("/snapshot"), (error) =>
+    error.code === "WEBDAV_NETWORK" && error.operation === "GET");
+});
+
 test("joinUrlPath composes clean paths and parseRetryAfterMs handles formats", () => {
   assert.equal(joinUrlPath("/a/", "b", undefined, "/c/"), "/a/b/c");
   assert.equal(joinUrlPath(), "/");
