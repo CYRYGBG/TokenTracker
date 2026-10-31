@@ -216,7 +216,7 @@ test("a device restored from an old server state re-bases once and then resumes 
   }
 });
 
-test("the 1.4.20 read side applies new delta segments unchanged", async () => {
+test("the 1.4.20 read side applies new delta segments unchanged", async (t) => {
   const harness = createWebDavTestServer();
   await harness.listen();
   const tmp = await fs.mkdtemp(path.join(os.tmpdir(), "tt-delta-compat-"));
@@ -235,10 +235,20 @@ test("the 1.4.20 read side applies new delta segments unchanged", async () => {
     assert.equal(seg.header.rows, 2, "precondition: delta segment with two rows");
 
     // Extract the 1.4.20 library exactly as released and run its importer
-    // against the new files.
+    // against the new files. git + bsdtar exist on macOS and Windows alike,
+    // but a bare Wine prefix has neither — skip there (the read-side contract
+    // is platform-independent and verified wherever git is available).
+    const { execFileSync, spawnSync } = require("node:child_process");
+    if (spawnSync("git", ["--version"], { stdio: "ignore" }).error?.code === "ENOENT") {
+      t.skip("git is not on PATH; the 1.4.20 read-side contract is verified on macOS");
+      return;
+    }
     await fs.mkdir(legacy, { recursive: true });
-    const { execFileSync } = require("node:child_process");
-    execFileSync("bash", ["-c", `git archive personal-v1.4.20 src/lib | tar -x -C '${legacy}'`], { cwd: path.resolve(__dirname, ".."), stdio: "ignore" });
+    const repoRoot = path.resolve(__dirname, "..");
+    const archive = path.join(legacy, "lib.tar");
+    execFileSync("git", ["archive", "personal-v1.4.20", "--format=tar", "--output=" + archive], { cwd: repoRoot, stdio: "ignore" });
+    execFileSync("tar", ["-xf", archive, "-C", legacy], { stdio: "ignore" });
+    await fs.rm(archive, { force: true });
     const legacyImporter = require(path.join(legacy, "src/lib/sync-store/importer.js"));
     const importsDir = path.join(tmp, "imports");
     const store = legacyImporter.createDeviceImportStore({ importsDir, machineId: "machine-a" });

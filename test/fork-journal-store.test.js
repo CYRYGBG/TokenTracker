@@ -56,13 +56,16 @@ const footprint = async (file) => {
     journalMtime: String(log?.mtimeNs || ""),
   };
 };
+// Row payloads travel via a file: Windows child environments cap out far
+// below the size of a large synthetic fixture.
 function runChild(env) {
   const script = `
     const store = require(process.env.TT_STORE);
+    const fs = require("node:fs/promises");
     (async () => {
       const mode = process.env.TT_MODE;
       if (mode === "retain") {
-        const rows = JSON.parse(process.env.TT_ROWS);
+        const rows = JSON.parse(await fs.readFile(process.env.TT_ROWS_FILE, "utf8"));
         await store.retain(process.env.TT_TRACKER, "sessions", rows, r => r.session_hash);
       } else if (mode === "read-loop") {
         const deadline = Date.now() + Number(process.env.TT_MS || 1500);
@@ -326,10 +329,12 @@ test("sessions journal: second process reads the latest logical view and its com
     const file = path.join(tracker, "fork-history", "sessions.json");
     const rows = Array.from({ length: 300 }, (_, i) => sessionRow(i));
     await durable.write(file, rows);
+    const childRows = path.join(dir, "child-rows.json");
+    await fs.writeFile(childRows, JSON.stringify([...rows.slice(0, 100), sessionRow(100, 4321)]));
     const child = runChild({
       TT_MODE: "retain",
       TT_TRACKER: tracker,
-      TT_ROWS: JSON.stringify([...rows.slice(0, 100), sessionRow(100, 4321)]),
+      TT_ROWS_FILE: childRows,
     });
     assert.equal(child.status, 0, `child failed: ${child.stderr}`);
     const afterChild = await durable.read(file, []);
@@ -351,9 +356,13 @@ test("sessions journal: two concurrent cross-process writers both land without l
     const file = path.join(tracker, "fork-history", "sessions.json");
     const rows = Array.from({ length: 300 }, (_, i) => sessionRow(i));
     await durable.write(file, rows);
+    const rowsA = path.join(dir, "writer-a.json");
+    const rowsB = path.join(dir, "writer-b.json");
+    await fs.writeFile(rowsA, JSON.stringify([...rows.slice(0, 150), sessionRow(150, 11111)]));
+    await fs.writeFile(rowsB, JSON.stringify([...rows.slice(150), sessionRow(150, 22222)]));
     const results = await Promise.all([
-      runChild({ TT_MODE: "retain", TT_TRACKER: tracker, TT_ROWS: JSON.stringify([...rows.slice(0, 150), sessionRow(150, 11111)]) }),
-      runChild({ TT_MODE: "retain", TT_TRACKER: tracker, TT_ROWS: JSON.stringify([...rows.slice(150), sessionRow(150, 22222)]) }),
+      runChild({ TT_MODE: "retain", TT_TRACKER: tracker, TT_ROWS_FILE: rowsA }),
+      runChild({ TT_MODE: "retain", TT_TRACKER: tracker, TT_ROWS_FILE: rowsB }),
     ]);
     for (const [i, r] of results.entries()) assert.equal(r.status, 0, `writer ${i} failed: ${r.stderr}`);
     const merged = await durable.read(file, []);
