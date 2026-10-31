@@ -112,6 +112,19 @@
       "passed": 107,
       "skipped": 4,
       "failed": 0
+    },
+    "windowsNodeCriticalTestsUnderWine": {
+      "passed": 16,
+      "failed": 0,
+      "skipped": 0
     }
+  },
+  "sourceCommit": "267f731e3544c0ff49e34338829cd83fe8fc69b1",
+  "buildChecks": {
+    "macosDmgSignatureAndSourceMatch": true,
+    "windowsSetupCompiled": true,
+    "windowsPayloadMatchesSource": true,
+    "macosInstalledAppUpdateDialog": "1.4.19 detected 1.4.20; install not clicked",
+    "windowsPreviousUpdaterLiveProbe": true
   }
 }

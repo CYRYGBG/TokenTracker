@@ -1,7 +1,7 @@
 {
-  "checkedAt": "2026-10-30T03:33:37.713Z",
-  "version": "1.4.19",
-  "upstream": "2ea4010899cc6681670110f2691c07fd7bbf8ce6",
+  "checkedAt": "2026-10-31T02:10:13.961Z",
+  "version": "1.4.20",
+  "upstream": "e28c90dd518b328315979b965391102ec1f026e0",
   "dashboard": "dashboard/dist",
   "embeddedServer": "TokenTrackerBar/EmbeddedServer",
   "architecture": "darwin-arm64",
@@ -9,8 +9,8 @@
   "nodeSha256": "31c9b901f72536e3710fb91381bc9371c5ee7880bdea9a03383a8d6e5d05949c",
   "comparisons": {
     "src": {
-      "files": 135,
-      "sha256": "26e1342944f06bc5fd1e34c86946a9fef8ffbee38c27f5b27af46d3ede7792d1",
+      "files": 137,
+      "sha256": "afe08b03300accacc5c624f72c5de8579b40ed15d82ec1e4de16fa059ee42ae5",
       "matchesWorkspace": true
     },
     "bin": {
@@ -20,15 +20,15 @@
     },
     "dashboard/dist": {
       "files": 180,
-      "sha256": "86fe16cf4f9d725675ddbc11c013a7f6331135c8b192d4a95a658222fab9a1c4",
+      "sha256": "35202a778b1ad1438ef973ff04d56e4f7a588da0077d5597d52a60aae4c5940a",
       "matchesWorkspace": true
     },
     "package.json": {
-      "sha256": "69346386e997577a9421ddeb6d7bb457e1a287ef2e059ccdf22ba7828c11a354",
+      "sha256": "8e6472a6dc3f830066010ce6b491ccbd6ce1034566e18b6c097457262ee30b33",
       "matchesWorkspace": true
     },
     "package-lock.json": {
-      "sha256": "36934d070424feb3a03b1b2f8d46cdc896692eb7a55400e76bd439435dd29ecd",
+      "sha256": "1508f275499b5a0fc1555ff6adf1af0e732c3345164b7721c252c1ee9534b340",
       "matchesWorkspace": true
     }
   },
@@ -42,7 +42,7 @@
   },
   "macOSAppBuilt": true,
   "windowsAppBuilt": true,
-  "installedOrPublished": true,
+  "installedOrPublished": false,
   "nativeApp": {
     "path": "dist/personal-build.noindex/TokenTrackerPersonal.app",
     "sourceHashesVerified": true,
@@ -51,16 +51,13 @@
   },
   "installers": {
     "TokenTrackerPersonal-macOS-arm64.dmg": {
-      "bytes": 65217676,
-      "sha256": "a4e95b5989fc16eef116ab0889fc228793977e7418129613526ac45bfe961f9f"
+      "bytes": 65090503,
+      "sha256": "c61bd0e5ed4f45ababf773446a652636aa7d01ac2b5bef5556ee396060033a78"
     },
     "TokenTrackerPersonal-Windows-x64-Setup.exe": {
-      "bytes": 299788123,
-      "sha256": "8b5396b8f22eb41babfdcdbe4daaf8118e3805089719dedbe2760178a9b18e70"
+      "bytes": 299795580,
+      "sha256": "0a6d87df774700e94011f0b9c5a17a366dcdfc37b20abf3da9656735d4867213"
     }
   },
-  "windowsRealMachineVerified": false,
-  "sourceCommit": "1d776bf5004bb477e4326de0f3738ad1bbe02ed5",
-  "publishedAfterVerification": "https://github.com/CYRYGBG/TokenTracker/releases/tag/personal-v1.4.19",
-  "installedThisRun": false
+  "windowsRealMachineVerified": false
 }

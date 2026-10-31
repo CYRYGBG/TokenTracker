@@ -1,0 +1,63 @@
+{
+  "checkedAt": "2026-10-31T02:10:13.961Z",
+  "version": "1.4.20",
+  "upstream": "e28c90dd518b328315979b965391102ec1f026e0",
+  "dashboard": "dashboard/dist",
+  "embeddedServer": "TokenTrackerBar/EmbeddedServer",
+  "architecture": "darwin-arm64",
+  "nodeVersion": "22.22.2",
+  "nodeSha256": "31c9b901f72536e3710fb91381bc9371c5ee7880bdea9a03383a8d6e5d05949c",
+  "comparisons": {
+    "src": {
+      "files": 137,
+      "sha256": "afe08b03300accacc5c624f72c5de8579b40ed15d82ec1e4de16fa059ee42ae5",
+      "matchesWorkspace": true
+    },
+    "bin": {
+      "files": 2,
+      "sha256": "7abec83e95296bca5930497e736c8c092fa7b4184a00ac48ec450c647d81e873",
+      "matchesWorkspace": true
+    },
+    "dashboard/dist": {
+      "files": 180,
+      "sha256": "35202a778b1ad1438ef973ff04d56e4f7a588da0077d5597d52a60aae4c5940a",
+      "matchesWorkspace": true
+    },
+    "package.json": {
+      "sha256": "8e6472a6dc3f830066010ce6b491ccbd6ce1034566e18b6c097457262ee30b33",
+      "matchesWorkspace": true
+    },
+    "package-lock.json": {
+      "sha256": "1508f275499b5a0fc1555ff6adf1af0e732c3345164b7721c252c1ee9534b340",
+      "matchesWorkspace": true
+    }
+  },
+  "packagedCliSmoke": {
+    "passed": true,
+    "isolatedHome": true,
+    "offline": true,
+    "productionHtml": true,
+    "officialProfileUntouched": true,
+    "normalExit": true
+  },
+  "macOSAppBuilt": true,
+  "windowsAppBuilt": true,
+  "installedOrPublished": false,
+  "nativeApp": {
+    "path": "dist/personal-build.noindex/TokenTrackerPersonal.app",
+    "sourceHashesVerified": true,
+    "signature": "ad-hoc",
+    "notarized": false
+  },
+  "installers": {
+    "TokenTrackerPersonal-macOS-arm64.dmg": {
+      "bytes": 65090503,
+      "sha256": "c61bd0e5ed4f45ababf773446a652636aa7d01ac2b5bef5556ee396060033a78"
+    },
+    "TokenTrackerPersonal-Windows-x64-Setup.exe": {
+      "bytes": 299795580,
+      "sha256": "0a6d87df774700e94011f0b9c5a17a366dcdfc37b20abf3da9656735d4867213"
+    }
+  },
+  "windowsRealMachineVerified": false
+}

@@ -1,13 +1,19 @@
 # STATUS — 个人同步版事实状态
 
-## 2026-10-31 personal-v1.4.20 实现与回归完成，双平台发布进行中
+## 2026-10-31 personal-v1.4.20 双平台应用内更新交付完成
+
+- 已于 2026-10-31 10:17:41（Asia/Shanghai）公开发布 [personal-v1.4.20](https://github.com/CYRYGBG/TokenTracker/releases/tag/personal-v1.4.20)，release ID `429662838`，设为 latest。构建/标签源码固定 `267f731e3544c0ff49e34338829cd83fe8fc69b1`；两平台在 Mac 本地构建，未运行 Actions、未发布 npm、未写上游/main。分支已推送；发布后仅补文档和证据，不移动标签。
+- macOS DMG 为 65,090,503 字节，SHA256 `c61bd0e5ed4f45ababf773446a652636aa7d01ac2b5bef5556ee396060033a78`；Windows Setup 为 299,795,580 字节，SHA256 `0a6d87df774700e94011f0b9c5a17a366dcdfc37b20abf3da9656735d4867213`。三附件 GitHub digest/大小匹配本地，匿名下载 HEAD 均 200，公开两行 SHA256SUMS.txt 与本地一致，匿名 latest API 指向 1.4.20。
+- macOS 完整 Release/签名/镜像校验通过，挂载 app 与构建 app 一致，85 原生源和 321 包内输入匹配；Windows 自包含 Release/程序集版本及源码 SHA、320 输入/2567 文件清单核对和 Inno Setup 6.7.3 编译通过。实际 Windows Node 22 在隔离 Wine 下通过 16 项工作线程/SQLite/缓存/双进程保史回归。bundled CLI 隔离 HOME 离线握手/退出、官方目录保护和单份 JS/CSS 校验通过。
+- 软件内更新验收：本机安装的 1.4.19 手动“检查更新”已真实弹出 1.4.20、当前 1.4.19 和“下载并安装”提示，未点击安装，截图仅保留线程私有目录。用 1.4.19 的 Swift 更新通道代码读取公开元数据/校验文件并核验 DMG 通过；1.4.19 的 Windows release-client/integrity 原代码从公开 API 识别 1.4.20，安装包 URL/大小/校验和与产物一致。Windows 原生界面/实际升级、本轮 72h 常驻仍未实机验收，不能将兼容环境测试写成 Windows 实机升级通过。
+- 发布与验收证据：`evidence/release-1.4.20.json`、`update-channel-1.4.20.json`、`macos-build-1.4.20.json`、`windows-build-1.4.20.json`、`artifacts-1.4.20.json`、`local-verification-1.4.20.json`、`performance-1.4.20.json`。临时 Windows 运行时夹具已清理；不覆盖安装、不修改网盘配置、不上传私人统计或截图。
 
 - 用户明确授权完成磁盘读写/能耗优化和 WebDAV 180 秒超时修复，并以 macOS/Windows 应用内更新交付。origin 构建修复三提交已快进纳入；upstream `e28c90dd518b328315979b965391102ec1f026e0` 新增官网徽标变动不纳入。本轮不操作 Actions，保留另一会话已获授权的个人 Mac 构建状态。
 - ZCode 显式优先 Node 只读 SQLite，运行时缺模块才回退 CLI，锁定/SQL/权限等操作失败不重复执行。SQL 仅投影统计/去重/归属字段，将既有 native/legacy 历史分界保守地下推到数字时间条件；秒/毫秒兼容，特殊文本仍由原 JS 过滤。其他 provider 的默认 SQLite 顺序不改。
 - 历史构建移到工作线程并合并在途请求，强制刷新排在普通构建之后，跨进程租约串行合并，保留已删除源的历史；读取保存价格表与同步自定义价格，后台线程不额外刷新网络价格。Harness 按文件身份/大小/纳秒修改信息缓存归一化元数据，未变化时不再解压，不存正文，源修订/替换和强制刷新会失效。
 - 真实库只读统计字段对照一致；该 Node 查询场景原耗时约 32 秒、实际写入约 103 MB，新路径冷/热约 1.9/0.18 秒、实际写入约 7 MB，峰值物理占用约 343→159 MB。仅为查询进程的测量，不外推整机耗电或 SSD 寿命；详细私人来源/哈希未上传。公开安全指标见 `evidence/performance-1.4.20.json`。
 - Node 最终全量 3737（3720 通过、17 跳过、0 失败，concurrency=2）；首次发现 origin 旧 SDK 修复遗留两处测试断言，已改为验证材料兼容回退且禁止 glassEffect，未恢复宠物入口。另一轮 concurrency=4 的旧 Antigravity 100ms 预算断言偶发失败，单文件 13 通过/4 跳过，未放宽断言；最终全量已绿。新增线程响应性、自定义价格、双进程保史、缓存命中/同大小改写、SQL 元数据/时间边界及原 Node 20 回退测试通过。
-- Dashboard 全量 150 文件/1290 项通过，typecheck/copy/locale/guardrails/versions/ui-hardcode/bot-frames 和生产构建通过；C# Windows 逻辑/更新测试 172 通过；实际安装包 Node 22 定向 111 项（107 通过、4 跳过）通过；构建 Python 6 项通过。构建/发布状态待本节继续补记；当前未覆盖安装本机应用。
+- Dashboard 全量 150 文件/1290 项通过，typecheck/copy/locale/guardrails/versions/ui-hardcode/bot-frames 和生产构建通过；C# Windows 逻辑/更新测试 172 通过；实际安装包 Node 22 定向 111 项（107 通过、4 跳过）通过；构建 Python 6 项通过。当前未覆盖安装本机应用。
 
 ## 2026-10-30 WebDAV 超时延长与磁盘读写优化计划（本地完成，未发布）
 

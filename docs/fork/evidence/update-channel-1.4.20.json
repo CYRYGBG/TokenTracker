@@ -1,0 +1,37 @@
+{
+  "checkedAt": "2026-10-31T02:21:06.026650+00:00",
+  "previousVersion": "1.4.19",
+  "newVersion": "1.4.20",
+  "repository": "CYRYGBG/TokenTracker",
+  "publishedReleaseId": 429662838,
+  "anonymousLatestVerified": true,
+  "anonymousAssetHeads": [
+    200,
+    200,
+    200
+  ],
+  "publicChecksumsMatchLocal": true,
+  "macOS": {
+    "previousChannelCodeCompiled": true,
+    "publishedAssetUrlAccepted": true,
+    "checksumVerified": true,
+    "nativeInstalledAppDetectedUpdate": true,
+    "nativeDialog": "New version 1.4.20; current 1.4.19; Download and Install available",
+    "installedByAgent": false,
+    "screenshotKeptPrivate": true
+  },
+  "windows": {
+    "previousReleaseClientAndIntegrityCodeCompiled": true,
+    "liveReleaseLookup": {
+      "version": "1.4.20",
+      "setupUrl": "https://github.com/CYRYGBG/TokenTracker/releases/download/personal-v1.4.20/TokenTrackerPersonal-Windows-x64-Setup.exe",
+      "expectedBytes": 299795580,
+      "checksumMatches": true,
+      "fallbackUsed": false,
+      "installed": false
+    },
+    "remoteAssetDigestMatchesBuiltSetup": true,
+    "guiUpgradeOnWindowsMachineVerified": false,
+    "installedByAgent": false
+  }
+}

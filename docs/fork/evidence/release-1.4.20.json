@@ -1,0 +1,58 @@
+{
+  "checkedAt": "2026-10-31T02:17:48.149982+00:00",
+  "releaseId": 429662838,
+  "repo": "https://github.com/CYRYGBG/TokenTracker",
+  "tag": "personal-v1.4.20",
+  "sourceBranch": "codex/personal-release-20261027",
+  "sourceCommit": "267f731e3544c0ff49e34338829cd83fe8fc69b1",
+  "tagPointsToBuildSource": true,
+  "draft": false,
+  "latest": true,
+  "publishedAt": "2026-10-31T02:17:41Z",
+  "url": "https://github.com/CYRYGBG/TokenTracker/releases/tag/personal-v1.4.20",
+  "assets": [
+    {
+      "name": "TokenTrackerPersonal-macOS-arm64.dmg",
+      "bytes": 65090503,
+      "sha256": "c61bd0e5ed4f45ababf773446a652636aa7d01ac2b5bef5556ee396060033a78",
+      "githubDigestMatches": true,
+      "assetId": 694090239,
+      "url": "https://github.com/CYRYGBG/TokenTracker/releases/download/personal-v1.4.20/TokenTrackerPersonal-macOS-arm64.dmg",
+      "anonymousDownloadHead": 200
+    },
+    {
+      "name": "TokenTrackerPersonal-Windows-x64-Setup.exe",
+      "bytes": 299795580,
+      "sha256": "0a6d87df774700e94011f0b9c5a17a366dcdfc37b20abf3da9656735d4867213",
+      "githubDigestMatches": true,
+      "assetId": 694091888,
+      "url": "https://github.com/CYRYGBG/TokenTracker/releases/download/personal-v1.4.20/TokenTrackerPersonal-Windows-x64-Setup.exe",
+      "anonymousDownloadHead": 200
+    },
+    {
+      "name": "SHA256SUMS.txt",
+      "bytes": 212,
+      "sha256": "0afd27aaa80a027adea0d8c34df6d1e6840c99e34a6377131265e3c2095a1141",
+      "githubDigestMatches": true,
+      "assetId": 694100458,
+      "url": "https://github.com/CYRYGBG/TokenTracker/releases/download/personal-v1.4.20/SHA256SUMS.txt",
+      "anonymousDownloadHead": 200
+    }
+  ],
+  "publicChecksumsMatchLocal": true,
+  "bothPlatformsBuiltLocally": true,
+  "macosBuildManifest": "macos-build-1.4.20.json",
+  "windowsBuildManifest": "windows-build-1.4.20.json",
+  "localVerification": "local-verification-1.4.20.json",
+  "windowsRealMachineVerified": false,
+  "githubActionsEnabled": true,
+  "onlyPersonalMacWorkflowActive": true,
+  "githubActionsUsedThisRun": false,
+  "mainBranchChangedThisRun": false,
+  "npmPublished": false,
+  "upstreamWritten": false,
+  "installedThisRun": false,
+  "updateChannelVerification": "update-channel-1.4.20.json",
+  "macosNativePreviousVersionDetectedUpdate": true,
+  "windowsPreviousUpdateCodeLiveLookupVerified": true
+}
