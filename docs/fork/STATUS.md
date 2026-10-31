@@ -22,6 +22,13 @@
 
 未验证/边界:Windows 实机安装/GUI/常驻未验收(无实机);长期 72h 观察未做;合并/发布流程见后续条目;本节提交后 dist 中旧 1.4.20 安装包不得冒充 1.5.0。
 
+## 2026-10-31 本机覆盖安装 1.5.0 完成（用户明确要求）
+
+- 用户报“检查更新失败 (HTTP 403)”并要求诊断网络。实测：系统代理已开（127.0.0.1:7897），**直连 api.github.com 200（配额 59/60）**，**走 Clash 出口 403 且 x-ratelimit-remaining:0**——共享出口 IP 的 GitHub 匿名 API 配额被用尽，1.4.20 更新器无回退直接失败；坚果云同步不走该出口，不受影响。这正好是 1.5.0 新更新器修复的场景（带证据 403→冷却→releases 网页回退）。
+- 用户选择代为覆盖安装。流程：AppleScript 退出无效后对主进程 SIGTERM，显式终止其残留 serve 子进程（先等待再补杀），确认 17680 释放、无 TokenTracker 进程；旧 app 与原生偏好备份到 `~/Library/Application Support/TokenTrackerPersonal-install-backup-1.4.20.noindex/`；DMG SHA256 校验后只读挂载复核版本/bundle/签名，`/Applications` 原子替换，卸载镜像。
+- 装后验证：`/Applications` 版本 1.5.0、codesign deep strict 通过；启动后 17680 握手 serverVersion=1.5.0、/ 200；`/api/fork/view`（带握手 token，只读）返回 scope=all、2 台设备、partial=false——1.5.0 的 journal 读取真实历史正常，统计与同步配置未动（全程未写 ~/.tokentracker-personal）。旧版 1.4.20 未再注册重复副本（构建暂存仍在 gitignored dist/personal-build.noindex）。
+- 未替用户点击“检查更新”或同步；用户可在代理开启状态下点检查更新验证 1.5.0 的限流回退。
+
 ## 2026-10-31 personal-v1.5.0 双平台应用内更新交付完成
 
 - 已于 2026-10-31 17:30（Asia/Shanghai）公开发布 [personal-v1.5.0](https://github.com/CYRYGBG/TokenTracker/releases/tag/personal-v1.5.0)，release ID `429824123`，设为 latest。构建/标签源码固定 `5d30c0bc5704b6299a207dad75b76b26120293de`（实现提交 `8f99cc51` + 跨平台测试夹具修正 `5d30c0bc`，两平台产物在夹具修正提交后重建）。分支已推送；tag 未移动。gh release create 需 workflow scope 的老问题依旧，改用 REST API 创建/发布，附件用 uploads.github.com 直传（gh api 对 uploads 主机返回 404，与代理无关，curl 正常）。
