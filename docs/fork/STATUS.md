@@ -1,5 +1,14 @@
 # STATUS — 个人同步版事实状态
 
+## 2026-11-03 personal-v1.5.1 双平台发布完成
+
+- 发布 personal-v1.5.1(Release ID 432363713,tag/构建源码 `87090400`,分支 codex/personal-release-20261027),`releases/latest` 指向该标签,draft=false、prerelease=false。
+- 构建均出自该提交:macOS arm64 DMG(`TokenTrackerPersonal-macOS-arm64.dmg`,64,047,120 字节,sha256 `7137b913…b2d82b02`;bundle-node → build-personal-macos.py,DMG hdiutil 校验通过,挂载检查 CFBundleShortVersionString=1.5.1、bundleId com.cyrygbg.tokentracker.personal,包内 src/bin/dashboard/dist 与工作区 diff 零差异,macos-build.json nativeSources 87 项哈希全部吻合,隔离 HOME+17885 端口冒烟:sessions 端点 200 且 fork 元数据/Vary 头正常)。Windows x64(`TokenTrackerPersonal-Windows-x64-Setup.exe`,299,810,054 字节,sha256 `63a520c0…443d4e23`;dotnet publish 因 brew 的 dotnet@8 残缺(WindowsDesktop Sdk 0 文件)改用官方 8.0.132 tarball(~/dotnet-official-8),verify-windows-package 324 输入逐字节一致/版本 1.5.1/源 SHA 87090400,CrossOver tt-inno10 ISCC 6.7.3 编译成功,打包内 node.exe(tt-smoke64)本轮 8 个新增测试文件 44/44 通过)。SHA256SUMS.txt 两空格格式。
+- 发布校验:三资产远端 API digest 与本地完全一致;匿名 HEAD 全 200;SHA256SUMS 匿名下载字节一致;两个大包匿名 ranged 探针首 1MiB 逐字节一致。证据 `docs/fork/evidence/release-1.5.1.json` + 可重跑现场 `dist/reviewed-1.5.1.noindex/`(release-notes.md)。
+- 途中波折:300MB 安装包首次上传断管留下 starter 态资产(REST 404 无法删除),直接重传同名顶替成功(asset 705149840)。
+- 未验证项:Windows 实机安装/GUI/常驻、72h 观察、真实坚果云同步速率、应用内"检查更新"点击(留用户);会话缓存/压缩在真实数据量的收益对照仍为实验室口径。
+- 本轮未操作 GitHub Actions、未发布 npm、未写上游、未覆盖安装本机应用(用户可自行点"检查更新"升级到 1.5.1)。
+
 ## 2026-11-03 personal-v1.5.1 六项上游纳入:实现与验证完成(构建/发布见后续条目)
 
 - 用户授权"按建议纳入并发布双系统新版本"。本轮接续前一 Codex 会话(11-03 03:18 起,03:28 中断)留下的工作区完成实现:上游基准 `ce8bc2da`(#1006 macOS 12 兼容修复含内)。中断现场遗留四处缺陷已修复并通过测试:(1) `local-api.js` 缺 `sessionsResponseCacheBytes()` 定义导致会话端点 500;(2) 会话缓存 key 含原始 `refresh` 参数,刷新响应无法被普通请求复用(现规范化 key:剔除 refresh、参数排序);(3) `hidden=` 401 被预装饰块并入 fork 设备元数据,违反裸错误契约(现 401 分支清除 forkMeta,不向未授权方泄漏 machine_id);(4) 聚合顶层误发布原始 `workbuddyAi` 键,fork 合并行契约要求该键仅在显式 hidden 时以 sentinel 出现(双向测试锁定:visibility-gating 全隐藏断言 + workbuddy-ipc 失败路径断言)。

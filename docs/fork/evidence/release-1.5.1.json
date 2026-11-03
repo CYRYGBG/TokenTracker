@@ -1,0 +1,42 @@
+{
+ "checkedAt": "2026-11-03T15:10:00+08:00",
+ "version": "1.5.1",
+ "repo": "CYRYGBG/TokenTracker",
+ "tag": "personal-v1.5.1",
+ "tagSha": "8709040009d87bd20334661b39ff82f1c5e05c4f",
+ "sourceCommit": "8709040009d87bd20334661b39ff82f1c5e05c4f",
+ "branch": "codex/personal-release-20261027",
+ "releaseId": 432363713,
+ "releaseUrl": "https://github.com/CYRYGBG/TokenTracker/releases/tag/personal-v1.5.1",
+ "isLatest": true,
+ "draftPublished": true,
+ "prerelease": false,
+ "assets": {
+  "TokenTrackerPersonal-macOS-arm64.dmg": {
+   "bytes": 64047120,
+   "sha256": "7137b9139038c2fbdd98f11ecf61395477c07cda234183195d7d9431b2d82b02",
+   "remoteDigestMatch": true,
+   "remoteDigest": "7137b9139038c2fbdd98f11ecf61395477c07cda234183195d7d9431b2d82b02",
+   "anonymousHead": 200,
+   "anonymousRangedProbe": "first 1 MiB byte-identical"
+  },
+  "TokenTrackerPersonal-Windows-x64-Setup.exe": {
+   "bytes": 299810054,
+   "sha256": "63a520c0a5b2f22a629f026b7e7a38fb05ba3532be15a98f6c0dc511443d4e23",
+   "remoteDigestMatch": true,
+   "remoteDigest": "63a520c0a5b2f22a629f026b7e7a38fb05ba3532be15a98f6c0dc511443d4e23",
+   "anonymousHead": 200,
+   "anonymousRangedProbe": "first 1 MiB byte-identical"
+  },
+  "SHA256SUMS.txt": {
+   "bytes": 212,
+   "sha256": "081d62ab3134f3477fa3a86f3c48b18471352b26f99db90b471aed122bf32c23",
+   "remoteDigest": "081d62ab3134f3477fa3a86f3c48b18471352b26f99db90b471aed122bf32c23",
+   "anonymousHead": 200,
+   "anonymousDownloadByteIdentical": true
+  }
+ },
+ "publicSumsIdentical": true,
+ "actionsState": "repo workflows untouched (not enabled or modified this round); no npm publish; no upstream writes",
+ "notes": "single commit 87090400 (implementation + docs checkpoint); both platform artifacts built from it; tag pinned to that commit; upstream base ce8bc2da (#1006 included)."
+}
