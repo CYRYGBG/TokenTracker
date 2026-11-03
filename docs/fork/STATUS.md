@@ -1,5 +1,20 @@
 # STATUS — 个人同步版事实状态
 
+## 2026-11-03 personal-v1.5.1 六项上游纳入:实现与验证完成(构建/发布见后续条目)
+
+- 用户授权"按建议纳入并发布双系统新版本"。本轮接续前一 Codex 会话(11-03 03:18 起,03:28 中断)留下的工作区完成实现:上游基准 `ce8bc2da`(#1006 macOS 12 兼容修复含内)。中断现场遗留四处缺陷已修复并通过测试:(1) `local-api.js` 缺 `sessionsResponseCacheBytes()` 定义导致会话端点 500;(2) 会话缓存 key 含原始 `refresh` 参数,刷新响应无法被普通请求复用(现规范化 key:剔除 refresh、参数排序);(3) `hidden=` 401 被预装饰块并入 fork 设备元数据,违反裸错误契约(现 401 分支清除 forkMeta,不向未授权方泄漏 machine_id);(4) 聚合顶层误发布原始 `workbuddyAi` 键,fork 合并行契约要求该键仅在显式 hidden 时以 sentinel 出现(双向测试锁定:visibility-gating 全隐藏断言 + workbuddy-ipc 失败路径断言)。
+- 纳入内容与适配边界见 UPSTREAM 本日集成检查点:会话响应缓存/压缩/瘦身(保留 fork 设备/导入/隐藏/价格版本失效)、隐藏厂商额度门控(零请求/零子进程/零凭证读取)、Mac SMAppService 安静自启(macOS 12 守卫)、缺价标识与仅请求数显示、DeepSeek 官方预付余额卡(独立 Key,凭证不进 WebDAV)、Codex Standard/Fast/Ultrafast 速度档明细(总量恒等)。
+- 版本三处受管同步 1.5.1(sync-versions/validate 过),project.yml 变更后已 xcodegen generate + patch-pbxproj-icon。
+- 验证:`npm test` 3823 通过/0 失败(17 skip 为既有平台跳过);dashboard vitest 1320 通过/150 文件;tsc strict 通过;`npm run dashboard:build` 通过;validate:copy/locale/ui-hardcode/guardrails/bot-frames/architecture-guardrails 全绿。ui-hardcode 对 UsageOverview 新增 2 个扫描器 artifact token(`0) && (`、`0)); if (!rows.length)…`)按既有机制补入基线,非用户可见文案(实际文案均走 copy 键)。
+- 未验证项:会话缓存/压缩在真实数据量的收益对照(实验室断言级);Swift 侧待发布轮真机构建验证;Windows 实机回归归发布轮。下一步:双平台构建 + personal-v1.5.1 应用内更新发布。
+
+## 2026-11-03 官方新提交只读评估（未实施）
+
+- 用户要求检查官方最近更新并判断跟进价值。本轮已读 REQUIREMENTS/UPSTREAM/STATUS，代理 fetch upstream/origin；工作区开始时干净。个人版当前为 1.5.0，HEAD/origin 分支 `687f76f2`；upstream 从 `a9ef316f` 到 `91457a45867536d9e12dc030cd9510792482ea4f` 新增 28 提交，官方 GitHub latest 为 v1.5.4（11-03 10:55:17 Asia/Shanghai）。
+- 已按实际 diff 对照当前 fork，建议优先会话页缓存/瘦身/增量刷新（#982/#988）、隐藏厂商额度查询门控（#970）、Mac SMAppService 安静自启（#1005），并可顺带缺价/请求数显示（#984/#968）。DeepSeek 余额（#978，需要环境或应用保存的官方 Key，并非自动读取 Harness）与 Codex 速度档展示（#975，当前已计加速溢价）作为功能候选。完整 SHA、兼容边界和暂缓理由见 UPSTREAM 本日检查点。
+- 特别排除盲目合入：会话 API 不能退回仅本机 sidecar，必须保留 WebDAV/journal/隐藏/设备范围缓存失效；官方 Windows first-run init 路径在 fork 个人模式已跳过，不将抬高超时当成必修；ZCode 跨区域日志快照无账号归属和硬 TTL，不原样带入账号隔离缓存。官网/官方云/已删除服务页/遥测依赖不恢复。
+- 本轮仅补跟踪文档，未修改应用代码/依赖/版本/用户数据/配置，未运行集成回归、构建、发布、推送或安装；静态评估和上游测量不等于个人版性能验收。下一步等待用户选定范围。
+
 ## 2026-10-31 personal-v1.5.0 六项改进实现完成(实现与验证事实;构建/发布状态见下文后续条目)
 
 本节记录接续实现对话完成的六项改进与同步失败修复。上游核对:经代理 fetch,upstream/main 仍为 `a9ef316fbe58cf594dbefa7cdbfd5f71cfa212f1`;origin 同名分支无新增;origin/main 的 5 个 CI 探测提交不纳入。版本已三处受管同步为 1.5.0(sync-versions/validate 过)。

@@ -37,7 +37,7 @@ targets:
         PRODUCT_NAME: TokenTrackerPersonal
         INFOPLIST_VALUES: |
           LSUIElement = YES
-        MARKETING_VERSION: "1.5.0"
+        MARKETING_VERSION: "1.5.1"
         CURRENT_PROJECT_VERSION: "1"
         SWIFT_EMIT_LOC_STRINGS: "YES"
         CODE_SIGN_STYLE: Automatic
@@ -147,6 +147,7 @@ targets:
       - path: TokenTrackerBar/Models/SyncRequestPolicy.swift
       - path: TokenTrackerBar/Models/UsagePublicationPolicy.swift
       - path: TokenTrackerBar/Models/DashboardPresentationPolicy.swift
+      - path: TokenTrackerBar/Models/LoginLaunchPresentationPolicy.swift
       - path: TokenTrackerBar/Services/ResumableDownloader.swift
       - path: TokenTrackerBar/Services/LocalAPIConfiguration.swift
       - path: TokenTrackerBar/Services/QueueActivityMonitor.swift

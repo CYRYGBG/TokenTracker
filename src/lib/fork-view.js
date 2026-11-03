@@ -198,7 +198,7 @@ async function projects(trackerDir, url) {
 }
 async function collectSessions(
   trackerDir,
-  { home, force = false, scan = true } = {},
+  { home, force = false, recheck = false, scan = true } = {},
 ) {
   if (!scan)
     return durable.read(
@@ -206,14 +206,14 @@ async function collectSessions(
       [],
     );
   if (require("node:worker_threads").isMainThread) {
-    await require("./fork-session-worker").collectSessionHistory({ trackerDir, home, force });
+    await require("./fork-session-worker").collectSessionHistory({ trackerDir, home, force, recheck });
     return durable.read(path.join(trackerDir, "fork-history", "sessions.json"), []);
   }
   const {
     buildSessionAnalytics,
     mergeSessionFragments,
   } = require("./session-analytics");
-  const observed = await buildSessionAnalytics({ home, force });
+  const observed = await buildSessionAnalytics({ home, force, recheck });
   const sessions = mergeSessionFragments([
     ...observed,
     ...(await require("./fork-dsh-sessions").scanDshSessions(home, {
@@ -304,7 +304,7 @@ async function collectSessions(
   );
   return retained;
 }
-async function sessions(trackerDir, url, { home, scan = true } = {}) {
+async function sessions(trackerDir, url, { home, scan = true, recheck = false } = {}) {
   const machineId = getOrCreateMachineId(path.join(trackerDir, "queue.jsonl"));
   const device = await scope(trackerDir, url);
   const all = [];
@@ -315,7 +315,7 @@ async function sessions(trackerDir, url, { home, scan = true } = {}) {
   const local = await collectSessions(trackerDir, {
     home,
     scan,
-    force: url?.searchParams.get("refresh") === "1",
+    recheck: recheck || url?.searchParams.get("refresh") === "1",
   });
   if (["all", "local", machineId].includes(device)) {
     const safeLocal = local.map((r) =>

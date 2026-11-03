@@ -19,14 +19,14 @@ function buildInWorker(options) {
 
 function createSessionCollector(build = buildInWorker) {
   const builds = new Map();
-  return function collect({ trackerDir, home = os.homedir(), force = false }) {
-    const options = { trackerDir: path.resolve(trackerDir), home: path.resolve(home), force };
+  return function collect({ trackerDir, home = os.homedir(), force = false, recheck = false }) {
+    const options = { trackerDir: path.resolve(trackerDir), home: path.resolve(home), force, recheck };
     const key = JSON.stringify([options.trackerDir, options.home]);
     const current = builds.get(key);
-    if (current && (!force || current.force)) return current.promise;
+    if (current && ((!force && !recheck) || current.force || (recheck && current.recheck))) return current.promise;
     const run = () => build(options);
     const promise = current ? current.promise.then(run, run) : Promise.resolve().then(run);
-    const entry = { promise, force: force || Boolean(current?.force) };
+    const entry = { promise, force: force || Boolean(current?.force), recheck: recheck || Boolean(current?.recheck) };
     builds.set(key, entry);
     const clear = () => { if (builds.get(key) === entry) builds.delete(key); };
     promise.then(clear, clear);

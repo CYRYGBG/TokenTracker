@@ -1,5 +1,41 @@
 # UPSTREAM 跟踪与 Fork 改动地图
 
+## 2026-11-03 personal-v1.5.1 集成检查点
+
+用户授权"按建议纳入并发布双系统新版本"后,按文件摘取/适配 upstream 至 `ce8bc2da3d341d3280a5a86a2525b185835f1410`(含发布后的 #1006 macOS 12 兼容修复;91457a45 之后的其余依赖更新仍不纳入)。本轮集成内容与 fork 适配边界:
+
+| 上游改动 | 纳入方式与 fork 适配 |
+|---|---|
+| `5afb70b0`/#982 + `196eaf36`/#988 会话页性能 | 会话浏览器端点增加响应缓存(`fork-session-cache.js` 以文件身份(fork-history/webdav imports/journal/prefs/价格 revision)派生 key,TTL 60s、LRU 8 条/32MB 原始字节预算,gzip/brotli 惰性压缩副本);key 规范化剔除 `refresh`(刷新响应可被普通请求复用);`accept-encoding.js` 共享静态文件与 JSON 的 q 值协商,static-server 对可压缩资产缓存压缩体;dashboard 会话页默认 `include_buckets=0&include_model_detail=0` + 服务端日期范围/facets。未改回仅本机 sidecar:缓存 key 覆盖设备范围、导入视图、隐藏/别名、价格版本,incomplete(坏 sidecar/漏扫/部分同步)一律不落缓存。 |
+| `e88027c6`/#970 隐藏厂商额度门控 | `usage-limits.js` hiddenSet 门控(无 fetch/无子进程/无凭证读取),`normalizeHiddenProviders` 归一化(未知 id 丢弃、只窄不宽);内存缓存按 hidden 集合分区,凭证替换代际失效保留;`hidden=<csv>` 参数仅接受本地认证请求(401 返回裸错误体,不携带 machine_id 等 fork 元数据)。fork 保留 WorkBuddy 双版本合并为一行的契约:AI 版本仅在显式 hidden 时发布 `{configured:false}` sentinel,正常失败路径不发布顶层 `workbuddyAi` 键(与上游拆分发布不同,测试双向锁定)。 |
+| `1f9486e5`/#1005 + `ce8bc2da`/#1006 Mac 安静自启 | `LoginLaunchPresentationPolicy.swift` 纯函数策略 + 单元测试;SMAppService.mainApp 登录启动(无 launch Apple Event)保持安静,Finder/Dock 打开仍弹主窗口;`#available(macOS 13, *)` 守卫兼容 12.0 部署目标。 |
+| `1782f9a2`/#984 + `9549cdda`/#968 缺价与仅请求数显示 | model-breakdown 线程化 `conversation_count`,`unpriced` 显式标识(不把未知价格当免费);UsageOverview 仅请求数来源行以 copy 键展示。 |
+| `fc70e520`/#978 DeepSeek 余额卡 | `deepseek-limits.js`:DEEPSEEK_API_KEY 或应用保存的 Key,官方 balance 端点按货币展示余额/赠费,TTL 磁盘缓存带 key 指纹绑定,认证失败不走旧缓存;凭证不进 WebDAV。dashboard 卡片/设置与 LimitsSettingsStore 同步接入。 |
+| `2af6ec08`/#975 Codex 速度档明细 | `computeRowTierCosts` + priority/ultrafast 子集列求和,pricing info 透出 `priority_multiplier`/`ultrafast_multiplier`;dashboard 速度档行展示 Standard/Fast/Ultrafast token 与估算费用,总量恒等、不将子集重复求和、与 fork 冻结历史估值一致(codex-tier-breakdown 测试锁定)。 |
+
+未纳入(维持 11-03 评估):#964 ZCode 跨区域快照、#972 Windows 启动、#983/#986 账号切换、云/排行榜/遥测相关。验证:`npm test` 3823 通过/0 失败(新增 session-response-cache、session-browser-facets、usage-limits-visibility-gating、deepseek-limits、codex-tier-breakdown、accept-encoding、local-api-zero-token-visibility、LoginLaunchPresentationPolicyTests)、dashboard vitest 1320 通过、tsc strict、dashboard 构建、validate:copy/locale/ui-hardcode/guardrails/bot-versions/architecture 全绿。剩余风险:会话缓存收益与压缩 CPU 为实验室数据,未做真实数据量对照;Windows 实机验证归发布轮。
+
+## 2026-11-03 只读评估检查点（未集成）
+
+经代理 fetch upstream/origin：upstream/main `91457a45867536d9e12dc030cd9510792482ea4f`，相对上次 `a9ef316f` 新增 28 个提交。GitHub latest API 确认官方稳定版 `v1.5.4`（2026-11-03 10:55:17 Asia/Shanghai 发布）；main 还有发布后的依赖更新。个人版当前 HEAD/origin 发布分支均为 `687f76f2a8499fd00d42359619be06ec11bbd598`，产品 1.5.0。本轮仅读源码/提交/发布元数据与更新文档，不改应用、不集成、不构建、不发布。（后续：用户授权后,同日完成集成,见上检查点。）
+
+| 提交 / PR | 评估 | 适配边界 |
+|---|---|---|
+| `5afb70b0` / #982 + `196eaf36` / #988 | 优先：会话 API 响应/sidecar 缓存、资源压缩、列表精简字段、服务端范围与 facets、recheck 增量刷新及坏 sidecar/漏扫重试 | 当前 fork 会话端点使用 fork-view.sessions，不能改回仅本机 sidecar；缓存须覆盖设备范围、导入视图/本地 journal、隐藏/别名、价格版本与不完整状态。保留源删历史与远端无恢复命令。压缩要复用缓存并测 CPU，不用上游性能数字冒充个人版实测。 |
+| `e88027c6` / #970 | 优先：隐藏厂商不再发额度请求/启动查询子进程/读取凭证 | 仅额度查询门控，不影响所有工具的用量采集；网页/原生设置、订阅展示例外、缓存分区/在途失效与本地认证一并适配。 |
+| `1f9486e5` / #1005 | 建议：SMAppService 开机登录启动保持安静 | fork 仍使用旧 currentAppleEvent 判定，存在同样条件；保留 Finder/Dock 主动打开及 reopen 行为，不引入新后台服务。 |
+| `fc70e520` / #978 | 功能建议：DeepSeek 官方预付余额卡 | 上游只读取 DEEPSEEK_API_KEY 或应用保存的 Key，未自动取 Harness 凭证。需要用户单独配置，按货币展示余额/缓存时间、认证失败不冒用旧账号；不是实际消费账单。凭证不进入 WebDAV。 |
+| `2af6ec08` / #975 | 功能按需：Codex Standard/Fast/Ultrafast 分档 Token 和估算费用 | 当前计价已处理 priority/ultrafast premium；这次主要是可解释展示，不能宣称修复了当前漏计费用。保持总量恒等及 fork 冻结估值/报表口径，不将子集重复求和。 |
+| `1782f9a2` / #984 + `9549cdda` / #968 | 建议顺带：模型缺价标识、只有请求数的来源仍显示 | 不将未知价格显示成免费；不编造未提供的 Token；账号级去重与当前设备范围仍保留。 |
+| `904bc4d0` / #964 | 暂不原样采纳：ZCode 跨区域日志快照持久化 | 依赖此前尚未纳入的 #939/#942/#950；新 log-snapshot 分区明确无 login 身份和硬 TTL，仅信息展示。fork 已有外层账号隔离缓存，需先设计账户/区域/陈旧度边界，避免叠加缓存或换号展示旧信息。 |
+| `f837be28` / #954、`a30a1556` / #985、`4805c9f8` / #991、`b259723f` / #1003、`a626e8b4` / #957、`6b676306` / #976 | 按对应工具实际使用再评估：WorkBuddy/Cursor/Kimi/Grok 离线缓存、Qoder 明细、WorkBuddy 到期信息 | 不是当前 Codex/ZCode/DSH 的共同瓶颈；缓存需按凭证身份隔离，不能把 stale 当实时。 |
+| `2e89e6f6` / #972 | Qoder fresh-cache 来源修复可专项摘取；Windows 启动部分先不原样纳入 | fork 个人模式已跳过 cmdInit/runtime repair，官方首次 init 阻塞监听的触发路径不同；当前 Windows 仍为 20 秒启动预算，若实测慢启动再针对实际流程调整，不能只将其改为 90 秒就声称修复。 |
+| `76abf261` / #983、`17ac6226` / #986 | 不照搬官方账号/本机切换 | 个人版已经有全部/本机/指定 WebDAV 设备范围，账号级来源另有去重；可评估纯提示，不恢复官方账号视图。 |
+| `cf4e113c` / #971、`7acee565` / #973、`c1a46aef` / #967、`3e4aa1fb` / #997、`41b881bb` / #999、版本提交、`91a65ca4` / #969 | 不作为本轮重点：已删除服务状态页/官方云/付款运维，或轻微图标与发布元数据 | 不恢复已退出路径的页面/商业功能。 |
+| `91457a45` / #1000 + `f74cc242` / #1002 | 依赖升级单独按使用路径评估 | 不恢复 PostHog/Sentry React 等已删依赖；wa-sqlite/路由/样式等升级需回归。本轮未核实存在紧急安全漏洞，不将普通版本升级说成必修安全更新。 |
+
+下一步建议分两组：先移植会话性能、额度查询门控、Mac 安静自启及轻量数据展示修复；DeepSeek 余额/Codex 速度档作为可选功能组。以上是静态评估，尚无个人版性能对照或集成回归结论，等待用户决定范围。
+
 ## 2026-10-31 personal-v1.5.0 实施检查点
 
 经代理 fetch upstream/main 仍为 `a9ef316fbe58cf594dbefa7cdbfd5f71cfa212f1`,与上一检查点一致,无新增需要摘取的采集/计价/安全修复。本轮实施:

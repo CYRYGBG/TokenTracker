@@ -144,6 +144,7 @@ describe("useLimitsDisplayPrefs", () => {
         "commandCode",
         "copilot",
         "cursor",
+        "deepseek",
         "devin",
         "gemini",
         "workbuddy",

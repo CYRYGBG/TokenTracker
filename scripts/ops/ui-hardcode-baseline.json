@@ -447,9 +447,11 @@
     },
     "dashboard/src/ui/dashboard/components/UsageOverview.jsx": {
       "colors": 13,
-      "rawText": 2,
+      "rawText": 5,
       "rawTextTokens": [
         "0 && (",
+        "0) && (",
+        "0)); if (!rows.length) return null; return (",
         "1 ? ("
       ]
     },
