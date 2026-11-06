@@ -1,5 +1,22 @@
 # STATUS — 个人同步版事实状态
 
+## 2026-11-06 personal-v1.5.2 实现与回归完成（待构建发布）
+
+- 用户明确授权按评估更新并发布双系统新版本。已摘取七个上游提交，范围为 Codex 模型/游标修复、ZCode providerId、macOS 全屏面板、Grok 定价、Cursor 请求数、TRAE 安全诊断/junction 读取；详见 UPSTREAM 集成检查点。Claude 自定义后端、Cursor 新授权、其他额度缓存/官方功能保持暂缓。
+- fork 适配：ZCode 会话摘要独立版本使不变数据库的旧缓存升级刷新；无源日志时 Codex 模型修订能更新本地冻结用量并跨设备整行替换，不重复相加；删除源后长期会话仍保留。版本同步 1.5.2，project.yml 变更后已 xcodegen generate + 图标补丁；顺带修正根 lockfile 遗留的 1.4.20 根版本元数据，依赖未升级。
+- 验证：Node 全量 3853 项，3837 通过/16 既有平台等跳过/0 失败，日志 /tmp/tt-152-full-node.log；随后新增 fork 模型升级端到端用例 1/1 通过。dashboard 150 文件/1320 项全绿、tsc strict、生产构建通过；copy/locale/ui-hardcode/guardrails/versions/bot-frames/architecture 全绿。macOS 定位策略原 13 个测试方法转 CLT precondition harness 全过（本机 CLT 没有 XCTest 模块，未称作 XCTest runner）。本轮测试只使用隔离临时数据。
+- 下一步：固定实现提交，本地重新打包 macOS arm64 / Windows x64，检查包内源码/版本/运行时及 SHA256，再发布 personal-v1.5.2 到个人更新渠道。未覆盖安装本机应用；Actions 开关未动。
+- 验证边界：Windows GUI/安装/常驻、macOS 全屏双屏手动交互、长期能耗与真实坚果云速率仍未验证；不将单元测试/跨平台构建表述为实机通过。
+
+## 2026-11-06 官方近期版本评估（未实施）
+
+- 用户要求查看官方最近更新并判断跟进价值。已读三份必读文档，经代理成功 fetch upstream：从上次 `ce8bc2da` 到 `45bba9352cd26383289011d8509ecdba2beb5a52`，44 新提交（37 非 merge）；官方最新稳定版 v1.5.9，2026-11-05 21:26:57 Asia/Shanghai 发布。main 的 1.5.10 是未发布官方 checkout 改动。个人版仍为 1.5.1，HEAD `c593989d`，无应用代码/依赖/版本变更。
+- 已对照真实 diff 和 fork 实现，推荐优先 #1014 ZCode providerId 旧历史漏采、#1031 Codex 多模型/unknown/游标 schema 保留、#1027 macOS 全屏状态栏面板锚点；同批可附 #1009 Grok 显式价格、#1016 Cursor 请求数/缓存 Token 行、#1028/#1037 TRAE 安全诊断/Windows junction 错误提示。具体 SHA、价值、适配和证据见 UPSTREAM 本日检查点。
+- 隔离复现：提取上游新增测试到系统临时目录，链接当前 fork 模块，只用临时夹具。Codex 新 8 项均失败（模型数 4 而非 5、unknown 归属/旧游标模型丢失、repair 缺 schema version）；ZCode 新字段夹具缺一条 legacy 行；Cursor 请求行被丢，退化全零对照通过。共 11 个探针 10 失败/1 通过，说明待修缺口，不代表已经接入后回归失败。fork 既有 Codex observed/session revision/源删保史与 ZCode metadata 共 6 项全部通过。未读取或改写真实统计目录。
+- 暂缓：Claude #1033 涉新 backend_usage 与未知费用语义，当前 WebDAV 清洗/历史估值链路需完整适配；Cursor #1049 浏览器连接是新增厂商凭证生命周期，按需另批。#1029 钥匙串解密已被 #1046 撤回，不采中间版本。Gemini/Kiro/Copilot/Devin 缓存、Antigravity 免费配额留第二批。官方云 DeepSeek SQL、排行榜、徽章、支付、灵动岛不纳入；本次无 DSH 采集器新增修复。
+- 已核对 xAI 官方 Grok 短上下文与 Fast 价格；上游此次未完整支持 200k 长上下文档，不能把价格键补齐宣称为完整阶梯计费。个人冻结估值不自动重估。
+- 本轮只更新 UPSTREAM/STATUS；未集成、提交、推送、构建、发布、安装或操作 Actions。下一步为选定范围后的分项适配，重点验连续两次采集不重复、源删历史保留、向下修订/跨设备一致性；无阻塞调查的外部条件。
+
 ## 2026-11-03 personal-v1.5.1 双平台发布完成
 
 - 发布 personal-v1.5.1(Release ID 432363713,tag/构建源码 `87090400`,分支 codex/personal-release-20261027),`releases/latest` 指向该标签,draft=false、prerelease=false。

@@ -1,5 +1,37 @@
 # UPSTREAM 跟踪与 Fork 改动地图
 
+## 2026-11-06 personal-v1.5.2 集成检查点
+
+用户授权“跟着更新并继续发布双系统新版本”，按下节建议摘取 `559d7c7f` (#1014)、`ae64e97c` (#1031)、`17b8ac09` (#1027)、`669e989f` (#1009)、`dc0c5ff5` (#1016)、`d6542abf` (#1028)、`a3079685` (#1037)。重新 fetch upstream/main 仍为 `45bba9352cd26383289011d8509ecdba2beb5a52`（fetch 同时取得 v1.5.10 标签；其官方 checkout 改动不纳入）。没有合并整条上游主线、云端 SQL、官方账号或依赖升级。
+
+- Codex 默认 observed 模型归属；游标保留真实命名模型与 unknown，首次升级回写旧桶/收回旧对齐行，不依赖重放源日志；repair 保存 schema version 与 policy。新增 fork 集成用例覆盖源日志不存在时从游标修订、冻结估值保持/修订、两设备导入替换与重放幂等；原有会话源删保史回归通过。
+- ZCode 解析补 providerId fallback，仍排除 bundled 子代理且保持 legacy/native 时间分界。fork 的 SQL 投影本已保留 providerId；另给 ZCode 会话摘要加独立 usage version，升级时让 TTL/总体签名/单文件 stat 缓存一并失效，只重扫 ZCode，不重建其他工具。新增不变数据库升级缓存、连续采集无重复、删除数据库后长期会话保留用例。
+- macOS 采用同屏直接 status-item 定位，跨屏锚点一次性创建/关闭丢弃，保留个人文字指标与动画门控。CLT 无 XCTest 模块，以原测试方法配合 precondition 断言 harness 验证 13 项（不是 Xcode XCTest 执行）；全屏双屏交互仍需实机验收。
+- Grok 仅补显式 curated 键，不修改冻结历史或云端价格镜像；Cursor 同时放开 CSV 与 incremental 请求行门槛；TRAE 增加脱敏诊断与 junction 读错提示，不改变显式 opt-in、不回显服务端凭证。
+- 验证：Node 全量 3853 项（3837 通过、16 跳过、0 失败）+ 新增 fork 模型升级集成 1 项通过；dashboard 150 文件/1320 项通过，tsc strict、生产构建、copy/locale/ui-hardcode/guardrails/versions/bot-frames/architecture 全部通过。双平台构建、包内 Node 22 和发布记录见 STATUS 后续条目；不以构建冒充 Windows 实机验证。
+
+## 2026-11-06 官方近期更新评估（未集成）
+
+已读 REQUIREMENTS/UPSTREAM/STATUS，经仓库代理成功 `git fetch upstream`。相对上次已检查/摘取基准 `ce8bc2da3d341d3280a5a86a2525b185835f1410`，upstream/main 到 `45bba9352cd26383289011d8509ecdba2beb5a52` 新增 44 提交（37 个非 merge 提交）。GitHub Release API 确认最新稳定版 [v1.5.9](https://github.com/xiufengsun/TokenTracker/releases/tag/v1.5.9)，2026-11-05 21:26:57 Asia/Shanghai 发布，标签提交 `6c5c8a56d3148c0392669c370c1f26d1b1f702ac`；main 的 package.json 已写 1.5.10，但新增内容是未发布的官方 checkout 恢复，不能称为已发布版本。当前个人版 1.5.1，HEAD `c593989d70051a26ba99807f26c6c3b3f53b9fc6`，开始时工作区干净。
+
+发布脉络：1.5.5/1.5.6 主要为 ZCode 字段、Cursor 请求数、Grok 定价、Antigravity 免费账户、Gemini 缓存和官方设备筛选；1.5.7 集中 Codex 模型归属、macOS 全屏面板、TRAE 诊断、Claude 自定义后端及更多厂商额度缓存；1.5.8 撤回 Cursor Safe Storage 解密；1.5.9 改为显式浏览器连接 Cursor。1.5.7 的灵动岛定位调整也在同版发布前撤回。不得按中间提交标题盲目摘取。
+
+| 提交 / PR | 价值与结论 | 当前 fork 证据 / 接入边界 |
+|---|---|---|
+| `559d7c7f` / [#1014](https://github.com/xiufengsun/TokenTracker/pull/1014) | **优先**：ZCode 旧历史读取兼容小写 d 的 `providerId` | `opencodeMessageProvider()` 仍只读 `providerID` / `model.providerID`；fork 的 metadata SQL 已保留新字段，所以缺口在解析判定。上游夹具在当前 fork 复现 `legacy-renamed-field` 被漏掉。影响 native model_usage 首条记录以前的 legacy message 历史，不能说全部当前 ZCode 请求都漏计。接入须保留 anthropic/openai/google 子代理排除、native 历史分界和缓存输入失效，验证补扫不重复。 |
+| `ae64e97c` / [#1031](https://github.com/xiufengsun/TokenTracker/pull/1031) | **优先**：Codex 同半小时多模型和 unknown 保持独立，修复无版本游标及 repair 状态保存 | fork 虽有 observed 可选策略，普通采集未默认启用，也没有 preserveCodexModelBuckets；repair 仍丢 hourly.version / policy。直接用上游新增 codex-daily-models 的 8 个隔离用例测当前 fork，8 个均未通过：5 类模型只留 4 行、unknown 被分摊、旧游标模型折叠、repair version 缺失。不是重复采纳 1.5.0 的 ledger/session 修复。接入必须覆盖零行收回、连续两次采集/重启幂等、源删保史、长期历史向下修订与跨设备汇总，不能清空历史重建了事。 |
+| `17b8ac09` / [#1027](https://github.com/xiufengsun/TokenTracker/pull/1027)（issue #866） | **优先**：macOS 全屏 Space 下状态栏面板不再被旧锚点窗口卡住 | fork 仍使用 `popoverAnchorWindow ?? makePopoverAnchorWindow()`。适配直接 status item 定位及一次性跨屏锚点，保留个人版文字指标、动画门控和窗口行为。上游单元测试/源码证据尚不等于个人版全屏/双屏实测。 |
+| `669e989f` / [#1009](https://github.com/xiufengsun/TokenTracker/pull/1009) | **建议同批**：为裸 `grok-4.7` / `grok-4.7-build-fast` 补显式 curated 定价 | 当前 curated 只有 cursor 前缀键。已核对 [xAI 定价](https://docs.x.ai/developers/pricing)：普通/fast 短上下文单价与上游一致；官方另有 200k 长上下文档，上游此次只是平价表，不是完整分档修复。历史估值按 fork 冻结策略保留，不后台静默重估；也不能仅凭 curated 缺键断言本机 LiteLLM 回退必然为 $0。云 edge 镜像不纳入。 |
+| `dc0c5ff5` / [#1016](https://github.com/xiufengsun/TokenTracker/pull/1016) | **建议同批小修**：Cursor CSV 保留有模型的 0-token/1-request 行及只有缓存 Token 的行 | 上游请求数夹具在当前 fork 复现 eventsAggregated=0（应为 1）；无模型且全零的对照通过。需同时改 CSV 入口与 incremental 门槛，不伪造 Token，保留账号级去重。 |
+| `d6542abf` / [#1028](https://github.com/xiufengsun/TokenTracker/pull/1028) + `a3079685` / [#1037](https://github.com/xiufengsun/TokenTracker/pull/1037) | **建议同批小修**：TRAE CN 授权失败安全诊断、Windows junction 不可读不再静默当未安装 | 不把 401/403 称作“登录成功”，不输出凭证/原始服务端错误；保持现有显式 opt-in。用户主工具收益次于前述项，但符合保留全部采集器的要求；Windows 实机仍需另验。 |
+| `0bb9ffd5` / [#1033](https://github.com/xiufengsun/TokenTracker/pull/1033) | **另批专项**：Claude 自定义后端来源追踪、官方额度不适用提示、未知费用 | 不仅是文案：新增 hook 字节范围来源账本、backend_usage 子集和 unknown/custom 不计入已知费用。fork WebDAV 白名单不承载该子集，fork-costs 冻结前的导出清洗也会丢字段；直接移植会使本地/远端费用语义脱节。需独立设计“不同步 endpoint origin、可同步必要费用状态”、旧历史不重标、缓存失效、个人版 hook 安装路径；当前主工具无直接共同收益，暂缓整体纳入。 |
+| `f2fd7938` / [#1049](https://github.com/xiufengsun/TokenTracker/pull/1049) | **按使用需要专项接入**：新版 Cursor 加密本地 token 后改用浏览器连接 | #1029 的 Safe Storage/钥匙串解密已由 #1046 撤回，不能纳入那个中间方案。最终方案使用 Cursor 内部客户端 PKCE/poll 端点，非公开第三方 OAuth；上游本地 0600 token 文件须适配个人数据目录、本地认证与账号缓存，绝不进入 WebDAV。属于厂商授权，不是恢复 TokenTracker 官方账号；但新增授权界面/凭证生命周期，不为本轮核心统计修复扩大范围。 |
+| `56c5f27c` / #1013；`d157a1f7` / #996、`cade07fd` / #993、`ab16dcde` / #994、`6fcb3bff` / #995 | **第二批按需**：Antigravity 免费账户配额、Gemini/Kiro/Copilot/Devin 最后成功额度缓存 | 有对应工具时有用；不直接改进 Codex/ZCode/DSH 的共同采集。缓存保持身份绑定/凭证代际/TTL/重置过期/stale 显示和认证失败直出；沿用 fork 隐藏厂商零查询契约，不能把缓存当实时额度。 |
+| `06065f6c` / #1020、`9669388c` / #1035、`663cea94` / #1048、`094c53f2` / #1024 | **不优先**：官方账号/设备统一筛选、Factory/WorkBuddy 图标、Grok Bot 名称、额度卡样式 | fork 已有全部/本机/指定 WebDAV 设备共享筛选，不能引入 AccountView/官方云；纯图标与名称可后续顺手摘取，不单独推动版本。 |
+| `cec3e164` / #1015、`cf888f41` / #1026、`1a41bec9` / #1036、`45bba935`；灵动岛调整/撤回、发布/文档/依赖版本提交 | **不纳入本轮** | DeepSeek 改动是云端 SQL 与本地分时口径对齐，本地计价此次无变更；DSH 采集器此次无新增修复。徽章、排行榜、checkout、灵动岛均已移除。sql.js/SCIP/pglite 开发依赖、图标库升级单独按使用路径评估，本轮未发现必须因此整体升级的安全证据。 |
+
+验证边界：本轮仅评估和文档记录；上游测试文件提取到系统临时目录，src/dashboard/node_modules 链接当前仓库，在临时夹具上执行，未改变源码或真实数据。新增行为探针共 11 项：Codex 8 失败、ZCode 1 失败、Cursor 请求行 1 失败/全零占位对照 1 通过；失败用于确认当前缺口，不是已集成修复失败。当前仓库既有 `codex-observed-model-attribution`、`codex-session-revision`、`fork-zcode-metadata` 共 6 项通过。没有执行全量集成、构建、发布或实机验收。下一步建议先做 3 项高优先修复，附带 Grok 定价 + Cursor/TRAE 小修；Claude 与 Cursor 新授权另批评审。
+
 ## 2026-11-03 personal-v1.5.1 集成检查点
 
 用户授权"按建议纳入并发布双系统新版本"后,按文件摘取/适配 upstream 至 `ce8bc2da3d341d3280a5a86a2525b185835f1410`(含发布后的 #1006 macOS 12 兼容修复;91457a45 之后的其余依赖更新仍不纳入)。本轮集成内容与 fork 适配边界:

@@ -18,6 +18,7 @@ const { probeOpenclawHookState } = require("./openclaw-hook");
 const { probeOpenclawSessionPluginState } = require("./openclaw-session-plugin");
 const { probeGrokHookState } = require("./grok-hook");
 const { resolveTrackerPaths } = require("./tracker-paths");
+const { inspectTraeCnAuth } = require("./trae-cn-config");
 const wsl = require("./wsl-probe");
 // TASK-011: Kiro paths inlined here to avoid pulling the ~4000-line
 // rollout module on every `tokentracker status` / `diagnostics` call.
@@ -185,6 +186,7 @@ async function collectTrackerDiagnostics({
     }
   }
 
+  const traeCn = inspectTraeCnAuth({ home });
   return {
     ok: true,
     version: 1,
@@ -222,6 +224,7 @@ async function collectTrackerDiagnostics({
       merge_policy:
         "Kiro IDE and Kiro CLI both emit source='kiro' in queue.jsonl so token, cost, heatmap, and leaderboard aggregations merge transparently. Use this block to distinguish sub-path contributions.",
     },
+    trae_cn: { ...traeCn, storage_path: redactValue(traeCn.storage_path, home) },
     scan_roots: {
       codex: describeScanRoots(scanRoots.codex),
       claude: describeScanRoots(scanRoots.claude),

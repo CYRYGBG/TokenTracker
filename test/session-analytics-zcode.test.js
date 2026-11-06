@@ -545,6 +545,61 @@ sqliteTest("a failed legacy v1 query also aborts the scan when no native layout 
   await assert.rejects(scanZcodeSessions(dbPath));
 });
 
+sqliteTest("providerId upgrade refreshes unchanged ZCode cache and preserves deleted-source history", async (t) => {
+  const { home, dbPath } = buildDb(t, (db) => {
+    insertSession(db, { id: "renamed-provider", directory: "/repo/renamed", created: T0 });
+    const msg = { id: "legacy-renamed", sessionID: "renamed-provider", role: "assistant",
+      providerId: "account:bigmodel-coding-plan", modelId: "GLM-5.3",
+      time: { created: T0, completed: T0 + 1000 },
+      tokens: { input: 100, output: 20, reasoning: 0, cache: { read: 30, write: 0 } } };
+    db.prepare("INSERT INTO message VALUES (?, ?, ?, ?, ?)")
+      .run(msg.id, msg.sessionID, T0, T0 + 1000, JSON.stringify(msg));
+  });
+  const previousZcodeHome = process.env.ZCODE_HOME;
+  const previousMode = process.env.TOKENTRACKER_WSL_MODE;
+  process.env.ZCODE_HOME = path.join(home, ".zcode");
+  process.env.TOKENTRACKER_WSL_MODE = "native-only";
+  t.after(() => {
+    if (previousZcodeHome === undefined) delete process.env.ZCODE_HOME;
+    else process.env.ZCODE_HOME = previousZcodeHome;
+    if (previousMode === undefined) delete process.env.TOKENTRACKER_WSL_MODE;
+    else process.env.TOKENTRACKER_WSL_MODE = previousMode;
+  });
+  const first = await buildSessionAnalytics({ home, force: true });
+  assert.equal(first[0].total_tokens, 120);
+  const sidecar = resolveSessionSidecarPath(home);
+  const metaPath = `${sidecar}.meta.json`;
+  const meta = JSON.parse(fs.readFileSync(metaPath, "utf8"));
+  delete meta.zcode_usage_version;
+  for (const file of Object.values(meta.files)) file.stat_key = file.stat_key.replace(/\|usage-version:\d+/, "");
+  fs.writeFileSync(metaPath, JSON.stringify(meta));
+  // Simulate the pre-upgrade sidecar without modifying the source database.
+  fs.writeFileSync(sidecar, fs.readFileSync(sidecar, "utf8").replaceAll('"total_tokens":120', '"total_tokens":1'));
+  const dbStat = fs.statSync(dbPath);
+  const refreshed = await buildSessionAnalytics({ home });
+  assert.equal(refreshed[0].total_tokens, 120, "TTL and unchanged-stat cache both expire on upgrade");
+  assert.equal(fs.statSync(dbPath).mtimeMs, dbStat.mtimeMs);
+  assert.equal(JSON.parse(fs.readFileSync(metaPath, "utf8")).zcode_usage_version, 1);
+  assert.equal((await buildSessionAnalytics({ home }))[0].total_tokens, 120);
+
+  const queuePath = path.join(path.dirname(sidecar), "queue.jsonl");
+  const cursors = {};
+  const run = () => parseOpencodeDbIncremental({ dbMessages: readZcodeDbMessages(dbPath), dbPath,
+    cursors, queuePath, source: "zcode", cursorKey: "zcode" });
+  await run();
+  const before = fs.readFileSync(queuePath, "utf8");
+  assert.equal((await run()).eventsAggregated, 0);
+  assert.equal(fs.readFileSync(queuePath, "utf8"), before);
+  const tracker = path.dirname(sidecar);
+  const { collectSessions } = require("../src/lib/fork-view");
+  await collectSessions(tracker, { home });
+  fs.rmSync(dbPath);
+  await collectSessions(tracker, { home, force: true });
+  const history = await require("../src/lib/fork-store").read(path.join(tracker, "fork-history", "sessions.json"), []);
+  assert.equal(history.find(row => row.session_id === "renamed-provider").total_tokens, 120);
+  assert.equal(fs.readFileSync(queuePath, "utf8"), before);
+});
+
 sqliteTest("failed ZCode rebuilds preserve the complete cache and retry unchanged databases", async (t) => {
   const { home, dbPath } = buildDb(t, (db) => {
     insertSession(db, { id: "retry", directory: "/repo/retry", created: T0 });

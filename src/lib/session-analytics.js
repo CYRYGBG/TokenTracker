@@ -96,6 +96,8 @@ const {
 const SIDECAR_VERSION = 28;
 // Invalidate only Codex token summaries; other sources keep their cached rows.
 const CODEX_USAGE_VERSION = 1;
+// #1014: unchanged ZCode databases need one rescan for providerId legacy rows.
+const ZCODE_USAGE_VERSION = 1;
 const EDIT_TOOLS = new Set([
   "apply_patch",
   "edit",
@@ -2218,7 +2220,7 @@ function analyticsEntryStatKey(source, filePath) {
   if (source === "zcode" || source === "opencode") {
     // A WAL-mode db can absorb writes without touching the main file's mtime,
     // so the sidecar files are part of the db's identity for cache checks.
-    return `${sessionStat}|sidecars:${filePaths.map((filePath) =>
+    return `${sessionStat}${source === "zcode" ? `|usage-version:${ZCODE_USAGE_VERSION}` : ""}|sidecars:${filePaths.map((filePath) =>
       `wal:${sessionFileStatKey(`${filePath}-wal`) || "missing"}|shm:${sessionFileStatKey(`${filePath}-shm`) || "missing"}`).join("|")}`;
   }
   return sessionStat;
@@ -2303,7 +2305,7 @@ async function buildSessionAnalyticsInternal({ home = os.homedir(), force = fals
         // `recheck` deliberately skips the TTL so Refresh always re-walks the
         // directories; the per-file stat reuse below still avoids re-parsing.
         !recheck &&
-        !retryZcodeScan && !retryOpencodeScan && !retryKimiScan && !retryOmpScan && previousMeta.version === SIDECAR_VERSION && previousMeta.codex_usage_version === CODEX_USAGE_VERSION &&
+        !retryZcodeScan && !retryOpencodeScan && !retryKimiScan && !retryOmpScan && previousMeta.version === SIDECAR_VERSION && previousMeta.codex_usage_version === CODEX_USAGE_VERSION && previousMeta.zcode_usage_version === ZCODE_USAGE_VERSION &&
         Number.isFinite(checkedAt) &&
         Date.now() - checkedAt < Math.max(0, Number(cacheTtlMs) || 0)
       ) {
@@ -2349,7 +2351,7 @@ async function buildSessionAnalyticsInternal({ home = os.homedir(), force = fals
   // transcript, so a transient read/parse failure can recover without waiting
   // for the file itself to change.
   const retrySkippedOnRecheck = recheck && Number(previousMeta?.skipped_files) > 0;
-  if (!force && !retrySkippedOnRecheck && !retryZcodeScan && !retryOpencodeScan && !retryKimiScan && !retryOmpScan && previousMeta?.version === SIDECAR_VERSION && previousMeta.codex_usage_version === CODEX_USAGE_VERSION && previousMeta.signature === signature) {
+  if (!force && !retrySkippedOnRecheck && !retryZcodeScan && !retryOpencodeScan && !retryKimiScan && !retryOmpScan && previousMeta?.version === SIDECAR_VERSION && previousMeta.codex_usage_version === CODEX_USAGE_VERSION && previousMeta.zcode_usage_version === ZCODE_USAGE_VERSION && previousMeta.signature === signature) {
     const cached = readSidecarWithMeta(sidecarPath, previousMeta);
     // A missing/corrupt sidecar reads as an empty list. The source signature
     // can still match, so only an explicit refresh used to notice the loss;
@@ -2477,6 +2479,7 @@ async function buildSessionAnalyticsInternal({ home = os.homedir(), force = fals
     await writeAtomic(metaPath, `${JSON.stringify({
       version: SIDECAR_VERSION,
       codex_usage_version: incompleteCodexUsage ? 0 : CODEX_USAGE_VERSION,
+      zcode_usage_version: ZCODE_USAGE_VERSION,
       signature,
       generated_at: generatedAt,
       checked_at: generatedAt,
