@@ -1,5 +1,14 @@
 # STATUS — 个人同步版事实状态
 
+## 2026-11-06 personal-v1.5.2 双平台发布完成
+
+- 2026-11-06 10:47:58（Asia/Shanghai）已公开发布 [personal-v1.5.2](https://github.com/CYRYGBG/TokenTracker/releases/tag/personal-v1.5.2)，Release ID `436035956`，设为 latest，draft=false / prerelease=false。标签与两平台构建源码固定 `b74c4f07a9d8492e181c445fe9568bf928d60f17`；源码已推送至既有 `codex/personal-release-20261027` 分支，未重写历史或移动旧标签。
+- macOS arm64 DMG：65,655,518 字节，SHA256 `74fb6d835210290a86e16673a67af131eb020f44a67895262a263f2d79436994`。全量 CLT Swift Release 编译、codesign deep strict、hdiutil VALID；只读挂载确认版本 1.5.2 / bundleId com.cyrygbg.tokentracker.personal，325 内嵌输入逐字节一致，87 个原生源码哈希吻合。包内 Node 22.22.2 定向 161 项（157 过/4 平台跳过/0 失败）；隔离 HOME + 17885 端口实际 serve，local-auth 版本及首页/fork view/sessions JSON 均正常。
+- Windows x64 Setup：299,816,209 字节，SHA256 `b5e2ca24e821e4f05775c0f786ae8db230234555d04c43abc1ecb31c71c3b7db`。.NET SDK 8.0.132 自包含交叉 publish；324 个内嵌输入字节一致、2578 包文件清单；CrossOver tt-inno10 内 Inno Setup 6.7.3 编译成功。真实包内 Windows Node 22.22.2 于 tt-smoke64 冒烟：Codex 多模型/重启/无源稳定、ZCode 新字段/子代理排除/重复采集、Cursor 请求行、Grok Fast 定价、TRAE opt-out 全通过。
+- 远端三资产大小/digest 与本地一致；匿名 HEAD 全 200；SHA256SUMS.txt 匿名下载字节一致；两安装包匿名 ranged 请求均 206 且首 1 MiB 与本地相同。以 personal-v1.5.1 的实际更新器源码编译探针：macOS 与 Windows UI-free .NET 客户端均从真实公网 latest 获取 1.5.2、识别正确平台文件、下载校验文件并验证对应本地安装包 SHA256，无需回退。没有驱动已安装应用点击更新或安装。
+- 测试与范围见下节；发布证据 `docs/fork/evidence/release-1.5.2.json`，构建/验证摘要 `docs/fork/evidence/verification-1.5.2.json`，完整本地现场 `dist/reviewed-1.5.2.noindex/`。上传耗时较长但成功，无不完整资产遗留在本次 Release。
+- Actions 前后状态一致（既有个人 macOS 工作流为仅 workflow_dispatch 的 active，其余上游工作流 disabled_manually）；未操作开关或 dispatch。未发布 npm、未写 upstream、未覆盖安装本机应用、未读写个人统计目录。Windows 实机 GUI/安装、macOS 全屏双屏手动交互、长期观察仍待用户实际使用验收。交付已完成，无发布阻塞；用户可在个人版中选择“检查更新”。
+
 ## 2026-11-06 personal-v1.5.2 实现与回归完成（待构建发布）
 
 - 用户明确授权按评估更新并发布双系统新版本。已摘取七个上游提交，范围为 Codex 模型/游标修复、ZCode providerId、macOS 全屏面板、Grok 定价、Cursor 请求数、TRAE 安全诊断/junction 读取；详见 UPSTREAM 集成检查点。Claude 自定义后端、Cursor 新授权、其他额度缓存/官方功能保持暂缓。

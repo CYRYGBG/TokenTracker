@@ -10,6 +10,8 @@
 - Grok 仅补显式 curated 键，不修改冻结历史或云端价格镜像；Cursor 同时放开 CSV 与 incremental 请求行门槛；TRAE 增加脱敏诊断与 junction 读错提示，不改变显式 opt-in、不回显服务端凭证。
 - 验证：Node 全量 3853 项（3837 通过、16 跳过、0 失败）+ 新增 fork 模型升级集成 1 项通过；dashboard 150 文件/1320 项通过，tsc strict、生产构建、copy/locale/ui-hardcode/guardrails/versions/bot-frames/architecture 全部通过。双平台构建、包内 Node 22 和发布记录见 STATUS 后续条目；不以构建冒充 Windows 实机验证。
 
+交付：personal-v1.5.2 已于 2026-11-06 10:47:58 Asia/Shanghai 公开并设 latest，tag/双平台构建源码 `b74c4f07`。安装包、SHA256SUMS 的远端 digest/匿名下载验证及旧版两平台更新器公网识别均通过，证据见 `evidence/release-1.5.2.json` 与 `evidence/verification-1.5.2.json`。Actions 状态未变、未安装本机应用、未向上游或 npm 写入。
+
 ## 2026-11-06 官方近期更新评估（未集成）
 
 已读 REQUIREMENTS/UPSTREAM/STATUS，经仓库代理成功 `git fetch upstream`。相对上次已检查/摘取基准 `ce8bc2da3d341d3280a5a86a2525b185835f1410`，upstream/main 到 `45bba9352cd26383289011d8509ecdba2beb5a52` 新增 44 提交（37 个非 merge 提交）。GitHub Release API 确认最新稳定版 [v1.5.9](https://github.com/xiufengsun/TokenTracker/releases/tag/v1.5.9)，2026-11-05 21:26:57 Asia/Shanghai 发布，标签提交 `6c5c8a56d3148c0392669c370c1f26d1b1f702ac`；main 的 package.json 已写 1.5.10，但新增内容是未发布的官方 checkout 恢复，不能称为已发布版本。当前个人版 1.5.1，HEAD `c593989d70051a26ba99807f26c6c3b3f53b9fc6`，开始时工作区干净。

@@ -1,0 +1,108 @@
+{
+  "version": "1.5.2",
+  "sourceCommit": "b74c4f07a9d8492e181c445fe9568bf928d60f17",
+  "upstreamChecked": "45bba9352cd26383289011d8509ecdba2beb5a52",
+  "integratedCommits": [
+    "559d7c7f",
+    "ae64e97c",
+    "17b8ac09",
+    "669e989f",
+    "dc0c5ff5",
+    "d6542abf",
+    "a3079685"
+  ],
+  "node": {
+    "tests": 3853,
+    "passed": 3837,
+    "skipped": 16,
+    "failed": 0,
+    "additionalForkModelUpgradeIntegration": {
+      "passed": 1,
+      "failed": 0
+    }
+  },
+  "dashboard": {
+    "files": 150,
+    "passed": 1320,
+    "failed": 0,
+    "strictTypecheck": true,
+    "productionBuild": true
+  },
+  "validators": [
+    "copy",
+    "locale",
+    "ui-hardcode",
+    "guardrails",
+    "versions",
+    "bot-frames",
+    "architecture-guardrails"
+  ],
+  "macNode22Targeted": {
+    "tests": 161,
+    "passed": 157,
+    "skipped": 4,
+    "failed": 0
+  },
+  "macPlacementPolicy": {
+    "passed": 13,
+    "runner": "CLT precondition harness derived from upstream test methods; XCTest module unavailable"
+  },
+  "macOS": {
+    "sourceCommit": "b74c4f07a9d8492e181c445fe9568bf928d60f17",
+    "version": "1.5.2",
+    "bundleId": "com.cyrygbg.tokentracker.personal",
+    "hdiutilVerify": "VALID",
+    "codesign": "ad-hoc deep strict OK",
+    "matchedPayloadInputs": 325,
+    "nativeSourcesMatched": 87,
+    "dmgSha256": "74fb6d835210290a86e16673a67af131eb020f44a67895262a263f2d79436994",
+    "dmgBytes": 65655518
+  },
+  "macServeSmoke": {
+    "version": "1.5.2",
+    "isolatedHome": true,
+    "port": 17885,
+    "responses": {
+      "/": {
+        "status": 200,
+        "bytes": 26868,
+        "contentType": "text/html; charset=utf-8",
+        "vary": null
+      },
+      "/api/fork/view": {
+        "status": 200,
+        "bytes": 202,
+        "contentType": "application/json",
+        "vary": null
+      },
+      "/functions/tokentracker-sessions?include_buckets=0&include_model_detail=0": {
+        "status": 200,
+        "bytes": 416,
+        "contentType": "application/json",
+        "vary": "Accept-Encoding"
+      }
+    }
+  },
+  "windows": {
+    "build": ".NET SDK 8.0.132 self-contained win-x64 cross-build on macOS",
+    "installer": "Inno Setup 6.7.3 via CrossOver tt-inno10",
+    "sourceSha": "b74c4f07a9d8492e181c445fe9568bf928d60f17",
+    "matchedInputs": 324,
+    "packageFiles": 2578,
+    "node22Runtime": "22.22.2 under CrossOver tt-smoke64",
+    "smokeGroupsPassed": [
+      "Codex models/restart/no-log stability",
+      "ZCode providerId/subagent exclusion/repeat collection",
+      "Cursor request-only records",
+      "Grok Fast pricing",
+      "TRAE opt-out"
+    ],
+    "installerGUIOrRealWindowsTested": false
+  },
+  "limitations": [
+    "Windows real installation/GUI/resident behavior not tested",
+    "macOS fullscreen/multiple-display manual interactions not tested",
+    "No real WebDAV throughput or long-term power claims",
+    "No local app installation; Actions settings unchanged; no npm or upstream writes"
+  ]
+}

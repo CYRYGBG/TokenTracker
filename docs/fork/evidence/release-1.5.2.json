@@ -1,0 +1,51 @@
+{
+  "checkedAt": "2026-11-06T18:15:26+08:00",
+  "version": "1.5.2",
+  "repo": "CYRYGBG/TokenTracker",
+  "tag": "personal-v1.5.2",
+  "tagSha": "b74c4f07a9d8492e181c445fe9568bf928d60f17",
+  "sourceCommit": "b74c4f07a9d8492e181c445fe9568bf928d60f17",
+  "branch": "codex/personal-release-20261027",
+  "releaseId": 436035956,
+  "releaseUrl": "https://github.com/CYRYGBG/TokenTracker/releases/tag/personal-v1.5.2",
+  "publishedAt": "2026-11-06T02:47:58Z",
+  "isLatest": true,
+  "draft": false,
+  "prerelease": false,
+  "assets": {
+    "SHA256SUMS.txt": {
+      "bytes": 212,
+      "sha256": "7aac516123ef513c1090b75e39993f1c69d3074d47993a1bd7f988295ed3395d",
+      "remoteDigest": "sha256:7aac516123ef513c1090b75e39993f1c69d3074d47993a1bd7f988295ed3395d",
+      "remoteDigestMatch": true,
+      "anonymousHead": 200,
+      "anonymousDownloadByteIdentical": true
+    },
+    "TokenTrackerPersonal-macOS-arm64.dmg": {
+      "bytes": 65655518,
+      "sha256": "74fb6d835210290a86e16673a67af131eb020f44a67895262a263f2d79436994",
+      "remoteDigest": "sha256:74fb6d835210290a86e16673a67af131eb020f44a67895262a263f2d79436994",
+      "remoteDigestMatch": true,
+      "anonymousHead": 200,
+      "rangeStatus": 206,
+      "anonymousRangedProbe": "first 1 MiB byte-identical"
+    },
+    "TokenTrackerPersonal-Windows-x64-Setup.exe": {
+      "bytes": 299816209,
+      "sha256": "b5e2ca24e821e4f05775c0f786ae8db230234555d04c43abc1ecb31c71c3b7db",
+      "remoteDigest": "sha256:b5e2ca24e821e4f05775c0f786ae8db230234555d04c43abc1ecb31c71c3b7db",
+      "remoteDigestMatch": true,
+      "anonymousHead": 200,
+      "rangeStatus": 206,
+      "anonymousRangedProbe": "first 1 MiB byte-identical"
+    }
+  },
+  "oldClientVerification": {
+    "sourceTag": "personal-v1.5.1",
+    "macOS": "PASS old macOS 1.5.1 channel: 1.5.2, asset TokenTrackerPersonal-macOS-arm64.dmg, size 65655518, SHA256 verified; fallback=false",
+    "Windows": "PASS old Windows 1.5.1 channel: 1.5.2, size 299816209, SHA256 verified; fallback=False",
+    "scope": "macOS Foundation and Windows UI-free .NET client code, real public latest/checksums + local verified installer bytes; no installation or GUI click"
+  },
+  "actionsState": "unchanged; existing dispatch-only personal macOS workflow remains active, inherited workflows remain disabled; no workflow dispatched",
+  "notes": "Both platform packages built from b74c4f07; no npm, upstream writes or local installation."
+}
