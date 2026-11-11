@@ -1,5 +1,21 @@
 # UPSTREAM 跟踪与 Fork 改动地图
 
+## 2026-11-12 personal-v1.5.3 集成检查点
+
+用户授权"按建议纳入并发布双平台新版本"。相对上次基准 `45bba935`，upstream/main 前进至 `a2483443`（官方 v1.5.10–v1.5.18 共 41 个非 merge 提交，其中 6 个发布提交）。该区间无撤回陷阱（上轮 1.5.7→1.5.8 那类 revert 不存在）。按文件摘取/适配 13 个提交（提交 d02a99c9）：
+
+- Codex `c3b8643c`：repair 扁平化 legacy unknown 桶升级时不再重发 unknown 兄弟行/清零 stale alignedModel，仅清除标记；preserveCodexModelBuckets 增加 groupModels 映射与 flattenedLegacyGroups 判定。干净套用（fork 1.5.2 已同源 ae64e97c），codex-daily-models/model-attribution/observed-model-attribution/fork-codex-model-upgrade/session-revision/session-ledger-parity 全过。
+- DSH `f1fdd150` + `cf29548d`（含 `f20ce9aa`/`70e5bce6` 夹具测试）：历史去重 + 安全 repair + 保留未识别历史用量；sync.js 在 cursors.dsh 存在但源文件为空时仍执行解析段，延迟迁移提示文案改进。test/sync-upload-batching.test.js 为 fork 已删除文件，不恢复（其行为由 fork-journal/fork-store 覆盖）。
+- WorkBuddy `d7228d0b` + `529227df`（含 `6e0afb8b`）：同步保留不完整 JSONL 尾部；恢复中断读取与无效时间戳。
+- Cursor `e0a5bf04`：legacy cursors.json 写入检测忽略 ctime。
+- Antigravity `775d525f`：Insiders brain 目录纳入会话扫描（resolveAntigravityBrainDirs + status 双路径 + 解析测试）。
+- 定价 `31929b8f`/`42102e02`/`6a0a1a76`：Claude Fable 5.2 + fast mode；停止把 Antigravity Gemini 3.x Flash 重映射到 2.5 Flash（matcher.js 正则收紧 + curated 增 gemini-3.5/3.8/3.7/3.6-flash 四键）；gemini-4-argon 后端变体（含点拼写）。只取 curated-overrides.json + matcher.js + pricing.test.js；supabase edge-patches 与 edge-parity 测试不纳入（云镜像不使用）。42102e02 的 curated hunk 依赖 fork 未引入的 #943 条目上下文，四键按语义插入 Gemini 区域，JSON 解析与 79 项定价测试通过。
+- 启动 `a704de6b`：runtime 维护（installLocalTrackerApp/repairRuntimeIntegrations）与可选启动 sync 移到 listen 之后；init.js 安装锁（openLock 120s 等待窗口）+ copyRuntimeTree 增量复制 + 新模块 runtime-copy.js；copyRuntimeDependencies 源缺失时清空目标。fork 适配边界：保留 fork 的 first-run 前置结构与 personal 模式跳过 hook runtime 的分支；listen-order 测试改写为 fork 断言（first-run 在 listen 前、refresh/sync 在 listen 后、personal 跳过分支位于 post-listen 块）；responsive 测试完成信号从 fork 已删除的 star CTA 改挂 post-listen sync（cmdSync 同时发 sync+complete，fixture 同步改写）。
+- 同步 `04ffbc6f`：fork 的 local-sync 端点本为 fire-and-forget，但 runSyncCommand 内部 120s SIGTERM 仍在杀扫描子进程（#1055 在 fork 的等价问题）——移除内部 kill 计时器与 SYNC_TIMEOUT 分支；子进程持有 sync 锁直到整轮扫描完成提交游标，常量注释改为 fork 语义。上游 503 SYNC_RUNNING 响应与账号中止路径不适用于 fork 端点，不引入。C#/Swift 注释、windows-server-manager-lifecycle 与 macos-background-sync-source 断言更新；local-api-background.test.js 为 fork 已删除文件，新增 fork 回归（local-api-security.test.js）：mock 定时器推进 130s 断言子进程未被杀、端点立即应答契约不变。
+- 桌面启动 `6ec5473b`：parseArgs open 默认值改为 APP_SHELL 感知（macos/windows/linux 不再弹浏览器）；macOS zsh 回退路径补 --no-open（直接 exec 路径 fork 已有）。Windows ServerManager.cs fork 早已传 --no-open 且设 APP_SHELL=windows，无需改动。
+
+不纳入：限额 last-good 共享管线系列（d54f1650 + 5 个迁移 + 配套修复，±1400 行重构；fork 已有 ZCode 自研缓存兜底与 hidden-provider 门控，按既有策略留待有实际厂商额度丢失痛点时专项评审）、pi 会话支持（a2483443）、DSH 性能指标（0397a2cd/47dd7775）、官方云 auth rotating refresh（ba0114b3，路径已切除）、Linux 打包修复（295b629d）、6 个发布提交。
+
 ## 2026-11-06 personal-v1.5.2 集成检查点
 
 用户授权“跟着更新并继续发布双系统新版本”，按下节建议摘取 `559d7c7f` (#1014)、`ae64e97c` (#1031)、`17b8ac09` (#1027)、`669e989f` (#1009)、`dc0c5ff5` (#1016)、`d6542abf` (#1028)、`a3079685` (#1037)。重新 fetch upstream/main 仍为 `45bba9352cd26383289011d8509ecdba2beb5a52`（fetch 同时取得 v1.5.10 标签；其官方 checkout 改动不纳入）。没有合并整条上游主线、云端 SQL、官方账号或依赖升级。

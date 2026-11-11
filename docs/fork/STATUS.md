@@ -1,5 +1,20 @@
 # STATUS — 个人同步版事实状态
 
+## 2026-11-12 personal-v1.5.3 双平台发布完成
+
+- 2026-11-12 03:05 前后（Asia/Shanghai）已公开发布 [personal-v1.5.3](https://github.com/CYRYGBG/TokenTracker/releases/tag/personal-v1.5.3)，设为 latest，draft=false / prerelease=false；标签与双平台构建源码固定 `d02a99c9`（tag 先于 Release 创建，Release 由既有 tag 生成）。资产：DMG 71,471,769 字节（SHA256 `f140ca7867b3089987902c0b88abff14da0ada744f1c5f457fa6de284477c317`）、Windows Setup 299,688,325 字节（SHA256 `4276a741a09ad5ef3bdf0aaaf62dbdc9e66760e85e5dc87d610975de9c25b281`）、SHA256SUMS.txt 212 字节。
+- macOS：第 7 次重试派发成功（run 43078776023，headSha=d02a99c9，16 步全过：dashboard 构建、EmbeddedServer、真实 Vortex、Swift Release、ad-hoc codesign deep strict、版本/包体检查）。此前 8 次（43057691586/43060685763/43063513855/43066134739/43068793700/43071311274 及两次循环派发）均为排队 ~15 分钟后 GitHub 取消、steps=0、无 runner，注解确认 macOS arm64 宿主容量不足（与 2026-10-30 轮同签名）。DMG 哈希与 macos-build.json 一致。
+- 远端核验：匿名 API latest 解析为 personal-v1.5.3；SHA256SUMS.txt 匿名下载与本地字节一致；DMG 全量匿名下载 SHA256 与本地一致；两安装包匿名 ranged 0-1MiB 均与本地一致。更新器代码路径自 1.5.2 编译探针通过后未改动，本次已匿名复验其消费的全部数据面（API latest、平台资产名、SHA256SUMS 行、ranged 下载）。
+- 交付现场：`dist/reviewed/`（DMG + Setup + SHA256SUMS.txt）；证据 `docs/fork/evidence/release-1.5.3.json` 与 `verification-1.5.3.json`（Windows 侧另有 `windows-package-1.5.3.json`）。Windows 实机 GUI/安装、macOS 全屏双屏手动交互、长期观察仍待用户实际使用验收；macOS ad-hoc 签名未公证。
+
+## 2026-11-12 personal-v1.5.3 集成与验证（构建发布中）
+
+- 集成提交 `d02a99c9`（已推送 origin `codex/personal-release-20261027`）：按 UPSTREAM 2026-11-12 检查点摘取/适配上游 v1.5.10–v1.5.18 区间 13 个提交；版本 1.5.2→1.5.3，validate-versions 全绿。
+- 本机 Windows 验证：Node 全量 3915 项（3870 通过、43 跳过、2 失败均为 pristine cb0b210b 基线可复现的环境项：fork-journal-store torn-append 与 webdav-delta-seg git-archive tar 解包，非本次改动引入）；dashboard 150 文件 1320 项、tsc strict、生产构建；copy/locale/guardrails/versions/ui-hardcode/bot-frames/architecture 全绿。
+- Windows 构建：本机 .NET SDK 8.0.427 self-contained win-x64 publish（首次发现 publish 内 EmbeddedServer 为 1.4.20 时代手动复制残留，已删除并以 bundle-node.ps1 新产物重拷）；verify-windows-package 通过：325 内置输入字节一致（较 1.5.2 多 1 项 = 新增 runtime-copy.js）、2580 包文件、无私有文件、单一 main bundle，源码哈希固定 d02a99c9。Inno Setup 6（本机原生）编译 Setup 299,688,325 字节，SHA256 `4276a741a09ad5ef3bdf0aaaf62dbdc9e66760e85e5dc87d610975de9c25b281`，交付名 `dist/reviewed/TokenTrackerPersonal-Windows-x64-Setup.exe`。
+- 包内 Node 22.22.2 冒烟（真实 Windows 运行时，非模拟器）：13 个定向测试文件 250 项（247 通过、1 跳过、2 失败=上述预存环境项），覆盖 webdav 六件套、fork-journal、Codex 会话修订/多模型升级、DSH、WorkBuddy、local-api 安全契约与 local-sync 不杀扫描、定价 79 项。
+- macOS：Actions `release-personal-macos.yml`（仅 dispatch 的 active 工作流）前两次派发（run 43057691586、43060685763）均在排队约 15 分钟后取消，job 注解确认 "The job was not acquired by Runner of type hosted even after multiple attempts" + macOS arm64 容量提示——GitHub 侧 runner 容量问题（与 2026-10-30 轮相同签名），非构建失败（steps=0）。已启动有界自动重试循环（同参 dispatch，直至成功或真实编译失败）。
+
 ## 2026-11-06 personal-v1.5.2 双平台发布完成
 
 - 2026-11-06 10:47:58（Asia/Shanghai）已公开发布 [personal-v1.5.2](https://github.com/CYRYGBG/TokenTracker/releases/tag/personal-v1.5.2)，Release ID `436035956`，设为 latest，draft=false / prerelease=false。标签与两平台构建源码固定 `b74c4f07a9d8492e181c445fe9568bf928d60f17`；源码已推送至既有 `codex/personal-release-20261027` 分支，未重写历史或移动旧标签。

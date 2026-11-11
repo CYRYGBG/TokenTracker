@@ -1,0 +1,35 @@
+{
+  "version": "1.5.3",
+  "sourceCommit": "d02a99c95a8d1642a03b7e8cc90317a86e868d57",
+  "releasedAt": "2026-11-12T03:05+08:00",
+  "releaseId": "auto-resolved-latest",
+  "tag": "personal-v1.5.3",
+  "url": "https://github.com/CYRYGBG/TokenTracker/releases/tag/personal-v1.5.3",
+  "latest": true,
+  "draft": false,
+  "prerelease": false,
+  "artifacts": {
+    "macos-arm64-dmg": {
+      "bytes": 71471769,
+      "sha256": "f140ca7867b3089987902c0b88abff14da0ada744f1c5f457fa6de284477c317",
+      "builtBy": "GitHub Actions run 43078776023 (macos-15, head d02a99c9)",
+      "matchesBuildManifest": true
+    },
+    "windows-x64-setup": {
+      "bytes": 299688325,
+      "sha256": "4276a741a09ad5ef3bdf0aaaf62dbdc9e66760e85e5dc87d610975de9c25b281",
+      "builtBy": "local .NET SDK 8.0.427 self-contained win-x64 + Inno Setup 6 (ISCC.exe)",
+      "payloadVerified": "verify-windows-package: 325 inputs byte-identical, 2580 package files"
+    },
+    "sha256sums": {
+      "bytes": 212,
+      "anonymousDownloadIdentical": true
+    }
+  },
+  "verification": "docs/fork/evidence/verification-1.5.3.json",
+  "notes": [
+    "Tag pushed before release creation; release created from the existing tag so tag == build source == d02a99c9.",
+    "Previous attempt lineage: runs 43057691586/43060685763/43063513855/43066134739/43068793700/43071311274 and two more loop attempts were all queue-cancelled with 0 steps (macOS arm64 hosted runner capacity); success on the 7th loop dispatch.",
+    "No local app installation, no Actions settings changes, no npm or upstream writes."
+  ]
+}

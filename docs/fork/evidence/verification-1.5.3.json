@@ -1,0 +1,137 @@
+{
+  "version": "1.5.3",
+  "sourceCommit": "d02a99c95a8d1642a03b7e8cc90317a86e868d57",
+  "upstreamChecked": "a2483443ee2f1fe8d77955edccc96b21c8ac62ec",
+  "integratedCommits": [
+    "c3b8643c",
+    "f1fdd150",
+    "cf29548d",
+    "f20ce9aa",
+    "70e5bce6",
+    "d7228d0b",
+    "529227df",
+    "6e0afb8b",
+    "e0a5bf04",
+    "775d525f",
+    "31929b8f",
+    "42102e02",
+    "6a0a1a76",
+    "a704de6b",
+    "04ffbc6f",
+    "6ec5473b"
+  ],
+  "notCarried": [
+    "d54f1650 + cb692e6c/a3215d7a/5c62eb90/623b5054/eed890ec (limits shared last-good pipeline series)",
+    "0397a2cd/47dd7775 (DSH performance metrics feature)",
+    "a2483443 (pi coding agent sessions)",
+    "ba0114b3 (official cloud auth rotating refresh; path removed in fork)",
+    "295b629d (Linux packager; fork does not release Linux)",
+    "a9e5a0cb/fba54de8/bfeb4a3b/145276b2/3072ebda/3a09e27c (release chores)"
+  ],
+  "machine": "Windows x64 (native build)",
+  "node": {
+    "tests": 3915,
+    "passed": 3870,
+    "skipped": 43,
+    "failed": 2,
+    "failedPreexistingOnBaseline": [
+      "fork-journal-store.test.js: sessions journal torn final append repair",
+      "webdav-delta-seg.test.js: 1.4.20 read side applies new delta segments unchanged (git archive + tar extraction)"
+    ],
+    "baselineCheck": "both failures reproduced identically on pristine cb0b210b worktree; environment-specific (Windows), not introduced by this integration"
+  },
+  "dashboard": {
+    "files": 150,
+    "passed": 1320,
+    "failed": 0,
+    "strictTypecheck": true,
+    "productionBuild": true
+  },
+  "validators": [
+    "copy",
+    "locale",
+    "guardrails",
+    "versions (1.5.3)",
+    "ui-hardcode",
+    "bot-frames",
+    "architecture-guardrails"
+  ],
+  "windows": {
+    "build": ".NET SDK 8.0.427 self-contained win-x64 native build on Windows",
+    "installer": "Inno Setup 6 (native ISCC.exe)",
+    "sourceSha": "d02a99c95a8d1642a03b7e8cc90317a86e868d57",
+    "matchedInputs": 325,
+    "packageFiles": 2580,
+    "singleMainBundle": true,
+    "noPrivateFiles": true,
+    "verifyReport": "docs/fork/evidence/windows-package-1.5.3.json",
+    "setupBytes": 299688325,
+    "setupSha256": "4276a741a09ad5ef3bdf0aaaf62dbdc9e66760e85e5dc87d610975de9c25b281",
+    "node22Runtime": "22.22.2 (packaged EmbeddedServer/node.exe, native)",
+    "smokeFiles": [
+      "webdav-delta-seg",
+      "webdav-credential-store",
+      "webdav-client",
+      "webdav-sync-store",
+      "webdav-two-device-sync",
+      "webdav-retry-schedule",
+      "fork-journal-store",
+      "codex-session-revision",
+      "deepseek-harness",
+      "workbuddy-project-usage",
+      "codex-daily-models",
+      "fork-codex-model-upgrade",
+      "local-api-security",
+      "pricing"
+    ],
+    "smokeTests": 250,
+    "smokePassed": 247,
+    "smokeSkipped": 1,
+    "smokeFailed": 2,
+    "smokeFailuresSameAsBaseline": true,
+    "installerGUIOrRealWindowsTested": false,
+    "notes": [
+      "Stale publish/EmbeddedServer from a 1.4.20-era manual copy was found and replaced with the fresh bundle before verification; the csproj does not wire EmbeddedServer, the README copy step is required."
+    ]
+  },
+  "macOS": {
+    "workflow": "release-personal-macos.yml (workflow_dispatch, macos-15)",
+    "runId": 43078776023,
+    "headSha": "d02a99c95a8d1642a03b7e8cc90317a86e868d57",
+    "conclusion": "success",
+    "attempts": 9,
+    "queueCancellations": 8,
+    "queueCancellationSignature": "job cancelled with steps=0 and no runner after ~15min queued; annotations: 'The job was not acquired by Runner of type hosted even after multiple attempts' + macOS arm64 capacity notices (same signature as 2026-10-30)",
+    "dmgBytes": 71471769,
+    "dmgSha256": "f140ca7867b3089987902c0b88abff14da0ada744f1c5f457fa6de284477c317",
+    "dmgShaMatchesBuildManifest": true,
+    "build": "swiftc release, real pinned Vortex (vortexStub=false), darwin-arm64",
+    "ciVerified": ["payload version 1.5.3", "bundleId com.cyrygbg.tokentracker.personal", "codesign --verify --deep --strict", "no pet.html/quota.html in payload"]
+  },
+  "release": {
+    "tag": "personal-v1.5.3",
+    "tagTarget": "d02a99c95a8d1642a03b7e8cc90317a86e868d57",
+    "url": "https://github.com/CYRYGBG/TokenTracker/releases/tag/personal-v1.5.3",
+    "published": true,
+    "latest": true,
+    "draft": false,
+    "prerelease": false,
+    "assets": [
+      { "name": "TokenTrackerPersonal-macOS-arm64.dmg", "bytes": 71471769 },
+      { "name": "TokenTrackerPersonal-Windows-x64-Setup.exe", "bytes": 299688325 },
+      { "name": "SHA256SUMS.txt", "bytes": 212 }
+    ],
+    "remoteChecks": [
+      "anonymous API releases/latest 200 and resolves personal-v1.5.3",
+      "SHA256SUMS.txt anonymous download byte-identical to local",
+      "full anonymous DMG download sha256 equals local f140ca78...c317",
+      "both installers anonymous ranged 0-1MiB byte-identical (206)"
+    ],
+    "updaterProbe": "updater code paths unchanged since personal-v1.5.2's compiled-probe pass; this release re-verified every surface the updater consumes anonymously (API latest, platform asset names, SHA256SUMS digest lines, ranged downloads)"
+  },
+  "limitations": [
+    "Windows real installation/GUI/resident behavior not tested",
+    "macOS fullscreen/multiple-display manual interactions not tested",
+    "Two pre-existing Windows-environment test failures documented above; macOS Actions run does not execute them"
+  ]
+}
