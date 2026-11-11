@@ -20,7 +20,9 @@ const { getOrCreateMachineId, computeStableMachineId } = require("./machine-id")
 const { negotiateEncoding } = require("./accept-encoding");
 const { createLocalUsageTransfer, MAX_BYTES: LOCAL_USAGE_MAX_BYTES } = require("./local-usage-transfer");
 
-const SYNC_TIMEOUT_MS = 120_000;
+// Local sync children own their lifetime (#1055): the endpoint answers
+// immediately and the child holds the sync lock until the whole scan finishes,
+// so killing it on a wait window would discard uncommitted cursors forever.
 const TRACKER_BIN = path.resolve(__dirname, "../../bin/tracker.js");
 const MAX_DEVICE_NAME_LENGTH = 128;
 
@@ -924,14 +926,8 @@ function runSyncCommand(extraEnv = {}, opts = {}) {
     const finish = (fn, v) => {
       if (settled) return;
       settled = true;
-      clearTimeout(tid);
       fn(v);
     };
-    let timedOut = false;
-    const tid = setTimeout(() => {
-      timedOut = true;
-      child.kill("SIGTERM");
-    }, SYNC_TIMEOUT_MS);
     child.stdout?.on("data", (c) => {
       stdout += c;
     });
@@ -942,7 +938,6 @@ function runSyncCommand(extraEnv = {}, opts = {}) {
       finish(reject, Object.assign(e, { stdout: trimOutput(stdout), stderr: trimOutput(stderr) }));
     });
     child.on("close", (code) => {
-      if (timedOut) { finish(reject, Object.assign(new Error("Sync timed out"), { code: "SYNC_TIMEOUT", stdout: trimOutput(stdout), stderr: trimOutput(stderr) })); return; }
       const r = { code: code ?? 1, stdout: trimOutput(stdout), stderr: trimOutput(stderr) };
       if (code === 0) {
         finish(resolve, r);

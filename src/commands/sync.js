@@ -291,7 +291,8 @@ const DROID_DUP_SESSION_REPAIR_KEY = "droidDupSessionInflationRepair_2026_06";
 const CODEX_COLD_SCAN_AUDIT_INTERVAL_MS = 24 * 60 * 60 * 1000;
 const NOTIFY_LOCK_WAIT_MS = 130_000;
 const NOTIFY_LOCK_POLL_MS = 5_000;
-// Local API sync requests have a 120-second child-process budget. Reserve at
+// Local API sync requests answer within a 120-second wait window; the child
+// itself keeps running to completion (#1055). Reserve at
 // least 30 seconds for parsing, persistence, and the response after contention.
 const PRIORITY_LOCK_WAIT_MS = 90_000;
 const PRIORITY_LOCK_POLL_MS = 250;
@@ -1780,7 +1781,7 @@ async function cmdSync(argv, context = {}) {
     if (sourceAllowed("dsh")) {
       await migrateLegacyDeepseekHarnessSource({ cursors, queuePath, queueStatePath });
       const dshSessionFiles = await resolveDshSessionFiles(process.env);
-      if (dshSessionFiles.length > 0) {
+      if (dshSessionFiles.length > 0 || cursors.dsh) {
         if (progress?.enabled) {
           progress.start(
             `Parsing DeepSeek Harness ${renderBar(0)} 0/${formatNumber(
@@ -1799,7 +1800,7 @@ async function cmdSync(argv, context = {}) {
             warnProviderParseFailure(
               "DeepSeek Harness",
               new Error(
-                `${dshResult.deferredMigrations} artifact migration(s) deferred; inspect cursors.dsh.deferredMigrations and retry after the replacement is complete`,
+                `${dshResult.deferredMigrations} accounting repair/artifact migration(s) deferred; inspect cursors.dsh.deferredMigrations, restore unavailable history or complete the replacement, then retry`,
               ),
               opts,
             );

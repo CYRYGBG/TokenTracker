@@ -89,32 +89,9 @@ async function cmdServe(argv) {
     }
   }
 
-  try {
-    if (process.env.TOKENTRACKER_PERSONAL !== "1") {
-    const { installLocalTrackerApp, repairRuntimeIntegrations } = require("./init");
-    await installLocalTrackerApp({ appDir: path.join(trackerDir, "app") });
-    const repairResult = await repairRuntimeIntegrations({ trackerDir, binDir, safeMode: true });
-    for (const warning of repairResult?.warnings || []) {
-      process.stdout.write(
-        `Runtime integration repair warning (${warning.integration}): ${warning.error}\n`,
-      );
-    }
-    }
-  } catch (e) {
-    process.stdout.write(`Runtime refresh warning: ${e?.message || e}\n`);
-  }
-
-  // 1. Optional sync
-  if (opts.sync) {
-    process.stdout.write("Syncing local data...\n");
-    try {
-      const { cmdSync } = require("./sync");
-      await cmdSync(["--auto"]);
-      process.stdout.write("Sync done.\n");
-    } catch (e) {
-      process.stdout.write(`Sync warning: ${e?.message || e}\n`);
-    }
-  }
+  // Runtime maintenance and the optional startup sync run after listen (below):
+  // the dashboard is served from this package, so health probes and pages must
+  // not wait on a large runtime copy or the first collection scan (#1055/#961).
 
   // 2. Resolve paths
   const queuePath = resolveQueuePath();
@@ -243,6 +220,36 @@ async function cmdServe(argv) {
 
     if (opts.open) {
       openInBrowser(url);
+    }
+  }
+
+  // Runtime maintenance after listen: a large Windows runtime copy can take
+  // tens of seconds, and health probes plus the dashboard must already work
+  // while it is in progress.
+  try {
+    if (process.env.TOKENTRACKER_PERSONAL !== "1") {
+    const { installLocalTrackerApp, repairRuntimeIntegrations } = require("./init");
+    await installLocalTrackerApp({ appDir: path.join(trackerDir, "app") });
+    const repairResult = await repairRuntimeIntegrations({ trackerDir, binDir, safeMode: true });
+    for (const warning of repairResult?.warnings || []) {
+      process.stdout.write(
+        `Runtime integration repair warning (${warning.integration}): ${warning.error}\n`,
+      );
+    }
+    }
+  } catch (e) {
+    process.stdout.write(`Runtime refresh warning: ${e?.message || e}\n`);
+  }
+
+  // 1. Optional sync (post-listen: the dashboard is already being served)
+  if (opts.sync) {
+    process.stdout.write("Syncing local data...\n");
+    try {
+      const { cmdSync } = require("./sync");
+      await cmdSync(["--auto"]);
+      process.stdout.write("Sync done.\n");
+    } catch (e) {
+      process.stdout.write(`Sync warning: ${e?.message || e}\n`);
     }
   }
 
@@ -777,7 +784,8 @@ function parseArgs(argv, env = process.env) {
     port: envPort || defaultPort,
     portExplicit: Boolean(envPort),
     wslDefaultPort: !envPort && defaultPort === WSL_DEFAULT_PORT,
-    open: true,
+    // Desktop shells open their own dashboard window; never spawn a browser.
+    open: !["macos", "windows", "linux"].includes(env.TOKENTRACKER_APP_SHELL),
     sync: true,
   };
   for (let i = 0; i < argv.length; i++) {

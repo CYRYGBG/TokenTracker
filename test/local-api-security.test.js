@@ -162,6 +162,45 @@ test("local sync returns local_only and spawns a background sync", async () => {
   }
 });
 
+test("local sync child runs to completion without a wait-window kill (#1055)", async (t) => {
+  let fakeChild = null;
+  let markSpawned;
+  const spawned = new Promise((resolve) => { markSpawned = resolve; });
+  const { mod, restore } = loadLocalApiWithSpawn(() => {
+    const child = new EventEmitter();
+    child.stdout = new EventEmitter();
+    child.stderr = new EventEmitter();
+    child.kills = [];
+    child.kill = (signal) => { child.kills.push(signal); };
+    fakeChild = child;
+    process.nextTick(markSpawned);
+    return child;
+  });
+  t.mock.timers.enable({ apis: ["setTimeout"] });
+  try {
+    const handler = mod.createLocalApiHandler({ queuePath: path.join(process.cwd(), "tmp-queue.jsonl") });
+    const localAuthToken = await getLocalAuthToken(handler);
+    const req = createRequest({
+      method: "POST",
+      headers: { "x-tokentracker-local-auth": localAuthToken },
+      body: JSON.stringify({ auto: true, background: true }),
+    });
+    const res = createResponse();
+    const handled = await handler(req, res, new URL("http://127.0.0.1/functions/tokentracker-local-sync"));
+    assert.equal(handled, true);
+    assert.equal(res.statusCode, 200);
+    await spawned;
+    assert.ok(fakeChild);
+    // Cursors only commit when the whole scan finishes, so nothing may
+    // terminate the child — not even after the former 120-second window.
+    t.mock.timers.tick(130_000);
+    assert.deepEqual(fakeChild.kills, [], "no wait window may kill the local sync scan");
+    fakeChild.emit("close", 0);
+  } finally {
+    restore();
+  }
+});
+
 test("local sync all-local background request forwards the source expansion flag", async () => {
   const calls = [];
   const { mod, restore } = loadLocalApiWithSpawn(createSuccessfulSpawn(calls));
