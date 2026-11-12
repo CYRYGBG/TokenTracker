@@ -14,6 +14,8 @@
 // multi-file sync cycle. Large snapshots on slower drives need more than 30s.
 const DEFAULT_TIMEOUT_MS = 3 * 60_000;
 
+const traffic = require("./traffic");
+
 function requestError(error, { method, path, timeoutMs, signal }) {
   const timedOut = signal?.aborted || error?.name === "TimeoutError" || error?.name === "AbortError";
   const wrapped = new Error(timedOut
@@ -72,6 +74,11 @@ class WebDavClient {
     const requestTimeoutMs = timeoutMs || this.timeoutMs;
     const signal = AbortSignal.timeout(requestTimeoutMs);
     const url = `${this.base}${encodePath(joinUrlPath(path))}`;
+    // Traffic accounting: the request body is on the wire once the response
+    // arrives (success or not), so uploads are counted per attempt. Providers
+    // like 坚果云 meter monthly payload; the sync page surfaces the total.
+    const bodyBytes = typeof body === "string" ? Buffer.byteLength(body) : (body?.byteLength || 0);
+    if (bodyBytes > 0) traffic.record({ uploaded: bodyBytes });
     let res;
     try {
       res = await this.fetchImpl(url, {
@@ -102,7 +109,11 @@ class WebDavClient {
 
   async readResponseText(out, path, method) {
     try {
-      return await out.res.text();
+      const text = await out.res.text();
+      // GET/PROPFIND are the only downloads whose bodies are consumed; their
+      // payload is what providers meter on the download side.
+      traffic.record({ downloaded: Buffer.byteLength(text) });
+      return text;
     } catch (error) {
       // fetch resolves at the headers. The same deadline must still describe
       // slow/stalled bodies correctly rather than becoming WEBDAV_ERROR.

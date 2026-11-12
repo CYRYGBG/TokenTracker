@@ -1048,5 +1048,6 @@
   "fork.sync.partial": "部分设备文件读取或校验未完成，已保存的历史仍保留，请重试同步。",
   "fork.sync.failed": "网盘请求失败，请检查网盘服务与目录权限后重试。",
   "fork.sync.details": "查看同步详情",
-  "fork.sync.pending": "同步正在进行或尚未启动，完成后将自动更新状态。"
+  "fork.sync.pending": "同步正在进行或尚未启动，完成后将自动更新状态。",
+  "fork.personal.traffic_month": "本月网盘流量（上行 / 下行）："
 }

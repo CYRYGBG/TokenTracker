@@ -216,6 +216,50 @@ test("a device restored from an old server state re-bases once and then resumes 
   }
 });
 
+// Minimal ustar/pax reader for git-archive output: headers are 512 bytes,
+// the size is octal at 124, typeflag at 156, ustar prefix at 345. 'x' pax
+// records and 'L' GNU longname records carry the real name for the entry
+// that follows. Everything else (modes, owners, mtimes) is irrelevant here.
+function extractTar(archivePath, destDir) {
+  const syncfs = require("node:fs");
+  const data = syncfs.readFileSync(archivePath);
+  let offset = 0;
+  let pendingPath = null;
+  while (offset + 512 <= data.length) {
+    const header = data.subarray(offset, offset + 512);
+    if (header.every(b => b === 0)) break;
+    const size = parseInt(header.subarray(124, 136).toString("utf8").replace(/\0.*$/, "").trim(), 8) || 0;
+    const typeflag = String.fromCharCode(header[156]);
+    let name = header.subarray(0, 100).toString("utf8").replace(/\0.*$/, "");
+    const prefix = header.subarray(345, 500).toString("utf8").replace(/\0.*$/, "").trim();
+    if (prefix) name = prefix + "/" + name;
+    offset += 512;
+    const body = data.subarray(offset, offset + size);
+    offset += Math.ceil(size / 512) * 512;
+    if (typeflag === "x") {
+      const match = body.toString("utf8").match(/(?:^|\n)\d+ path=([^\n]*)/);
+      if (match) pendingPath = match[1];
+      continue;
+    }
+    if (typeflag === "L") {
+      pendingPath = body.toString("utf8").replace(/\0.*$/, "");
+      continue;
+    }
+    const finalName = pendingPath ?? name;
+    pendingPath = null;
+    if (!finalName) continue;
+    const target = path.join(destDir, finalName);
+    if (typeflag === "5") {
+      syncfs.mkdirSync(target, { recursive: true });
+      continue;
+    }
+    if (typeflag === "0" || typeflag === "\0") {
+      syncfs.mkdirSync(path.dirname(target), { recursive: true });
+      syncfs.writeFileSync(target, body.subarray(0, size));
+    }
+  }
+}
+
 test("the 1.4.20 read side applies new delta segments unchanged", async (t) => {
   const harness = createWebDavTestServer();
   await harness.listen();
@@ -235,9 +279,10 @@ test("the 1.4.20 read side applies new delta segments unchanged", async (t) => {
     assert.equal(seg.header.rows, 2, "precondition: delta segment with two rows");
 
     // Extract the 1.4.20 library exactly as released and run its importer
-    // against the new files. git + bsdtar exist on macOS and Windows alike,
-    // but a bare Wine prefix has neither — skip there (the read-side contract
-    // is platform-independent and verified wherever git is available).
+    // against the new files. git must be on PATH to produce the archive; the
+    // tar itself is unpacked in-process because system tar binaries disagree
+    // on Windows paths (MSYS GNU tar reads "C:\..." as a remote host) and a
+    // bare Wine prefix has neither tool.
     const { execFileSync, spawnSync } = require("node:child_process");
     if (spawnSync("git", ["--version"], { stdio: "ignore" }).error?.code === "ENOENT") {
       t.skip("git is not on PATH; the 1.4.20 read-side contract is verified on macOS");
@@ -247,7 +292,7 @@ test("the 1.4.20 read side applies new delta segments unchanged", async (t) => {
     const repoRoot = path.resolve(__dirname, "..");
     const archive = path.join(legacy, "lib.tar");
     execFileSync("git", ["archive", "personal-v1.4.20", "--format=tar", "--output=" + archive], { cwd: repoRoot, stdio: "ignore" });
-    execFileSync("tar", ["-xf", archive, "-C", legacy], { stdio: "ignore" });
+    extractTar(archive, legacy);
     await fs.rm(archive, { force: true });
     const legacyImporter = require(path.join(legacy, "src/lib/sync-store/importer.js"));
     const importsDir = path.join(tmp, "imports");

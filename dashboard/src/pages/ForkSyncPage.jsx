@@ -1,4 +1,5 @@
 import { saveLocalUsageExport } from "../lib/native-bridge";
+import { formatTraffic } from "../lib/bytes";
 import { copy } from "../lib/copy";
 import React, { useEffect, useMemo, useState } from "react";
 import { forkApi } from "../lib/fork-api";
@@ -347,6 +348,13 @@ export default function ForkSyncSection() {
           {copy("fork.personal.2a0b1ad677")}{" "}
           {formatSyncMinute(status?.sync?.last_success_at) || copy("fork.personal.9ef840e69f")}
         </p>
+        {status?.traffic ? (
+          <p className="text-sm text-muted-foreground">
+            {copy("fork.personal.traffic_month")}
+            {" "}
+            {formatTraffic(status.traffic.uploaded, status.traffic.downloaded)}
+          </p>
+        ) : null}
         {(status?.sync?.last_failure || status?.sync?.partial) ? (
           <p className="text-sm text-red-600">
             {copy("fork.personal.8c9d0e1f2a")}

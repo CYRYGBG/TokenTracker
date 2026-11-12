@@ -2300,3 +2300,4 @@ fork.sync.partial,fork,*,*,partial,Some device files could not be read or verifi
 fork.sync.failed,fork,*,*,failed,"The drive request failed. Check drive availability and directory permissions, then retry.",,active
 fork.sync.details,fork,*,*,details,Sync details,,active
 fork.sync.pending,fork,*,*,pending,A synchronization is already running or has not started. Status will update when it finishes.,,active
+fork.personal.traffic_month,fork,Personal,Personal,text,"Monthly WebDAV traffic this month (up / down):",,active

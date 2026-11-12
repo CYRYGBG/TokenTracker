@@ -14,6 +14,7 @@ const fs = require("node:fs/promises");
 const path = require("node:path");
 
 const { WebDavClient } = require("./client");
+const traffic = require("./traffic");
 const {
   serializeDocument,
   parseDocument,
@@ -577,6 +578,11 @@ function createWebdavScheduler({ trackerDir, loadPassword, getConfig, machineIdP
       await persistState(state);
       return { ok: false, code: error.code || "WEBDAV_ERROR", error };
     } finally {
+      // Bytes were on the wire whether the cycle succeeded or failed; flush
+      // the client's traffic accumulator once per attempt. Display-only data,
+      // so a failed flush never fails the cycle.
+      const spent = traffic.snapshot();
+      if (spent.uploaded > 0 || spent.downloaded > 0) await traffic.flush(trackerDir).catch(() => {});
       await cycleLock?.release(); cycleLock = null;
       running = false;
     }

@@ -989,5 +989,6 @@
   "fork.sync.partial": "部分裝置檔案讀取或驗證未完成，已儲存的歷史仍保留，請重試同步。",
   "fork.sync.failed": "網碟請求失敗，請檢查網碟服務與目錄權限後重試。",
   "fork.sync.details": "檢視同步詳情",
-  "fork.sync.pending": "同步正在進行或尚未啟動，完成後將自動更新狀態。"
+  "fork.sync.pending": "同步正在進行或尚未啟動，完成後將自動更新狀態。",
+  "fork.personal.traffic_month": "本月網盤流量（上行 / 下行）："
 }

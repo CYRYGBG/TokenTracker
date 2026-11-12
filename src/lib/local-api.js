@@ -1598,7 +1598,9 @@ function createLocalApiHandler({ queuePath, serverVersion = null, trackerDataDir
           const known = await require('./fork-view').devices(trackerDataDir);
           deviceNames = Object.fromEntries(known.map((d) => [d.id, d.name || d.id]));
         } catch {}
-        json(res, { ...(await webdavStatusSummary()), device_names: deviceNames, sync: {
+        let traffic = null;
+        try { traffic = await require('./webdav/traffic').read(trackerDataDir); } catch {}
+        json(res, { ...(await webdavStatusSummary()), device_names: deviceNames, traffic, sync: {
           last_success_at: state.last_success_at || null,
           last_failure: state.last_failure || null,
           partial: Boolean(state.partial),

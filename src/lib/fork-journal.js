@@ -178,10 +178,20 @@ async function writeUnlocked(file, data, atomicWrite) {
   if (lineBytes >= compactionBudget(Number(base.size))) {
     await atomicWrite(file, data); invalidate(file); return;
   }
-  const handle = await fs.open(file + '.journal', 'a+', 0o600);
+  // Open without O_APPEND: on Windows an append-mode handle lacks the access
+  // rights for SetEndOfFile, so truncating a torn tail would always fail with
+  // EPERM and the journal could never repair itself. 'r+' preserves the file
+  // and allows both truncate and positioned writes; 'w+' only as create.
+  let handle;
+  try {
+    handle = await fs.open(file + '.journal', 'r+', 0o600);
+  } catch (e) {
+    if (e?.code !== 'ENOENT') throw e;
+    handle = await fs.open(file + '.journal', 'w+', 0o600);
+  }
   try {
     if (Number((await handle.stat()).size) !== previous.completeBytes) await handle.truncate(previous.completeBytes);
-    await handle.writeFile(line); await handle.sync();
+    await handle.write(line, previous.completeBytes); await handle.sync();
   } finally { await handle.close(); }
   invalidate(file);
   if (previous.completeBytes + lineBytes >= compactionBudget(Number(base.size))) {
