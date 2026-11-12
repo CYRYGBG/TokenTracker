@@ -1,5 +1,20 @@
 # STATUS — 个人同步版事实状态
 
+## 2026-11-13 personal-v1.5.4 双平台发布完成
+
+- 2026-11-13 01:55 前后（Asia/Shanghai）已公开发布 [personal-v1.5.4](https://github.com/CYRYGBG/TokenTracker/releases/tag/personal-v1.5.4)，设为 latest，draft=false / prerelease=false；标签与双平台构建源码固定 `1995083e`（tag 先于 Release 创建，Release 由既有 tag 生成）。资产：DMG 73,194,054 字节（SHA256 `7fb90ef4…729e5d30`）、Windows Setup 299,685,952 字节（SHA256 `62de09ce…19b189`）、SHA256SUMS.txt 212 字节。
+- macOS：第 3 次派发成功（run 43263834387，headSha=1995083e，16 步全过）；前两次同 1.5.3 的排队取消签名（steps=0、无 runner、~15 分钟）。DMG 哈希与 macos-build.json 一致，且匿名全量下载复验哈希一致。取回 artifact 时 gh run download 两次返回空目录，改用 artifact API + curl 断点续传（59,934,002 字节与 artifact 尺寸一致）。
+- 远端核验：匿名 API latest 解析为 personal-v1.5.4；SHA256SUMS.txt 匿名下载与本地字节一致；DMG 全量匿名下载 SHA256 与本地一致；两安装包匿名 ranged 0-1MiB 均一致。本轮匿名 release 资产下载需显式走 127.0.0.1:7897 代理（objects.githubusercontent.com 直连路由该时段超时，API 端点不受影响）。
+- 交付现场：`dist/reviewed/`（DMG + Setup + SHA256SUMS.txt）；证据 `docs/fork/evidence/release-1.5.4.json` 与 `verification-1.5.4.json`（Windows 侧另有 `windows-package-1.5.4.json`）。Windows 实机 GUI/安装、macOS 全屏双屏手动交互仍待用户实际使用验收；macOS ad-hoc 签名未公证。用户下一步动作：应用内"检查更新"即可升级到 1.5.4。
+
+## 2026-11-13 personal-v1.5.4 改进与验证
+
+- 集成提交 `1995083e`（已推送 origin 发布分支）：三件事——①修复 Windows 真实数据 bug：fork-journal 撕裂追加自愈路径用追加句柄做 truncate，Windows 上 O_APPEND 句柄无 SetEndOfFile 权限永远 EPERM，崩溃后历史存储无法自愈；改为 r+ 句柄（仅创建时 w+）+ 精确偏移写入，torn-append 回归 16/16 在 Windows 全过。②同步页新增"本月网盘流量（上行 / 下行）"：共享 client 记录载荷字节（上传按尝试计、下载按消费的 GET/PROPFIND 响应体计），scheduler 每轮 flush 到 webdav/traffic.json（按自然月滚动重置），/api/webdav/status 暴露，坚果云免费额度可见化。③1.4.20 兼容回归改用进程内 ustar/pax 解包器替代系统 tar（MSYS GNU tar 把 Windows 路径当远程主机），该契约测试首次在 Windows 真实运行并通过。
+- validator 复核：validate-copy 报"未用"的 reports.unassigned_limited_help 实为 ReportsPage 动态引用（copy 调用参数为表达式），保留不删。
+- 验证（Windows 本机）：Node 全量 3917 项 0 失败（1.5.3 的两项环境预存失败全部消除）；dashboard 150 文件 1320 项、tsc strict；copy/locale/guardrails/versions/ui-hardcode/bot-frames/architecture 全绿；ui-hardcode 对新增数字字面量的误报通过将格式化函数移入 dashboard/src/lib/bytes.ts 解决，未改 baseline。
+- Windows 构建：本机 .NET 8 self-contained win-x64 publish + EmbeddedServer 重拷 + verify-windows-package（326 内置输入字节一致、2581 包文件，多出的即 traffic.js）+ Inno Setup 编译 Setup 299,685,952 字节（SHA256 `62de09ce…19b189`）+ 包内 Node 22.22.2 冒烟 252 项（251 过、1 跳过、0 失败，含修复后的 journal 与新增 traffic 测试）。
+- macOS：首派 run 43258040625 排队取消两次后第 3 次派发成功（见上节）；吸取 1.5.3 教训，推送后立即派发并以后台自动重试循环值守，与 Windows 本机构建全程并行。
+
 ## 2026-11-12 personal-v1.5.3 双平台发布完成
 
 - 2026-11-12 03:05 前后（Asia/Shanghai）已公开发布 [personal-v1.5.3](https://github.com/CYRYGBG/TokenTracker/releases/tag/personal-v1.5.3)，设为 latest，draft=false / prerelease=false；标签与双平台构建源码固定 `d02a99c9`（tag 先于 Release 创建，Release 由既有 tag 生成）。资产：DMG 71,471,769 字节（SHA256 `f140ca7867b3089987902c0b88abff14da0ada744f1c5f457fa6de284477c317`）、Windows Setup 299,688,325 字节（SHA256 `4276a741a09ad5ef3bdf0aaaf62dbdc9e66760e85e5dc87d610975de9c25b281`）、SHA256SUMS.txt 212 字节。

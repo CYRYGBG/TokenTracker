@@ -1,0 +1,37 @@
+{
+  "version": "1.5.4",
+  "sourceCommit": "1995083e382fa0f6daeb2db7156cad1683da2a15",
+  "releasedAt": "2026-11-13T01:55+08:00",
+  "tag": "personal-v1.5.4",
+  "tagTarget": "1995083e382fa0f6daeb2db7156cad1683da2a15",
+  "url": "https://github.com/CYRYGBG/TokenTracker/releases/tag/personal-v1.5.4",
+  "latest": true,
+  "draft": false,
+  "prerelease": false,
+  "artifacts": {
+    "macos-arm64-dmg": {
+      "bytes": 73194054,
+      "sha256": "7fb90ef47abbcff94540342fd3feef27fa5c4a7a7f9731e6a666def1729e5d30",
+      "builtBy": "GitHub Actions run 43263834387 (macos-15, head 1995083e; attempt 3 after 2 queue cancellations)",
+      "matchesBuildManifest": true,
+      "fullAnonymousDownloadShaMatches": true
+    },
+    "windows-x64-setup": {
+      "bytes": 299685952,
+      "sha256": "62de09cec60006a9118628b5bc5b84e57d0d11fd8d4062c4f07a04b28119b189",
+      "builtBy": "local .NET SDK 8.0.427 self-contained win-x64 + Inno Setup 6 (ISCC.exe)",
+      "payloadVerified": "verify-windows-package: 326 inputs byte-identical, 2581 package files",
+      "packagedNodeSmoke": "252 tests: 251 passed, 1 skipped, 0 failed (fork-journal repair verified in-package)"
+    },
+    "sha256sums": {
+      "bytes": 212,
+      "anonymousDownloadIdentical": true
+    }
+  },
+  "verification": "docs/fork/evidence/verification-1.5.4.json",
+  "notes": [
+    "Tag pushed before release creation; release created from the existing tag so tag == build source == 1995083e.",
+    "Anonymous release-asset downloads this hour required the explicit proxy route (127.0.0.1:7897) for objects.githubusercontent.com; API endpoint unaffected.",
+    "No local app installation, no Actions settings changes, no npm or upstream writes."
+  ]
+}

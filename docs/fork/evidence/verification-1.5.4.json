@@ -1,0 +1,98 @@
+{
+  "version": "1.5.4",
+  "sourceCommit": "1995083e382fa0f6daeb2db7156cad1683da2a15",
+  "machine": "Windows x64 (native build)",
+  "node": {
+    "tests": 3917,
+    "passed": 3874,
+    "skipped": 43,
+    "failed": 0,
+    "note": "both 1.5.3-era Windows-environment failures eliminated: fork-journal torn-append repaired (EPERM on append-handle truncate fixed) and webdav-delta-seg tar replaced with an in-process ustar reader; the read-side contract now runs on Windows for the first time"
+  },
+  "dashboard": {
+    "files": 150,
+    "passed": 1320,
+    "failed": 0,
+    "strictTypecheck": true,
+    "productionBuild": true
+  },
+  "validators": [
+    "copy (2301 entries; reports.unassigned_limited_help confirmed dynamically used and kept)",
+    "locale",
+    "guardrails",
+    "versions (1.5.4)",
+    "ui-hardcode",
+    "bot-frames",
+    "architecture-guardrails"
+  ],
+  "windows": {
+    "build": ".NET SDK 8.0.427 self-contained win-x64 native build on Windows",
+    "installer": "Inno Setup 6 (native ISCC.exe)",
+    "sourceSha": "1995083e382fa0f6daeb2db7156cad1683da2a15",
+    "matchedInputs": 326,
+    "packageFiles": 2581,
+    "verifyReport": "docs/fork/evidence/windows-package-1.5.4.json",
+    "setupBytes": 299685952,
+    "setupSha256": "62de09cec60006a9118628b5bc5b84e57d0d11fd8d4062c4f07a04b28119b189",
+    "node22Runtime": "22.22.2 (packaged EmbeddedServer/node.exe, native)",
+    "smokeFiles": 15,
+    "smokeTests": 252,
+    "smokePassed": 251,
+    "smokeSkipped": 1,
+    "smokeFailed": 0,
+    "installerGUIOrRealWindowsTested": false
+  },
+  "macOS": {
+    "workflow": "release-personal-macos.yml (workflow_dispatch, macos-15)",
+    "runId": 43263834387,
+    "headSha": "1995083e382fa0f6daeb2db7156cad1683da2a15",
+    "conclusion": "success",
+    "attempts": 3,
+    "queueCancellations": 2,
+    "queueCancellationSignature": "same as 1.5.3: job cancelled with steps=0 and no runner after ~15min queued (macOS arm64 hosted runner capacity); auto-retry loop recovered",
+    "dmgBytes": 73194054,
+    "dmgSha256": "7fb90ef47abbcff94540342fd3feef27fa5c4a7a7f9731e6a666def1729e5d30",
+    "dmgShaMatchesBuildManifest": true,
+    "build": "swiftc release, real pinned Vortex (vortexStub=false), darwin-arm64",
+    "ciVerified": [
+      "payload version 1.5.4",
+      "bundleId com.cyrygbg.tokentracker.personal",
+      "codesign --verify --deep --strict",
+      "no pet.html/quota.html in payload"
+    ],
+    "artifactDownloadNote": "gh run download returned an empty directory twice; direct artifact API download via resumable curl (59,934,002 bytes = artifact size) worked"
+  },
+  "limitations": [
+    "Windows real installation/GUI/resident behavior not tested",
+    "macOS fullscreen/multiple-display manual interactions not tested"
+  ],
+  "release": {
+    "tag": "personal-v1.5.4",
+    "tagTarget": "1995083e382fa0f6daeb2db7156cad1683da2a15",
+    "url": "https://github.com/CYRYGBG/TokenTracker/releases/tag/personal-v1.5.4",
+    "published": true,
+    "latest": true,
+    "draft": false,
+    "prerelease": false,
+    "assets": [
+      {
+        "name": "TokenTrackerPersonal-macOS-arm64.dmg",
+        "bytes": 73194054
+      },
+      {
+        "name": "TokenTrackerPersonal-Windows-x64-Setup.exe",
+        "bytes": 299685952
+      },
+      {
+        "name": "SHA256SUMS.txt",
+        "bytes": 212
+      }
+    ],
+    "remoteChecks": [
+      "authenticated API releases/latest resolves personal-v1.5.4 with all three assets",
+      "SHA256SUMS.txt anonymous download byte-identical to local (via explicit proxy; direct blob host timed out through the default route this hour)",
+      "both installers anonymous ranged 0-1MiB byte-identical",
+      "full anonymous DMG download digest checked (see release json)"
+    ]
+  }
+}
