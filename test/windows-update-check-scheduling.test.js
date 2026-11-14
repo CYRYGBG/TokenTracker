@@ -14,8 +14,11 @@ function readTrayContext() {
 test("personal Windows tray schedules guarded personal update checks", () => {
   const source=readTrayContext();
   assert.match(source, /_updateCheckTimer\.Start\(\)/);
-  assert.match(source, /_updateCheckTimer\.Tick.*CheckAsync\(silent: true\)/);
-  assert.match(source, /_ = _updateChecker\.CheckAsync\(silent: true\)/);
+  // Update work must run off the WinForms SynchronizationContext (#1115): both
+  // the timer tick and the launch check go through Task.Run.
+  assert.match(source, /_updateCheckTimer\.Tick.*Task\.Run\(\(\) => _updateChecker\.CheckAsync\(silent: true\)\)/);
+  assert.match(source, /_ = Task\.Run\(\(\) => _updateChecker\.CheckAsync\(silent: true\)\)/);
+  assert.doesNotMatch(source, /_ = _updateChecker\.CheckAsync\(silent: true\)/);
   const checker = fs.readFileSync(path.join(repoRoot, "TokenTrackerWin/UpdateChecker.cs"), "utf8");
   assert.match(checker, /silent && !AutoUpdatePolicy\.IsEnabled\(\)/);
 });

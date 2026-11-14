@@ -255,9 +255,12 @@ internal sealed class TrayApplicationContext : ApplicationContext
         _updateChecker.IntegrityCheckFailed += () => PostToUi(() =>
             _trayIcon.ShowBalloonTip(8000, _updateStrings.IntegrityErrorTitle,
                 _updateStrings.IntegrityErrorMessage, ToolTipIcon.Warning));
-        _updateCheckTimer.Tick += (_, _) => _ = _updateChecker.CheckAsync(silent: true);
+        // Start update work off the WinForms SynchronizationContext: a continuation
+        // posted to this control after QuitRequested tears the host down would throw
+        // and abort the process mid-update (#1115).
+        _updateCheckTimer.Tick += (_, _) => _ = Task.Run(() => _updateChecker.CheckAsync(silent: true));
         _updateCheckTimer.Start();
-        _ = _updateChecker.CheckAsync(silent: true);
+        _ = Task.Run(() => _updateChecker.CheckAsync(silent: true));
     }
 
     private void UpdateLimitsPolling() => _poller.IncludeLimits = _petWindow?.IsVisible == true || _quotaWindow?.Enabled == true;
@@ -794,7 +797,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
         switch (_updateChecker.State)
         {
             case UpdateChecker.UpdateState.UpdateAvailable:
-                _ = _updateChecker.DownloadAndInstallAsync();
+                _ = Task.Run(() => _updateChecker.DownloadAndInstallAsync());
                 break;
             case UpdateChecker.UpdateState.Idle:
                 _ = RunManualCheckAsync();
@@ -813,7 +816,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
                     string.Format(_updateStrings.UpdateFoundPrompt, _updateChecker.LatestVersion, _updateChecker.CurrentVersion),
                     _updateStrings.UpdateFoundTitle,
                     MessageBoxButtons.YesNo, MessageBoxIcon.Information);
-                if (confirm == DialogResult.Yes) _ = _updateChecker.DownloadAndInstallAsync();
+                if (confirm == DialogResult.Yes) _ = Task.Run(() => _updateChecker.DownloadAndInstallAsync());
                 break;
             case UpdateChecker.CheckOutcome.UpToDate:
                 MessageBox.Show(
