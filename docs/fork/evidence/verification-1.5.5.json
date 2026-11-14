@@ -1,0 +1,81 @@
+{
+  "version": "1.5.5",
+  "sourceCommit": "6a96c003385c1a22ff60f8d3a739fe3d1ca75d6f",
+  "machine": "Windows x64 (native build)",
+  "node": {
+    "tests": 3924,
+    "passed": 3881,
+    "skipped": 43,
+    "failed": 0,
+    "note": "qoder cache-inclusive split tests (4 new), windows-silent-update contracts (3 new) and updated scheduling assertions all pass on the native Windows runtime"
+  },
+  "dashboard": {
+    "files": 150,
+    "passed": 1320,
+    "failed": 0,
+    "strictTypecheck": true,
+    "productionBuild": true
+  },
+  "csharp": {
+    "project": "TokenTrackerWin.Tests",
+    "tests": 174,
+    "passed": 173,
+    "skipped": 1,
+    "failed": 0,
+    "note": "includes the 2 new UpdateCheckerSilentInstallTests; 1 pre-existing symlink-privilege skip; main TokenTrackerWin.csproj builds with 0 errors"
+  },
+  "validators": [
+    "copy (2301 entries)",
+    "locale",
+    "guardrails",
+    "versions (1.5.5)",
+    "ui-hardcode",
+    "bot-frames",
+    "architecture-guardrails"
+  ],
+  "windows": {
+    "build": ".NET SDK 8 self-contained win-x64 native build on Windows",
+    "installer": "Inno Setup 6 (native ISCC.exe, /DMyAppVersion=1.5.5)",
+    "sourceSha": "6a96c003385c1a22ff60f8d3a739fe3d1ca75d6f",
+    "matchedInputs": 326,
+    "packageFiles": 2581,
+    "verifyReport": "docs/fork/evidence/windows-package-1.5.5.json",
+    "setupBytes": 299686478,
+    "setupSha256": "cbd5566c77c0b3cad8c9d81188b04ee01cd0575f6d863e106fabe5fb734ff400",
+    "node22Runtime": "22.22.2 (packaged EmbeddedServer/node.exe, native)",
+    "smokeFiles": 10,
+    "smokeTests": 156,
+    "smokePassed": 155,
+    "smokeSkipped": 1,
+    "smokeFailed": 0,
+    "installerGUIOrRealWindowsTested": false
+  },
+  "macOS": {
+    "workflow": "release-personal-macos.yml (workflow_dispatch, macos-15)",
+    "runId": 43614097846,
+    "headSha": "6a96c003385c1a22ff60f8d3a739fe3d1ca75d6f",
+    "conclusion": "success",
+    "attempts": 1,
+    "queueCancellations": 0,
+    "dmgBytes": 72960511,
+    "dmgSha256": "58fea27af5ee0f25741ccdae3b0410cbf86dbe84969050c7ea6c5d14ca2320e2",
+    "dmgShaMatchesBuildManifest": true,
+    "build": "swiftc release, real pinned Vortex (vortexStub=false), darwin-arm64",
+    "artifactDownloadNote": "artifact API id 14121088930 zip (59,720,254 bytes) downloaded via resumable curl; slow but steady (~40 min), no empty-dir issue this time"
+  },
+  "remoteAnonymousVerification": {
+    "latestApiResolvesTo": "personal-v1.5.5",
+    "draft": false,
+    "prerelease": false,
+    "sha256sumsBytes": 212,
+    "sha256sumsByteIdentical": true,
+    "dmgFullDownloadShaMatches": true,
+    "rangedFirst1MiBIdentical": ["TokenTrackerPersonal-macOS-arm64.dmg", "TokenTrackerPersonal-Windows-x64-Setup.exe"],
+    "proxyRoute": "127.0.0.1:7897 for asset downloads"
+  },
+  "limitations": [
+    "Windows real installation/GUI/resident behavior not tested",
+    "macOS fullscreen/multiple-display manual interaction not tested",
+    "macOS ad-hoc signature, not notarized"
+  ]
+}

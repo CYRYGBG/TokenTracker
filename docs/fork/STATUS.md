@@ -1,5 +1,19 @@
 # STATUS — 个人同步版事实状态
 
+## 2026-11-15 personal-v1.5.5 双平台发布完成
+
+- 2026-11-15 00:42 前后（Asia/Shanghai）已公开发布 [personal-v1.5.5](https://github.com/CYRYGBG/TokenTracker/releases/tag/personal-v1.5.5)，设为 latest，draft=false / prerelease=false；标签与双平台构建源码固定 `6a96c003`（tag 先于 Release 创建，Release 由既有 tag 生成）。资产：DMG 72,960,511 字节（SHA256 `58fea27a…2320e2`）、Windows Setup 299,686,478 字节（SHA256 `cbd5566c…4ff400`）、SHA256SUMS.txt 212 字节。
+- macOS：**首次派发即成功**（run 43614097846，headSha=6a96c003，16 步全过，无排队取消）；持久自动重试 watcher 待命后正常退出。DMG 哈希与 macos-build.json 一致，匿名全量下载复验一致。artifact（id 14121088930，59,720,254 字节 zip）经 API + curl 断点续传取回，本轮慢但稳定（约 40 分钟），未再出现 gh run download 空目录问题。
+- 远端核验：匿名 API latest 解析为 personal-v1.5.5（draft=false/prerelease=false，三资产大小精确匹配）；SHA256SUMS.txt 匿名下载与本地字节一致；DMG 全量匿名下载 SHA256 与本地一致；两安装包匿名 ranged 0-1MiB 均一致。资产下载仍走 127.0.0.1:7897 显式代理。
+- 交付现场：`dist/reviewed/`（DMG + Setup + SHA256SUMS.txt）；证据 `docs/fork/evidence/release-1.5.5.json` 与 `verification-1.5.5.json`（Windows 侧另有 `windows-package-1.5.5.json`）。Windows 实机安装/GUI、macOS 全屏双屏手动交互仍待用户实际使用验收；macOS ad-hoc 签名未公证。用户下一步动作：应用内"检查更新"即可升级到 1.5.5——且本次发布正是修复更新器自身崩溃循环的版本（对齐上游 #1115）。
+
+## 2026-11-15 personal-v1.5.5 集成与验证
+
+- 集成提交 `6a96c003`（已推送 origin 发布分支并打 tag）：按 UPSTREAM 2026-11-15 检查点摘取 fix/1115-windows-update-crash-loop 分支（3 提交）+ Qoder 缓存双计 `8dbf8d8e` + 固定主题 `6e7d287a`。版本 1.5.4→1.5.5，validate-versions 全绿。不纳入 4 项（理由见 UPSTREAM.md）。
+- Windows 更新修复要点：CheckAsync/DownloadAndInstallAsync 入口 SynchronizationContext 防护 + 全程 ConfigureAwait(false)；托盘 4 处调用 Task.Run；BuildSilentInstallerArguments（/FORCECLOSEAPPLICATIONS + && 仅成功重启 + --startup）；Inno CloseApplications=force。fork 适配：fallback exe 名改 TokenTrackerPersonal.exe（修复 fork 改名残留）。新增 test/windows-silent-update.test.js 与 TokenTrackerWin.Tests/UpdateCheckerSilentInstallTests.cs；fork scheduling 测试断言更新为 Task.Run 形式。
+- 本机 Windows 验证：Node 全量 3924 项（3881 通过、43 跳过、0 失败）；dashboard 150 文件 1320 项、tsc strict、生产构建；copy/locale/guardrails/versions/ui-hardcode/bot-frames/architecture 全绿；TokenTrackerWin.Tests 174 项（173 过、1 跳过、0 失败，含新 C# 单测 2 项）；主工程 dotnet build 0 错误。
+- Windows 构建：bundle-node（Node 22.22.2）→ self-contained win-x64 publish → EmbeddedServer 新鲜重拷 → verify-windows-package 通过（326 内置输入字节一致、2581 包文件、sourceSha=6a96c003）→ Inno Setup 编译 Setup 299,686,478 字节 → 包内 Node 冒烟 156 项（155 过、1 跳过、0 失败）。
+
 ## 2026-11-13 personal-v1.5.4 双平台发布完成
 
 - 2026-11-13 01:55 前后（Asia/Shanghai）已公开发布 [personal-v1.5.4](https://github.com/CYRYGBG/TokenTracker/releases/tag/personal-v1.5.4)，设为 latest，draft=false / prerelease=false；标签与双平台构建源码固定 `1995083e`（tag 先于 Release 创建，Release 由既有 tag 生成）。资产：DMG 73,194,054 字节（SHA256 `7fb90ef4…729e5d30`）、Windows Setup 299,685,952 字节（SHA256 `62de09ce…19b189`）、SHA256SUMS.txt 212 字节。

@@ -1,5 +1,17 @@
 # UPSTREAM 跟踪与 Fork 改动地图
 
+## 2026-11-15 personal-v1.5.5 集成检查点
+
+用户授权"按建议纳入并发布双系统新版本"。相对上次基准 `a2483443`，upstream/main 前进至 `6e1dae77`（官方 v1.5.19–v1.5.20 共 7 个非 merge 提交，其中 2 个发布提交）；另有分支 `fix/1115-windows-update-crash-loop`（3 提交，基于 `6e7d287a`，当时尚未合入 main）与 `feat/ios-product-redesign`（iOS 专属，不适用）。无撤回陷阱。按文件摘取 3 项（分支按头 `8a8ac3cc` 整体摘取）：
+
+- **Windows 更新崩溃循环 #1115**（`06e9a1d2` + `d5a3d534` + `8a8ac3cc`）：① `UpdateChecker.CheckAsync`/`DownloadAndInstallAsync` 入口加 SynchronizationContext 防护（UI 线程发起的 await 经 Control.BeginInvoke 恢复，宿主拆除后抛 InvalidOperationException 中止更新）并全程 `ConfigureAwait(false)`；② 托盘 4 处调用改 `Task.Run`（tick/启动/手动确认/自动安装）；③ 提取 `BuildSilentInstallerArguments`（`/FORCECLOSEAPPLICATIONS` + `&&` 仅成功后重启 + `--startup` 托盘重启）；④ Inno `[Setup]` 改 `CloseApplications=force`（`ForceCloseApplications` 非 [Setup] 指令，Inno 6.7.1 拒绝）。fork 适配：fallback exe 名改 `TokenTrackerPersonal.exe`（fork 改名后 LaunchSilentInstaller 兜底路径仍指旧名的潜在错）；fork 此前已有 `&&`（无失败重启）与 fail-closed 校验，保留。新增 test/windows-silent-update.test.js 与 TokenTrackerWin.Tests/UpdateCheckerSilentInstallTests.cs（fork 的 TokenTrackerWin.Tests 同样不含 LaunchAtStartup.cs，`--startup` 字面量约束成立）；fork 版 scheduling 测试断言更新为 Task.Run 形式。
+- **Qoder 缓存双计 `8dbf8d8e`**：remote-chat 路线把含缓存的 prompt_tokens 原样记入 input_tokens（缓存读被计两次）；以 `context_usage_ratio` 存在且 cache+creation ≤ input 判定 cache-inclusive 行，input 拆分为普通输入+缓存。re-sync 用例验证旧版本产生的双计桶在重扫时被修正。fork rollout.js 与测试文件干净套用（fork 的 corpus 测试 usageTokens 镜像同步更新）。
+- **固定主题防劫持 `6e7d287a`**：原生外观推送不再无条件写 `.dark`（注入 JS 与 bridge 监听均按 `tokentracker-theme === system` 门控，钉住时仅刷新缓存）；ThemeProvider 对钉住主题在每次原生推送后显式重申 `applyThemeToDOM`。fork 三文件（DashboardWindowController.swift / native-bridge.js / ThemeProvider.jsx）干净套用。
+
+不纳入：`e089e4ad`（Claude unknown provenance $0 修复——修的是上游 #1033 引入的回归，fork 从未集成 claude-backend.js，无此 bug）、`31c542d5` + `bda5b6a7`（云重建期间 account view 回退本地——官方云账号视图，fork 已整体移除）、`feat/ios-product-redesign`（无 iOS 目标）、2 个发布提交。
+
+验证：目标回归 36 通过（windows-silent-update/scheduling/qoder-new-parser，CN 语料项本机无跳过）；TokenTrackerWin.Tests 174 项（173 通过、1 项符号链接跳过、0 失败，含新 C# 单测 2 项）；主工程 `dotnet build` 0 错误；Node 全量与 dashboard 全量、校验器、双平台构建见 STATUS 同日条目。
+
 ## 2026-11-12 personal-v1.5.3 集成检查点
 
 用户授权"按建议纳入并发布双平台新版本"。相对上次基准 `45bba935`，upstream/main 前进至 `a2483443`（官方 v1.5.10–v1.5.18 共 41 个非 merge 提交，其中 6 个发布提交）。该区间无撤回陷阱（上轮 1.5.7→1.5.8 那类 revert 不存在）。按文件摘取/适配 13 个提交（提交 d02a99c9）：

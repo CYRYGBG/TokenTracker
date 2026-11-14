@@ -1,0 +1,38 @@
+{
+  "version": "1.5.5",
+  "sourceCommit": "6a96c003385c1a22ff60f8d3a739fe3d1ca75d6f",
+  "releasedAt": "2026-11-15T00:42+08:00",
+  "tag": "personal-v1.5.5",
+  "tagTarget": "6a96c003385c1a22ff60f8d3a739fe3d1ca75d6f",
+  "url": "https://github.com/CYRYGBG/TokenTracker/releases/tag/personal-v1.5.5",
+  "latest": true,
+  "draft": false,
+  "prerelease": false,
+  "artifacts": {
+    "macos-arm64-dmg": {
+      "bytes": 72960511,
+      "sha256": "58fea27af5ee0f25741ccdae3b0410cbf86dbe84969050c7ea6c5d14ca2320e2",
+      "builtBy": "GitHub Actions run 43614097846 (macos-15, head 6a96c003; attempt 1, no queue cancellation)",
+      "matchesBuildManifest": true,
+      "fullAnonymousDownloadShaMatches": true
+    },
+    "windows-x64-setup": {
+      "bytes": 299686478,
+      "sha256": "cbd5566c77c0b3cad8c9d81188b04ee01cd0575f6d863e106fabe5fb734ff400",
+      "builtBy": "local .NET SDK 8 self-contained win-x64 + Inno Setup 6 (ISCC.exe)",
+      "payloadVerified": "verify-windows-package: 326 inputs byte-identical, 2581 package files",
+      "packagedNodeSmoke": "156 tests: 155 passed, 1 skipped, 0 failed (qoder split, windows-silent-update source contracts, webdav traffic/delta-seg, fork-journal, local-api security, pricing, codex daily models, sync upload)"
+    },
+    "sha256sums": {
+      "bytes": 212,
+      "anonymousDownloadIdentical": true
+    }
+  },
+  "verification": "docs/fork/evidence/verification-1.5.5.json",
+  "notes": [
+    "Tag pushed before release creation; release created from the existing tag so tag == build source == 6a96c003.",
+    "macOS build succeeded on the first dispatch (no hosted-runner queue cancellation this round); the persistent auto-retry watcher stayed on standby and exited 0.",
+    "Anonymous asset downloads again used the explicit proxy route (127.0.0.1:7897); API endpoint unaffected.",
+    "No local app installation, no Actions settings changes, no npm or upstream writes."
+  ]
+}
