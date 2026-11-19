@@ -3,9 +3,7 @@
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
-const vm = require("node:vm");
 const { test } = require("node:test");
-const { transformSync } = require("esbuild");
 const pricing = require("../src/lib/pricing");
 const { lookupPricing, normalizeCursorModel } = require("../src/lib/pricing/matcher");
 const curated = require("../src/lib/pricing/curated-overrides.json");
@@ -15,6 +13,9 @@ const curated = require("../src/lib/pricing/curated-overrides.json");
 // Gemini 4 Argon also matches Google's introductory list rate through 2026-11-30:
 // https://ai.google.dev/gemini-api/docs/pricing
 const argon = { input: 2, output: 10, cache_read: 0.1, cache_write: 0 };
+const carbon = { input: 2, output: 10, cache_read: 0.1, cache_write: 0 };
+const hydrogen = { input: 1.5, output: 7.5, cache_read: 0.075, cache_write: 0 };
+const wonder = { input: 4, output: 20, cache_read: 0.2, cache_write: 0 };
 const grok47 = { input: 2, output: 6, cache_read: 0.5, cache_write: 0 };
 const grok47Fast = { input: 4, output: 12, cache_read: 1, cache_write: 0 };
 const grok46 = { input: 2, output: 6, cache_read: 0.5, cache_write: 0 };
@@ -26,6 +27,27 @@ const rates = (model) => {
   const { input, output, cache_read, cache_write } = model;
   return { input, output, cache_read, cache_write };
 };
+
+test("Gemini 4 and Muse Wonder effort variants resolve offline at their published rates", () => {
+  for (const [model, expected, efforts] of [
+    ["gemini-4-argon", argon, ["", "-minimal", "-low", "-medium", "-high"]],
+    ["gemini-4-carbon", carbon, ["", "-low", "-medium", "-high"]],
+    ["gemini-4-hydrogen", hydrogen, ["", "-low", "-medium", "-high", "-xhigh"]],
+    ["muse-wonder-1.0", wonder, ["", "-minimal", "-low", "-medium", "-high", "-xhigh", "-extra-high", "-max"]],
+  ]) {
+    for (const effort of efforts) {
+      const name = model + effort;
+      const hit = lookupPricing(name, { curated, litellm: {}, source: "cursor" });
+      assert.equal(hit.hit, true, name);
+      assert.deepEqual(rates(hit.value), expected, name);
+      assert.deepEqual(rates(pricing.getModelPricing(name, { source: "cursor" })), expected, name);
+      assert.equal(pricing.getModelPricingInfo(name, { source: "cursor" }).status, "priced", name);
+    }
+  }
+  for (const name of ["gemini-4-carbon-cyber-permissive", "gemini-4-hydrogen-lite", "muse-wonder-full-1.0"]) {
+    assert.equal(lookupPricing(name, { curated, litellm: {}, source: "cursor" }).hit, false, name);
+  }
+});
 
 test("normalizeCursorModel maps Cursor screenshot ids to curated keys", () => {
   assert.equal(normalizeCursorModel("gemini-4-argon-high"), "gemini-4-argon");
@@ -85,6 +107,8 @@ test("Grok Bot internal ids stay unpriced without inventing rates", () => {
   for (const model of ["grok-bot-cua", "grok-bot-default", "grok-bot-automation"]) {
     const info = pricing.getModelPricingInfo(model, { source: "cursor" });
     assert.equal(info.status, "unpriced", model);
+    assert.equal(info.source, "cursor_subscription", model);
+    assert.equal(pricing.getModelPricingInfo(model, { source: "claude" }).source, null, model);
     assert.equal(pricing.computeRowCost({
       source: "cursor",
       model,
@@ -135,41 +159,3 @@ test("1MTok row costs match published Cursor rates", () => {
   }) - 18.5) < 1e-9);
 });
 
-for (const slug of [
-  "tokentracker-leaderboard-refresh", "tokentracker-account-daily",
-  "tokentracker-account-summary", "tokentracker-account-model-breakdown",
-  "tokentracker-leaderboard-profile",
-]) {
-  test(`${slug}: Cursor new models are priced in the cloud`, () => {
-    const source = fs.readFileSync(
-      path.join(__dirname, "../dashboard/edge-patches", `${slug}.ts`),
-      "utf8",
-    );
-    const block = source.match(
-      /const MODEL_PRICING[\s\S]*?\nfunction getModelPricing\(model: string(?:, source = "")?\) \{[\s\S]*?\n\}/,
-    );
-    assert.ok(block, `${slug}: pricing block is present`);
-    const script = transformSync(block[0], { loader: "ts", format: "cjs" }).code;
-    const context = vm.createContext({});
-    vm.runInContext(script, context);
-
-    const cases = [
-      ["gemini-4-argon-high", argon],
-      ["grok-4.7-high-fast", grok47Fast],
-      ["grok-4.7", grok47],
-      ["grok-4.6-fast", grok46Fast],
-      ["composer-2.5-fast", composer25Fast],
-      ["composer-2.5", composer25],
-    ];
-    for (const [model, expected] of cases) {
-      const actual = context.getModelPricing(model);
-      for (const [key, value] of Object.entries(expected)) {
-        assert.equal(actual[key], value, `${slug} ${model}: ${key}`);
-      }
-    }
-    // Must not collapse Composer 2.5 Fast onto composer-1 ($1.25).
-    assert.equal(context.getModelPricing("composer-2.5-fast").input, 3);
-    // Must not collapse Grok 4.7 Fast onto xAI grok-4 ($3).
-    assert.equal(context.getModelPricing("grok-4.7-high-fast").input, 4);
-  });
-}

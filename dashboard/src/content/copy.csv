@@ -2041,6 +2041,8 @@ dashboard.cost_breakdown.estimated,ui,DashboardPage,UsageOverview,estimated,Esti
 dashboard.cost_breakdown.unpriced,ui,DashboardPage,UsageOverview,unpriced,No rate found. These tokens are retained but their cost is unknown.,,active
 dashboard.cost_breakdown.no_token_charge,ui,DashboardPage,UsageOverview,no_token_charge,No token charge for this source or model,,active
 dashboard.cost_breakdown.unpriced_label,ui,DashboardPage,UsageOverview,unpriced_label,Unpriced,,active
+dashboard.cost_breakdown.subscription_usage,ui,DashboardPage,UsageOverview,text,Subscription usage,,active
+dashboard.cost_breakdown.subscription_usage_hint,ui,DashboardPage,UsageOverview,text,Grok Bot reports product usage rather than a priced model. No public per-token rate is available; subscription fees are not allocated to these rows.,,active
 dashboard.cost_breakdown.token_mix,ui,DashboardPage,UsageOverview,token_mix,Input {{input}} · Output {{output}} · Cache read {{read}} · Cache write {{write}},,active
 dashboard.cost_breakdown.rates,ui,DashboardPage,UsageOverview,rates,Base USD / million tokens · Input {{input}} · Output {{output}} · Cache read {{read}} · Cache write {{write}}. Tier and priority rates can differ.,,active
 dashboard.cost_breakdown.known_subtotal,ui,DashboardPage,UsageInsights,known_subtotal,Known cost subtotal,,active

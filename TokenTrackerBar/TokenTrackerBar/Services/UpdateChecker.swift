@@ -458,7 +458,10 @@ final class UpdateChecker {
     private func relaunch(appURL: URL) {
         let process = Process()
         process.executableURL = URL(fileURLWithPath: "/bin/sh")
-        process.arguments = ["-c", "i=0; while kill -0 \"$1\" 2>/dev/null; do i=$((i+1)); [ \"$i\" -lt 200 ] || exit 1; sleep 0.1; done; exec /usr/bin/open -n \"$2\"", "personal-update", String(ProcessInfo.processInfo.processIdentifier), appURL.path]
+        // `--startup` keeps the relaunch in the menu bar. `open -n` still sends
+        // a regular launch Apple Event, which would otherwise open the Dashboard
+        // as if the user had clicked the app (#1096).
+        process.arguments = ["-c", "i=0; while kill -0 \"$1\" 2>/dev/null; do i=$((i+1)); [ \"$i\" -lt 200 ] || exit 1; sleep 0.1; done; exec /usr/bin/open -n \"$2\" --args --startup", "personal-update", String(ProcessInfo.processInfo.processIdentifier), appURL.path]
         process.standardOutput = Pipe()
         process.standardError = Pipe()
         do {
