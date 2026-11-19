@@ -1,0 +1,38 @@
+{
+  "version": "1.5.6",
+  "sourceCommit": "85ba470eaec77da351f54642adc526501fc1cb0f",
+  "releasedAt": "2026-11-20T01:21+08:00",
+  "tag": "personal-v1.5.6",
+  "tagTarget": "85ba470eaec77da351f54642adc526501fc1cb0f",
+  "url": "https://github.com/CYRYGBG/TokenTracker/releases/tag/personal-v1.5.6",
+  "latest": true,
+  "draft": false,
+  "prerelease": false,
+  "artifacts": {
+    "macos-arm64-dmg": {
+      "bytes": 71353669,
+      "sha256": "5789df8d0362a6ec5be93c66991654499c60b58e609602ce814668f78e84a6e2",
+      "builtBy": "GitHub Actions run 44569953789 (macos-15, head 85ba470e; attempt 5 after 4 queue cancellations)",
+      "matchesBuildManifest": true,
+      "fullAnonymousDownloadShaMatches": true
+    },
+    "windows-x64-setup": {
+      "bytes": 299688758,
+      "sha256": "898f9143b998bda01dcc837711aa930747354b193af0b14630cc680442f398b0",
+      "builtBy": "local .NET SDK 8 self-contained win-x64 + Inno Setup 6 (ISCC.exe)",
+      "payloadVerified": "verify-windows-package: 326 inputs byte-identical, 2581 package files, sourceSha 85ba470e",
+      "packagedNodeSmoke": "234 tests: 233 passed, 1 skipped, 0 failed (qoder attribution + trae CN + five pricing tables + windows-silent-update + webdav traffic + fork-journal + local-api security + session-analytics incl. sessionModelCost)"
+    },
+    "sha256sums": {
+      "bytes": 212,
+      "anonymousDownloadIdentical": true
+    }
+  },
+  "verification": "docs/fork/evidence/verification-1.5.6.json",
+  "notes": [
+    "Tag pushed before release creation; release created from the existing tag so tag == build source == 85ba470e.",
+    "macOS hosted-runner queue cancelled 4 dispatches (~15min queued, steps=0, no runner); the persistent watcher recovered automatically and attempt 5 completed all 16 steps.",
+    "Anonymous asset downloads again routed via the explicit 127.0.0.1:7897 proxy; API endpoint unaffected.",
+    "No local app installation, no Actions settings changes, no npm or upstream writes."
+  ]
+}

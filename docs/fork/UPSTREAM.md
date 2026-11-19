@@ -1,5 +1,22 @@
 # UPSTREAM 跟踪与 Fork 改动地图
 
+## 2026-11-19 personal-v1.5.6 集成检查点
+
+用户授权"按推荐跟进并发布双平台新版本"。相对上次基准 `6e1dae77`，upstream/main 前进至 `3f728610`（官方 v1.5.21–v1.5.24 共 21 个非 merge 提交，其中 4 个发布提交）；另有 2 个云账单 release 分支（不适用）。无撤回陷阱。按文件摘取 9 项：
+
+- **更新器并发加固 `eaad1644`**（#1115 合入版较 1.5.5 摘的分支头多出的收尾）：`_operationLock` 使"忙状态检查→置忙"原子化——更新工作移到工作线程后不再被 UI 上下文天然串行，定时器与手动点击并发触发可能同时通过状态检查。手工套用（fork 区域有适配注释）。
+- **macOS 静默更新重启进托盘 `26638f9e`**（#1096）：Windows 侧 `--startup` 1.5.5 已随分支带上；本轮补 macOS 侧——`LoginLaunchPresentationPolicy.shouldOpenDashboardOnLaunch` 增加 `launchedWithStartupArgument` 参数（机械套用），`TokenTrackerBarApp` 传 `ProcessInfo` 参数（机械套用 + 新增测试机械套用），fork 的 `UpdateChecker.relaunch` 是 `/bin/sh` 等待循环而非上游直开 `open -n`，手工在循环内 `open -n "$2"` 后追加 `--args --startup`。
+- **Qoder auto 模型归属 `bf256b72`**：runtime-config 行记录显式模型而助手行写 "auto"，按时间戳取最近一次配置（Auto 会话保持 auto、无日期配置不参与排序），已有队列行由 subtract-on-change 路径下次解析重归类。机械套用（fork 1.5.5 的 qoder 区域同源）。
+- **Trae CN/TRAE SOLO CN 数据库发现 `ca2690b2`**：resolveTraeDbPaths 根目录数组加 CN 变体。机械套用。
+- **定价四连 `c58cf512`/`ce771c64`/`c2e0585e`/`fea3574b`**：Gemini 4 Carbon/Hydrogen + Muse Wonder 1.0 + Grok Bot 订阅归属（matcher 新增 effort 变体归一与 contained-miss 防护，index 加 grok-bot-* unpriced）；GPT-6.2 Astra/Sol 官方费率 + Ultrafast 促销期保留用量日期（session-analytics.js 新增 sessionModelCost：complete buckets 按桶计价，否则回退 row 时间戳；fork 该文件 503 行分叉，四处手工套用，fork 的 fork_frozen_cost_usd 早退分支保留）；qwen4-max + Claude Mythos 官方费率（matcher 重构）；Gemini 4 Neon Standard 费率（neon 正解 + Cline 网关零价）。cloud edge-patches 一律不纳入。
+- **主成本去下界符号 `87e8d3bd`**：新增 summary-cost.js（unpriced 零值显示"Unpriced"，移除 `≥` 前缀），DashboardPage 换用之。fork 无 dashboard/preview 基建，其 preview 部分不纳入。
+
+测试适配：4 个定价测试文件中的云 edge 平行用例（读 `dashboard/edge-patches/*.ts`）按既有政策剔除——cursor（2 块）、neon（slug 循环）、gpt-6.2（slugs 常量 + 模型循环内 per-slug 测试 + Specialist 测试内 slug 行，保留离线断言）、qwen（slugs/loadEdgePricing/两个 edge-only 测试）；未用的 vm/transformSync require 一并清理。copy.csv/i18n×5 的 2 个订阅用量键手工插入（fork 邻键上下文不同；zh/zh-TW 追加在对象尾部）。dashboard/edge-patches 目录 fork 本就不存在，符合预期。
+
+不纳入：Pro 会员状态/通知（3 项）、billing 修复（1 项）与 2 个云账单 release 分支（官方云/支付，永不）、Sentry 升级（遥测已切除）、3 个依赖组升级（例行维护）、7 个发布提交、`87e8d3bd` 的 preview 基建。
+
+验证：定向回归 164 项（163 过、1 跳过 CN 语料、0 失败）；TokenTrackerWin.Tests 174 项（173 过、1 跳过、0 失败）；主工程 dotnet build 0 错误；dashboard 151 文件/1328 项（含新 summary-cost 8 项）、tsc strict、生产构建；copy/locale/ui-hardcode/guardrails/bot-frames/architecture 全绿；Node 全量见 STATUS 同日条目。
+
 ## 2026-11-15 personal-v1.5.5 集成检查点
 
 用户授权"按建议纳入并发布双系统新版本"。相对上次基准 `a2483443`，upstream/main 前进至 `6e1dae77`（官方 v1.5.19–v1.5.20 共 7 个非 merge 提交，其中 2 个发布提交）；另有分支 `fix/1115-windows-update-crash-loop`（3 提交，基于 `6e7d287a`，当时尚未合入 main）与 `feat/ios-product-redesign`（iOS 专属，不适用）。无撤回陷阱。按文件摘取 3 项（分支按头 `8a8ac3cc` 整体摘取）：

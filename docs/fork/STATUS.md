@@ -1,5 +1,18 @@
 # STATUS — 个人同步版事实状态
 
+## 2026-11-20 personal-v1.5.6 双平台发布完成
+
+- 2026-11-20 01:21 前后（Asia/Shanghai）已公开发布 [personal-v1.5.6](https://github.com/CYRYGBG/TokenTracker/releases/tag/personal-v1.5.6)，设为 latest，draft=false / prerelease=false；标签与双平台构建源码固定 `85ba470e`（tag 先于 Release 创建，Release 由既有 tag 生成）。资产：DMG 71,353,669 字节（SHA256 `5789df8d…4a6e2`）、Windows Setup 299,688,758 字节（SHA256 `898f9143…398b0`）、SHA256SUMS.txt 212 字节。
+- macOS：第 5 次派发成功（run 44569953789，headSha=85ba470e，16 步全过）；前 4 次为排队取消签名（~15 分钟排队、steps=0、无 runner），持久 watcher 全程自动恢复，无需人工干预。DMG 哈希与 macos-build.json 一致，匿名全量下载复验一致。
+- 远端核验：匿名 API latest 解析为 personal-v1.5.6；SHA256SUMS.txt 匿名下载与本地字节一致；DMG 全量匿名下载 SHA256 与本地一致；两安装包匿名 ranged 0-1MiB 均一致。资产下载走 127.0.0.1:7897 显式代理。
+- 交付现场：`dist/reviewed/`（DMG + Setup + SHA256SUMS.txt）；证据 `docs/fork/evidence/release-1.5.6.json` 与 `verification-1.5.6.json`（Windows 侧另有 `windows-package-1.5.6.json`，sourceSha=85ba470e）。Windows 实机安装/GUI、macOS 全屏双屏手动交互仍待用户实际使用验收；macOS ad-hoc 签名未公证。用户下一步动作：应用内"检查更新"即可升级到 1.5.6。
+
+## 2026-11-19 personal-v1.5.6 集成与验证（构建发布中）
+
+- 集成提交 `85ba470e`（origin `codex/personal-release-20261027`）：按 UPSTREAM 2026-11-19 检查点摘取上游 v1.5.21–v1.5.24 区间 9 项（更新器并发锁、macOS --startup 重启、Qoder auto 归属、Trae CN 发现、四个定价修复、主成本去下界符号）；版本 1.5.5→1.5.6，validate-versions 全绿。4 个定价测试文件中的云 edge 平行用例按政策剔除（保留全部离线断言），未用 vm/esbuild require 清理。
+- 本机 Windows 验证：Node 全量 3949 项（3906 通过、43 跳过、0 失败）；dashboard 151 文件/1328 项（含新 summary-cost 8 项）、tsc strict、生产构建；copy（2303 条）/locale/guardrails/versions/ui-hardcode/bot-frames/architecture 全绿；TokenTrackerWin.Tests 174 项（173 过、1 跳过、0 失败）；主工程 dotnet build 0 错误；定向回归 164 项（163 过、1 跳过、0 失败）。
+- Windows 构建：bundle-node（Node 22.22.2）→ self-contained win-x64 publish → EmbeddedServer 新鲜重拷 → verify-windows-package 通过（326 内置输入字节一致、2581 包文件、sourceSha=85ba470e）。macOS 派发与发布结果见下方完成条目。
+
 ## 2026-11-15 personal-v1.5.5 双平台发布完成
 
 - 2026-11-15 00:42 前后（Asia/Shanghai）已公开发布 [personal-v1.5.5](https://github.com/CYRYGBG/TokenTracker/releases/tag/personal-v1.5.5)，设为 latest，draft=false / prerelease=false；标签与双平台构建源码固定 `6a96c003`（tag 先于 Release 创建，Release 由既有 tag 生成）。资产：DMG 72,960,511 字节（SHA256 `58fea27a…2320e2`）、Windows Setup 299,686,478 字节（SHA256 `cbd5566c…4ff400`）、SHA256SUMS.txt 212 字节。

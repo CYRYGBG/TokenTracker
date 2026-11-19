@@ -1,0 +1,83 @@
+{
+  "version": "1.5.6",
+  "sourceCommit": "85ba470eaec77da351f54642adc526501fc1cb0f",
+  "machine": "Windows x64 (native build)",
+  "node": {
+    "tests": 3949,
+    "passed": 3906,
+    "skipped": 43,
+    "failed": 0,
+    "note": "new qoder runtime-config attribution, trae CN discovery, four pricing tables and summary-cost suites all pass; cloud edge-patch parity tests stripped from the four ported test files per fork policy (offline assertions kept)"
+  },
+  "dashboard": {
+    "files": 151,
+    "passed": 1328,
+    "failed": 0,
+    "strictTypecheck": true,
+    "productionBuild": true,
+    "note": "summary-cost.test.jsx (8 tests) included after being re-applied when the first mechanical apply had skipped it"
+  },
+  "csharp": {
+    "project": "TokenTrackerWin.Tests",
+    "tests": 174,
+    "passed": 173,
+    "skipped": 1,
+    "failed": 0,
+    "note": "_operationLock admission change compiles under the test project; main TokenTrackerWin.csproj builds with 0 errors"
+  },
+  "validators": [
+    "copy (2303 entries; reports.unassigned_limited_help known dynamic-reference false positive)",
+    "locale",
+    "guardrails",
+    "versions (1.5.6)",
+    "ui-hardcode",
+    "bot-frames",
+    "architecture-guardrails"
+  ],
+  "windows": {
+    "build": ".NET SDK 8 self-contained win-x64 native build on Windows",
+    "installer": "Inno Setup 6 (native ISCC.exe, /DMyAppVersion=1.5.6)",
+    "sourceSha": "85ba470eaec77da351f54642adc526501fc1cb0f",
+    "matchedInputs": 326,
+    "packageFiles": 2581,
+    "verifyReport": "docs/fork/evidence/windows-package-1.5.6.json",
+    "setupBytes": 299688758,
+    "setupSha256": "898f9143b998bda01dcc837711aa930747354b193af0b14630cc680442f398b0",
+    "node22Runtime": "22.22.2 (packaged EmbeddedServer/node.exe, native)",
+    "smokeFiles": 12,
+    "smokeTests": 234,
+    "smokePassed": 233,
+    "smokeSkipped": 1,
+    "smokeFailed": 0,
+    "installerGUIOrRealWindowsTested": false
+  },
+  "macOS": {
+    "workflow": "release-personal-macos.yml (workflow_dispatch, macos-15)",
+    "runId": 44569953789,
+    "headSha": "85ba470eaec77da351f54642adc526501fc1cb0f",
+    "conclusion": "success",
+    "attempts": 5,
+    "queueCancellations": 4,
+    "queueCancellationSignature": "same as 1.5.3/1.5.4: run cancelled after ~15min queued with steps=0 and no runner (macOS arm64 hosted runner capacity); the persistent watcher recovered each time without intervention",
+    "dmgBytes": 71353669,
+    "dmgSha256": "5789df8d0362a6ec5be93c66991654499c60b58e609602ce814668f78e84a6e2",
+    "dmgShaMatchesBuildManifest": true,
+    "build": "swiftc release, real pinned Vortex (vortexStub=false), darwin-arm64",
+    "artifactDownloadNote": "artifact API id 14552354830 zip (59,227,312 bytes = artifact size), resumable curl"
+  },
+  "remoteAnonymousVerification": {
+    "latestApiResolvesTo": "personal-v1.5.6",
+    "draft": false,
+    "prerelease": false,
+    "sha256sumsBytes": 212,
+    "sha256sumsByteIdentical": true,
+    "dmgFullDownloadShaMatches": true,
+    "rangedFirst1MiBIdentical": ["TokenTrackerPersonal-macOS-arm64.dmg", "TokenTrackerPersonal-Windows-x64-Setup.exe"],
+    "proxyRoute": "127.0.0.1:7897 for asset downloads"
+  },
+  "limitations": [
+    "Windows real installation/GUI/resident behavior not tested",
+    "macOS fullscreen/multiple-display manual interaction not tested",
+    "macOS ad-hoc signature, not notarized"
+  ]
+}
