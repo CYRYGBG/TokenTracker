@@ -152,6 +152,69 @@
 - 导入改为每设备每 kind 单个 `<kind>.json`，一次原子提交 `{seq,hash,rows}`。避免 JSONL 与 applied.json 分开写时中断产生不一致；可读取旧版 JSONL + journal 迁移。文件名/header/device/kind/seq 一致性和行白名单均验证。
 - 相同 seq 的校验用于冲突检测。服务端有 ETag 时缓存收据，未变化不重复取内容；无 ETag 时复核当前高水位文件，牺牲少量读取来检测同版本内容被改写。零变化周期不会上传 device.json。
 - 传输只允许 HTTPS（明确的本地协议夹具除外），不跟随重定向转发认证。系统凭证账号按 URL+用户名哈希绑定；macOS/Windows 失败不降级为明文。旧版按用户名保存的密码需用户在设置中重新录入；没有自动读取/迁移真实密码。
+
+## 12. 跨设备对话同步 session-sync（2026-11-20，与统计同步并立的独立通道）
+
+用户需求与红线例外见 REQUIREMENTS §13。本节为技术设计。
+
+### 12.1 远端布局
+
+```
+<config.directory>/session-sync/
+  devices/<machineId>/
+    device.json                          # {format:1,id,name,platform,updated_at}
+    sessions/index.json                  # 本设备已上传对话清单（供对端列表，不拉逐会话 meta）
+    sessions/<agent>/<sessionId>/
+      meta.json                          # {format:1,agent,session_id,title,cwd,project,revision,updated_at,
+                                         #  origin_device,bytes_plain,sha256_plain,files:[{path,bytes,sha256,bytes_gz,sha256_gz}]}
+      payload/<相对路径>.gz               # 每个 payload 文件 gzip 后存放；导入解回精确原始字节
+```
+
+- `agent ∈ {codex,zcode,antigravity}`；`sessionId` 为各 agent 原生会话 id（uuid，文件系统安全）；machineId 校验与统计同步相同（`/^[a-zA-Z0-9_-]{1,128}$/`）。
+- 设备发现：PROPFIND `session-sync/devices/`（同统计同步方式，无顶层 manifest）；对端列表只 GET 各设备 `sessions/index.json`（KB 级，省流量）。
+- 上传：`WebDavClient.putAtomic`（PUT .part → MOVE）；每次上传 revision+1、全量文件 + sha256；单 payload 文件 >100MB 拒绝。gzip 用内置 zlib。
+- 流量自动计入 `webdav/traffic.json` 月度统计（共享 client 内建埋点）。
+
+### 12.2 本地状态
+
+```
+<trackerDir>/session-sync/
+  registry.json    # fork-store.update 事务化：imported/uploaded 修订登记 + remoteCache（对端 index 缓存）
+  job.json         # 当前/最近任务逐条进度（原子写）
+  job.lock         # openLock；与统计 sync.lock 独立，互不阻塞
+  backups/         # 冲突覆盖前本地分歧版本的备份（绝不留在 agent 目录内，避免被扫描器拾取）
+```
+
+### 12.3 修订与冲突语义
+
+- 追加式接力（串行工作流）：B 导入 A 的 revision N 后继续工作 → B 上传 revision N+1（全量）；A 导入时按「本地 sha == 上次导入 sha」判定未分歧 → 整文件替换。
+- 本地已分歧（两边都写过）：阻止静默覆盖，用户显式选择「覆盖（本地备份到 backups/）」或「跳过」。
+- 删除仅限自己设备的远端上传；不自动清理。
+
+### 12.4 防重复计数（核心不变量）
+
+导入的会话落回原生存储后，本机用量扫描**不得**把导入前缀再计一遍（源头设备已通过统计同步计过）：
+
+- **Codex / Antigravity（JSONL 文件）**：导入后为该文件写入游标 `{inode, offset=导入字节长度}`（复用 cursors.files 机制）→ 增量解析只统计之后的真实追加。
+- **ZCode（SQLite）**：导入仅写 session 行 + message 行，**不写 model_usage 行**；本 fork zcode 读取路径按「导入 session_id 集合」过滤消息解析（native model_usage 不受影响，新续写照常计入）。
+- 回归验收：导入后**连续两次采集不重复**、总量不翻倍；既有源删保史与统计同步回归不破坏。
+
+### 12.5 各 agent 适配要点
+
+- **Codex**：会话 = `~/.codex/sessions/YYYY/MM/DD/rollout-<ts>-<uuid>.jsonl[.zst]` 自包含；`~/.codex/session_index.jsonl`（`{id,thread_name,updated_at}`，有 .lock）供 resume 选择器显示标题——导入时若无该 id 则追加一行。
+- **ZCode**：权威存储 `~/.zcode/cli/db/db.sqlite`（session/session_message(或 legacy message)/model_usage，WAL）。导出走只读快照；导入要求 ZCode 未运行（busy_timeout 5s，SQLITE_BUSY → 明确报错）。
+- **Antigravity**：`<geminiHome>/antigravity{,-ide,-insiders,-cli}/brain/<uuid>/` 每会话一目录（含 `.system_generated/logs/transcript.jsonl`）；目录树整体同步；导入落在本机第一个真实存在的 brain 根。
+- 三者统一接口：`listLocalConversations()` / `exportBundle(sessionId)` / `importBundle(files, meta)`。
+
+### 12.6 端点与 UI
+
+- local-api：`/api/session-sync/{local,upload,remote-refresh,remote,import,status,delete-remote}`，全部手动触发、逐端点本地鉴权；模块惰性单例（serve.js 不动）。
+- Dashboard 会话页新增「对话同步」视图：本机对话多选上传 / 远端对话（设备分组）多选导入 / 手动刷新 / 冲突显式选择；文案走 copy + 五语言。
+
+### 12.7 边界（如实标注）
+
+- 不做内容级路径重映射；Antigravity 格式随上游迭代可能漂移；Codex resume 选择器若另依赖 state sqlite，以实测为准（索引行兜底 `codex resume --last`/按 id）。真实坚果云双机接力由用户实测验收。
+
 - 手动与后台共用调度器，并使用现有 openLock 跨进程互斥。轮询 5 分钟，队列或偏好变化 30 秒防抖；失败遵守 Retry-After 与指数退避，401/403 暂停。未配置 WebDAV 时不报告同步失败。
 - **失败重试与正常间隔分离**（2026-10-31）：失败后退避到期时刻持久化为 `next_attempt_ms`，调度器在该时刻附近唤醒重试，不再等满正常间隔（30 分钟间隔+1 分钟退避→约 1 分钟重试；24 小时间隔同理）。1→5→15→60 分钟阶梯与 Retry-After 照旧；401/403 暂停自动重试；成功后清除待重试并恢复正常间隔；重启后从持久化状态恢复。所有触发源仍共用单轮互斥。
 - **上传瞬时错误周期内重试**：PUT/MOVE 收到 WEBDAV_NETWORK/WEBDAV_TIMEOUT（如网盘服务器在上传中途重置连接）时，利用发布幂等性（唯一 part 名+MOVE）立即重试一次，成功则该周期照常完成并在 notes 记录；连续失败才进入退避。GET/PROPFIND 的 404/错误响应正文显式释放，不遗留连接资源。serve 内独立采集会话元数据，不依赖网页挂载。

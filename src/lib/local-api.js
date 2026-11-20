@@ -1375,6 +1375,19 @@ function createLocalApiHandler({ queuePath, serverVersion = null, trackerDataDir
     }
     return webdavSchedulerInstance;
   }
+  // --- Manual conversation sync (docs/fork/SYNC_DESIGN.md §12) --------------
+  // Same lazy-singleton-per-trackerDir pattern; shares the WebDAV config and
+  // credential store but never the statistics scheduler's lock.
+  function getSessionSyncManager() {
+    const { createSessionSyncManager } = require("./session-sync");
+    const { loadWebdavPassword } = require("./webdav/credential-store");
+    return createSessionSyncManager({
+      trackerDir: trackerDataDir,
+      loadPassword: async ({ username, url }) => loadWebdavPassword({ username, url, trackerDir: trackerDataDir, platform: credentialPlatform }),
+      getConfig: async () => readWebdavConfigSync(),
+      machineIdProvider: async () => getOrCreateMachineId(qp),
+    });
+  }
   async function webdavStatusSummary() {
     const scheduler = getWebdavScheduler();
     void scheduler; // scheduler instance created lazily; summary reads files only
@@ -1612,6 +1625,34 @@ function createLocalApiHandler({ queuePath, serverVersion = null, trackerDataDir
         } });
       } catch (error) {
         json(res, { code: "webdav_status_failed", error: String(error?.message || error) }, 500);
+      }
+      return true;
+    }
+    if (p.startsWith("/api/session-sync/")) {
+      if (!isAuthorizedLocalMutation(req)) { json(res, { code: "unauthorized" }, 401); return true; }
+      try {
+        const manager = getSessionSyncManager();
+        const method = String(req.method).toUpperCase();
+        if (p === "/api/session-sync/local" && method === "GET") {
+          json(res, await manager.listLocal());
+        } else if (p === "/api/session-sync/upload" && method === "POST") {
+          const body = JSON.parse((await readBodyLimited(req, 64 * 1024)).toString("utf8"));
+          json(res, await manager.startUpload(body?.items));
+        } else if (p === "/api/session-sync/remote-refresh" && method === "POST") {
+          json(res, await manager.refreshRemote());
+        } else if (p === "/api/session-sync/remote" && method === "GET") {
+          json(res, await manager.remoteListing());
+        } else if (p === "/api/session-sync/import" && method === "POST") {
+          const body = JSON.parse((await readBodyLimited(req, 64 * 1024)).toString("utf8"));
+          json(res, await manager.startImport(body?.items));
+        } else if (p === "/api/session-sync/delete-remote" && method === "POST") {
+          const body = JSON.parse((await readBodyLimited(req, 64 * 1024)).toString("utf8"));
+          json(res, await manager.deleteRemote(body?.agent, body?.sessionId));
+        } else if (p === "/api/session-sync/status" && method === "GET") {
+          json(res, await manager.status());
+        } else json(res, { code: "method_not_allowed" }, 405);
+      } catch (error) {
+        json(res, { ok: false, code: error?.code || "session_sync_error", error: String(error?.message || error) }, 500);
       }
       return true;
     }

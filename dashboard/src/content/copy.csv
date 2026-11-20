@@ -2303,3 +2303,40 @@ fork.sync.failed,fork,*,*,failed,"The drive request failed. Check drive availabi
 fork.sync.details,fork,*,*,details,Sync details,,active
 fork.sync.pending,fork,*,*,pending,A synchronization is already running or has not started. Status will update when it finishes.,,active
 fork.personal.traffic_month,fork,Personal,Personal,text,"Monthly WebDAV traffic this month (up / down):",,active
+sessions.mode.stats,ui,SessionsPage,SessionSyncMode,option,"Usage",,active
+sessions.mode.sync,ui,SessionsPage,SessionSyncMode,option,"Conversation sync",,active
+session_sync.local.title,ui,SessionsPage,SessionSyncPanel,title,"Conversations on this device",,active
+session_sync.local.subtitle,ui,SessionsPage,SessionSyncPanel,subtitle,"Select conversations and upload them to your WebDAV drive so another device can continue them.",,active
+session_sync.local.empty,ui,SessionsPage,SessionSyncPanel,empty,"No Codex, ZCode or Antigravity conversations found on this device yet.",,active
+session_sync.remote.title,ui,SessionsPage,SessionSyncPanel,title,"Conversations from other devices",,active
+session_sync.remote.subtitle,ui,SessionsPage,SessionSyncPanel,subtitle,"Click refresh to list what other devices uploaded.",,active
+session_sync.remote.fetched_at,ui,SessionsPage,SessionSyncPanel,subtitle,"Last refreshed {{time}}",,active
+session_sync.remote.empty,ui,SessionsPage,SessionSyncPanel,empty,"No uploads from other devices yet. Click refresh to check the drive.",,active
+session_sync.remote.device_empty,ui,SessionsPage,SessionSyncPanel,empty,"This device has not uploaded any conversations.",,active
+session_sync.row.untitled,ui,SessionsPage,SessionSyncPanel,title,"(untitled)",,active
+session_sync.badge.uploaded,ui,SessionsPage,SessionSyncPanel,badge,"Uploaded v{{revision}}",,active
+session_sync.badge.imported,ui,SessionsPage,SessionSyncPanel,badge,"Imported v{{revision}}",,active
+session_sync.badge.update_available,ui,SessionsPage,SessionSyncPanel,badge,"Update available",,active
+session_sync.action.upload,ui,SessionsPage,SessionSyncPanel,button,"Upload selected ({{count}})",,active
+session_sync.action.import,ui,SessionsPage,SessionSyncPanel,button,"Sync to this device ({{count}})",,active
+session_sync.action.select_all,ui,SessionsPage,SessionSyncPanel,button,"Select all",,active
+session_sync.action.unselect_all,ui,SessionsPage,SessionSyncPanel,button,"Clear selection",,active
+session_sync.action.refresh_remote,ui,SessionsPage,SessionSyncPanel,button,"Refresh",,active
+session_sync.job.running,ui,SessionsPage,SessionSyncPanel,status,"Working — the list refreshes when the transfer finishes.",,active
+session_sync.job.done_count,ui,SessionsPage,SessionSyncPanel,status,"{{count}} conversation(s) completed.",,active
+session_sync.job.item_failed,ui,SessionsPage,SessionSyncPanel,error,"failed",,active
+session_sync.state.loading,ui,SessionsPage,SessionSyncPanel,status,"Loading conversations…",,active
+session_sync.privacy_note,ui,SessionsPage,SessionSyncPanel,note,"Manual only: conversations are uploaded solely when you select them, to your own WebDAV drive, unencrypted. Usage statistics are never affected.",,active
+session_sync.error.generic,ui,SessionsPage,SessionSyncPanel,error,"Conversation sync failed. Please retry.",,active
+session_sync.error.busy,ui,SessionsPage,SessionSyncPanel,error,"A conversation sync task is already running. Wait for it to finish.",,active
+session_sync.error.not_configured,ui,SessionsPage,SessionSyncPanel,error,"WebDAV is not configured yet. Set it up in Settings → Sync first.",,active
+session_sync.error.missing_credential,ui,SessionsPage,SessionSyncPanel,error,"The WebDAV app password is missing. Re-enter it in Settings → Sync.",,active
+session_sync.error.unauthorized,ui,SessionsPage,SessionSyncPanel,error,"WebDAV rejected the credentials. Check the app password.",,active
+session_sync.error.scan_pending,ui,SessionsPage,SessionSyncPanel,error,"This conversation has changes the local usage scan has not picked up yet. Retry in about a minute.",,active
+session_sync.error.conflict,ui,SessionsPage,SessionSyncPanel,error,"The local copy of this conversation changed since the last sync. Nothing was overwritten — the previous version is kept.",,active
+session_sync.error.local_exists,ui,SessionsPage,SessionSyncPanel,error,"A different conversation with the same id already exists on this device. Nothing was imported.",,active
+session_sync.error.layout_mismatch,ui,SessionsPage,SessionSyncPanel,error,"The ZCode database layout on this device differs from the bundle. Update ZCode to the same version on both devices.",,active
+session_sync.error.digest_mismatch,ui,SessionsPage,SessionSyncPanel,error,"The transferred payload did not match its checksum. Please retry.",,active
+session_sync.error.payload_too_large,ui,SessionsPage,SessionSyncPanel,error,"A single payload exceeds the 100MB limit.",,active
+session_sync.error.remote_missing,ui,SessionsPage,SessionSyncPanel,error,"The remote copy is missing. Refresh the list and retry.",,active
+session_sync.error.remote_invalid,ui,SessionsPage,SessionSyncPanel,error,"The remote copy is malformed. Refresh the list and retry.",,active

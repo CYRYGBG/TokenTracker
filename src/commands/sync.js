@@ -305,6 +305,27 @@ const MIMO_PROVIDER_REPAIR_KEY = "mimoClaudeMislabelRepair_2026_06";
 const DSH_LEGACY_SOURCE_MIGRATION_KEY = "deepseekHarnessSourceMigration_2026_08";
 const ZCODE_NATIVE_USAGE_REPAIR_KEY = "zcodeNativeUsageRepair_2026_08";
 const ZCODE_INCLUSIVE_TOKEN_REPAIR_KEY = "zcodeInclusiveTokenRepair_2026_09";
+// Conversations imported through the manual session-sync channel were already
+// counted by the device that created them; their message ids are registered in
+// <trackerDir>/session-sync/imported-message-ids.json and skipped at the ZCode
+// read boundary so the importing device never re-counts them
+// (docs/fork/SYNC_DESIGN.md §12.4). Cached per mtime/size so a scan pays one
+// small stat+parse only when the set actually changed.
+const sessionSyncMessageIdCache = new Map();
+function loadSessionSyncExcludedMessageIds(trackerDir) {
+  const file = path.join(trackerDir, "session-sync", "imported-message-ids.json");
+  try {
+    const st = fssync.statSync(file);
+    const cached = sessionSyncMessageIdCache.get(file);
+    if (cached && cached.mtimeMs === st.mtimeMs && cached.size === st.size) return cached.ids;
+    const parsed = JSON.parse(fssync.readFileSync(file, "utf8"));
+    const ids = new Set(Array.isArray(parsed) ? parsed.filter((id) => typeof id === "string" && id) : []);
+    sessionSyncMessageIdCache.set(file, { mtimeMs: st.mtimeMs, size: st.size, ids });
+    return ids;
+  } catch {
+    return new Set();
+  }
+}
 // #828: ZCode CLI prunes model_usage/turn_usage to ~30 days. The wipe+rescan
 // repairs above destroyed pre-window history for late upgraders (and anyone
 // whose prune line advanced before the one-shot key fired). This follow-up
@@ -1747,9 +1768,14 @@ async function cmdSync(argv, context = {}) {
             queueStatePath,
             dbPaths: zcodeDbPaths,
           });
+          const sessionSyncExcludedIds = loadSessionSyncExcludedMessageIds(trackerDir);
+          const readZcodeForUsage = sessionSyncExcludedIds.size > 0
+            ? (dbPath) => readZcodeDbMessages(dbPath)
+              .filter((message) => !sessionSyncExcludedIds.has(String(message?.id || "")))
+            : readZcodeDbMessages;
           zcodeResult = await multiInstallParse({
             paths: zcodePaths, parserFn: parseOpencodeDbForInstall, providerName: "zcode",
-            cursors, getParams: (p) => ({ dbPath: p, readFn: readZcodeDbMessages, source: "zcode", cursorKey: "zcode" }),
+            cursors, getParams: (p) => ({ dbPath: p, readFn: readZcodeForUsage, source: "zcode", cursorKey: "zcode" }),
             queuePath, projectQueuePath, onProgress: makeProviderProgress("ZCode"),
           });
           if (zcodeResult.recordsProcessed > 0) {
@@ -3635,6 +3661,7 @@ function recordCodexColdScanAudit(
 module.exports = {
   cmdSync,
   acquireSyncLock,
+  loadSessionSyncExcludedMessageIds,
   migrateCursorUnknownBuckets,
   migrateRolloutCumulativeDeltaBuckets,
   repairCodebuddyLogJsonlOverlap,

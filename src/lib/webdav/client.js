@@ -199,6 +199,27 @@ class WebDavClient {
     return { ok: true, notFound: false, body: await this.readResponseText(out, path, "GET") };
   }
 
+  // Binary-safe GET for gzip payloads (session-sync bundles). The text-oriented
+  // get() would UTF-8-decode binary bodies and corrupt them.
+  async getBinary(path) {
+    const out = await this.request(path, { method: "GET" });
+    if (out.status === 404) {
+      await out.res.body?.cancel?.().catch(() => {});
+      return { ok: true, notFound: true, body: null };
+    }
+    if (out.status !== 200) {
+      await out.res.body?.cancel?.().catch(() => {});
+      return { ok: false, status: out.status, retryAfterMs: out.retryAfterMs, body: null };
+    }
+    try {
+      const buffer = Buffer.from(await out.res.arrayBuffer());
+      traffic.record({ downloaded: buffer.byteLength });
+      return { ok: true, notFound: false, body: buffer };
+    } catch (error) {
+      throw requestError(error, { method: "GET", path, timeoutMs: out.timeoutMs, signal: out.signal });
+    }
+  }
+
   async put(path, content) {
     const out = await this.request(path, {
       method: "PUT",

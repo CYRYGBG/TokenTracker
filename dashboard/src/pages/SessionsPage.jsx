@@ -20,6 +20,8 @@ import { isMockEnabled } from "../lib/mock-data";
 import { groupSessions, overlapsSessionDates, parseSessionFilters, scopeSessionsToRange, sessionDayKey, sessionModels, sortSessions, summarizeSessions } from "../lib/sessions-insights";
 import { SessionDetailModal } from "../ui/dashboard/components/SessionDetailModal.jsx";
 import { SessionPerformance } from "../ui/dashboard/components/SessionPerformance.jsx";
+import { SessionSyncPanel } from "../ui/dashboard/components/SessionSyncPanel.jsx";
+import { SegmentedControl } from "../components/settings/Controls.jsx";
 import "./sessions-layout.css";
 
 const IS_LOCAL_HOST = isLocalDashboardHost();
@@ -377,6 +379,9 @@ export function SessionsPage() {
   const [customFrom, setCustomFrom] = useState(initialFilters.from);
   const [customTo, setCustomTo] = useState(initialFilters.to);
   const [includeHidden, setIncludeHidden] = useState(false);
+  // "stats" is the regular usage browser; "sync" is the manual cross-device
+  // conversation sync view (session-sync). Separate mode, shared page shell.
+  const [pageMode, setPageMode] = useState("stats");
   const [projectFilter, setProjectFilter] = useState("all");
   const [groupMode, setGroupMode] = useState("time");
   const [sortMode, setSortMode] = useState("recent");
@@ -694,6 +699,21 @@ export function SessionsPage() {
             </button>
           </div>
 
+          <div className="mb-5">
+            <SegmentedControl
+              options={[
+                { value: "stats", label: copy("sessions.mode.stats") },
+                { value: "sync", label: copy("sessions.mode.sync") },
+              ]}
+              value={pageMode}
+              onChange={setPageMode}
+            />
+          </div>
+
+          {pageMode === "sync" ? (
+            <SessionSyncPanel />
+          ) : (
+          <>
           <label className="mb-3 flex gap-2 text-sm"><input type="checkbox" checked={includeHidden} onChange={e=>setIncludeHidden(e.target.checked)}/>{copy("fork.personal.db956b19a4")}</label>
           <div className="mb-6 space-y-3">
             <div className="sessions-toolbar">
@@ -881,6 +901,8 @@ export function SessionsPage() {
           <p className="mt-8 max-w-3xl text-xs leading-5 text-oai-gray-600 dark:text-oai-gray-300">
             {copy("sessions.privacy")}
           </p>
+          </>
+          )}
         </div>
       </main>
       {detailSession ? <SessionDetailModal session={detailSession} subagents={detailSubagents} onClose={closeDetail} /> : null}

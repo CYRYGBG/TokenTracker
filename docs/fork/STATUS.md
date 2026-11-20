@@ -1,5 +1,31 @@
 # STATUS — 个人同步版事实状态
 
+## 2026-11-20 session-sync 跨设备对话同步：实现完成（待用户实测）
+
+用户确认的需求见 REQUIREMENTS §13（Codex/ZCode/Antigravity 三 agent、坚果云 WebDAV、不加密、全手动勾选、追加式接力），技术设计见 SYNC_DESIGN §12。本轮实现事实：
+
+**后端**（新模块 `src/lib/session-sync/`：common/store/remote/index + adapters/{codex,zcode,antigravity}）：
+- 远端独立命名空间 `<dir>/session-sync/devices/<machineId>/sessions/<agent>/<sessionId>/{meta.json,payload/*.gz}` + 每设备 `sessions/index.json`；gzip 压缩载荷；可重写文件用直接 PUT（与调度器 device.json 惯例一致，MOVE Overwrite:F 对已存在目标 412）；`WebDavClient` 新增二进制安全 `getBinary()`；流量自动计入现有 webdav/traffic.json 月度账本。
+- 防重复计数（核心不变量，回归测试锁定）：Codex/Antigravity 携带**源机游标原样搬运**（offset/lastTotal/baselines），导入端换本机 inode 落盘——解析器只统计之后的真实追加；上传前游标必须新鲜（offset==size / lastLine==行数），否则 SESSION_SYNC_SCAN_PENDING 拒绝。ZCode 不导 model_usage 行，导入消息 id 记入 `<trackerDir>/session-sync/imported-message-ids.json`，sync.js 在 zcode 读取边界包装过滤（rollout.js 零改动）。
+- 冲突语义：本地与远端同 id 分歧 → 拒绝覆盖（SESSION_SYNC_CONFLICT）；「本地未变+新版本」→ 替换并备份到 trackerDir/session-sync/backups；ZCode 用「本地消息 id ⊆ 传入 id」前缀合并判定，INSERT OR IGNORE 只加增量。Codex 导入追加 session_index.jsonl（resume 选择器标题）。修订号按设备各自递增；远端列表仅手动刷新（PROPFIND devices/ + GET index）。
+- 端点 `/api/session-sync/{local,upload,remote-refresh,remote,import,delete-remote,status}`，全部本地鉴权；模块惰性单例（serve.js 零改动）；job.lock 与统计 sync.lock 独立互不阻塞；任务后台跑 + job.json 进度持久化。中途修复两处真实缺陷：适配器调用缺 await（serve 冒烟发现，async 适配器列表整组崩溃）；未配置 WebDAV 时 upload 现在立即返回 NOT_CONFIGURED 而非启动注定失败的任务。
+
+**前端**：会话页新增 SegmentedControl「用量/对话同步」；`SessionSyncPanel`（本机对话多选上传 / 远端对话按设备分组多选导入 / 已上传/已导入/有新版本徽标 / 任务轮询 + 逐条错误本地化）；`dashboard/src/lib/session-sync.js`（forkApi 封装 + describeSessionSyncFailure，不渲染原始异常/URL）；copy.csv +37 键 + i18n×5（zh/zh-TW/ja/ko/de）全量覆盖；ui-hardcode 零新增（新文件 0 color/0 rawText）。
+
+**验证**：
+- Node 定向：session-sync 15 项（remote 往返/注册表/三适配器/两设备接力/忙锁拒绝/流量记账）+ dedup 2 项（**导入前缀零计数、追加只计一次、连续两扫幂等**——真实 parseRolloutIncremental 驱动）全过；webdav 三套件 22 项、zcode 全部 77 项、localization-regressions 10 项无回归。首轮全量 3964 项中 3920 过/43 跳过/1 失败——失败为 localization 锚定用例，根因是批量脚本用 csv 模块重写了整个 copy.csv（剥掉既有行引号+改 CRLF）；已恢复原文件并改为**纯文本追加** 37 行（原字节零改动）。**最终全量：3964 项，3921 通过 / 0 失败 / 43 既有跳过**（/tmp/tt-session-sync-full-node-2.log）。
+- Dashboard：SessionSyncPanel 5 项（列表/徽标/上传/导入/结构化错误本地化）+ SessionsPage 既有 23 项 + 全量 152 文件/1333 项全过；tsc strict、生产构建、copy/locale/ui-hardcode/guardrails/bot-frames/versions/architecture 全绿。
+- serve 冒烟（隔离 USERPROFILE/HOME）：端点 401/200 鉴权正确、隔离目录空列表无 listError、无配置时 NOT_CONFIGURED。真实数据只读演练：本机 16 个真实 Codex 会话全部可列出（标题来自 session_index），prepareUpload 游标全部新鲜（含当日 28MB 活跃会话）——hook 触发的采集使新鲜度在实践中天然成立。
+- **未验证边界**：真实坚果云双机接力（Mac↔本机）、Codex `codex resume` 选择器对新导入会话的显示（session_index 追加是否足够，实测为准）、ZCode GUI 导入后续聊体验、Antigravity 真机（本机未安装，夹具验证）；Windows 实机安装包构建/发布本轮未做（需另行授权）。
+- 本轮未推送远端、未构建安装包、未发布、未触碰真实统计目录与网盘配置。
+
+## 2026-11-20 跨设备 agent 会话同步开源方案调研（只读，未实施）
+
+- 用户提出探索"在不同电脑间无缝衔接 Codex/ZCode/Antigravity 等对话"的能力。本轮只读调研开源方案：未改代码/配置/数据/凭证，未运行采集或同步。
+- 本机（Windows）核实会话存储形态：Codex `~/.codex/sessions/YYYY/…`+`archived_sessions`+state SQLite；Claude Code `~/.claude/projects/<munged-path>/*.jsonl`；ZCode/opencode `%APPDATA%/ZCode`+`%APPDATA%/opencode`+`~/.local/share/opencode`（SQLite+WAL+storage 子目录）；Antigravity `geminiHome/antigravity(/-ide)/brain`（rollout.js 解析器既有知识）。
+- 主要发现：claude-sync（328★ MIT，Go，S3/R2/GCS/WebDAV 后端，age E2E，`${HOME}`+path_map 路径重映射）；codex-session-sync（MIT，npm，WebDAV，冷同步拒绝 Codex 运行中，9★ 新项目）；Reinstate（Codex push/pull 显式会话）；opencode-synced（168★ MIT，git 配置 + opt-in 会话含 opencode.db，并发机器推荐 Turso 后端）；agentctxsync（28★ MIT，自托管 FastAPI+PostgreSQL 会话池，opencode/DSH 在列、无 Codex/Claude/Antigravity）；happy（MIT，E2E 加密中继，wrapper 形态，Claude/Codex/Grok）；Antigravity 侧多个 git 扩展（Antigravity Sync VSX、sadewole/mrd9999 同名）+ antigravity-storage-manager（Google Drive）；通用方案 Syncthing/git dotfiles。官方通道仅 Claude `/teleport`+Remote Control（依赖官方账号，不符合本 fork 定位）；Codex/opencode 无官方同步（openai/codex #14067/#21803 为社区工具征集）。
+- 边界提醒：同步"对话"涉及会话正文，与 REQUIREMENTS §3【已确认】"不同步 AI 工具原始工作对话目录/正文"红线直接冲突，必须由用户明确修订需求后才进入设计。调研汇总与集成形态讨论点已交用户，等待决策；本轮未做任何集成或实现。
+
 ## 2026-11-20 personal-v1.5.6 双平台发布完成
 
 - 2026-11-20 01:21 前后（Asia/Shanghai）已公开发布 [personal-v1.5.6](https://github.com/CYRYGBG/TokenTracker/releases/tag/personal-v1.5.6)，设为 latest，draft=false / prerelease=false；标签与双平台构建源码固定 `85ba470e`（tag 先于 Release 创建，Release 由既有 tag 生成）。资产：DMG 71,353,669 字节（SHA256 `5789df8d…4a6e2`）、Windows Setup 299,688,758 字节（SHA256 `898f9143…398b0`）、SHA256SUMS.txt 212 字节。
