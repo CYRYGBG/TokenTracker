@@ -1,0 +1,35 @@
+{
+  "release": "personal-v1.5.7",
+  "releaseId": 452887355,
+  "url": "https://github.com/CYRYGBG/TokenTracker/releases/tag/personal-v1.5.7",
+  "tag": "personal-v1.5.7",
+  "tagCommit": "d8f807262ac9a9ef1e1267d13c1ec08bd70a2519",
+  "branch": "codex/personal-release-20261027",
+  "createdVia": "REST API (POST /repos/CYRYGBG/TokenTracker/releases)",
+  "draft": false,
+  "prerelease": false,
+  "assets": {
+    "TokenTrackerPersonal-macOS-arm64.dmg": {
+      "bytes": 72542443,
+      "sha256": "9c0b9a1d0932958b76faba9c94acb582192b6b566923e3cb7dde14c7958d8009"
+    },
+    "TokenTrackerPersonal-Windows-x64-Setup.exe": {
+      "bytes": 299714994,
+      "sha256": "65a588e0724bed41218c7396d65a9428d6a88aff7f8b7361a9d6eb2e8edece7b"
+    },
+    "SHA256SUMS.txt": {
+      "bytes": 212
+    }
+  },
+  "macosBuild": {
+    "actionsRun": 44766281078,
+    "headSha": "d8f807262ac9a9ef1e1267d13c1ec08bd70a2519",
+    "result": "success on first dispatch (no runner-capacity retries needed)",
+    "artifactId": 14645876232,
+    "artifactZipBytes": 59618935,
+    "dmgShaMatchesManifest": true,
+    "nativeSources": 87,
+    "build": "swiftc release"
+  },
+  "highlights": "manual cross-device conversation sync (session-sync) for Codex/ZCode/Antigravity over the user's WebDAV drive; anti-double-count regressions; UI in five languages"
+}

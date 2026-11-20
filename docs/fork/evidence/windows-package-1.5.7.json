@@ -1,0 +1,37 @@
+{
+  "version": "1.5.7",
+  "sourceSha": "d8f807262ac9a9ef1e1267d13c1ec08bd70a2519",
+  "tag": "personal-v1.5.7",
+  "builtOn": "2026-11-20",
+  "builderPlatform": "win32 x64 local",
+  "steps": {
+    "bundleNode": {
+      "nodeVersion": "22.22.2",
+      "checksum": "official SHASUMS256 verified",
+      "embeddedServerBytes": "125.7 MB"
+    },
+    "dotnetPublish": {
+      "sdk": "8.0.427",
+      "configuration": "Release",
+      "runtime": "win-x64 self-contained",
+      "note": "publish/EmbeddedServer re-copied fresh from TokenTrackerWin/EmbeddedServer after publish (csproj does not track the embedded tree; stale incremental output otherwise ships the previous version)"
+    },
+    "verifyWindowsPackage": {
+      "matchedInputs": 335,
+      "packageFiles": 2590,
+      "result": "pass"
+    },
+    "innoSetup": {
+      "version": "6.7.3",
+      "define": "/DMyAppVersion=1.5.7",
+      "output": "TokenTracker-Setup-v1.5.7.exe",
+      "bytes": 299714994,
+      "sha256": "65a588e0724bed41218c7396d65a9428d6a88aff7f8b7361a9d6eb2e8edece7b"
+    },
+    "packagedNodeSmoke": {
+      "node": "bundled node.exe 22.22.2",
+      "suites": "session-sync.test.js + session-sync-dedup.test.js (15/15), webdav-client.test.js (13/13)",
+      "result": "28/28 pass, 0 fail"
+    }
+  }
+}

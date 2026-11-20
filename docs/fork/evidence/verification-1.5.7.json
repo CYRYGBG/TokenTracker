@@ -1,0 +1,33 @@
+{
+  "release": "personal-v1.5.7",
+  "releaseId": 452887355,
+  "verifiedAt": "2026-11-21",
+  "remote": {
+    "latest": "personal-v1.5.7 (draft=false, prerelease=false)",
+    "assetDigests": {
+      "TokenTrackerPersonal-macOS-arm64.dmg": "api digest sha256:9c0b9a1d0932… matches local",
+      "TokenTrackerPersonal-Windows-x64-Setup.exe": "api digest sha256:65a588e0724b… matches local",
+      "SHA256SUMS.txt": "212 bytes, api digest matches local"
+    },
+    "anonymousDownloads": {
+      "SHA256SUMS.txt": "byte-identical with dist/reviewed copy",
+      "DMG-full": "full anonymous download sha256 == 9c0b9a1d0932958b76faba9c94acb582192b6b566923e3cb7dde14c7958d8009",
+      "rangedProbes": "both installers: HTTP 206, first 1 MiB byte-identical with local files"
+    },
+    "uploadNotes": "Windows Setup first upload attempt broke mid-transfer (starter-state asset); re-upload under the same name completed in 742s (HTTP 201), same as previous releases"
+  },
+  "local": {
+    "nodeFullSuite": "3964 tests: 3921 pass / 0 fail / 43 pre-existing skips (after copy.csv restore; log /tmp/tt-session-sync-full-node-2.log)",
+    "dashboard": "152 files / 1333 tests, tsc strict, production build, copy/locale/ui-hardcode/guardrails/versions/bot-frames/architecture all green",
+    "sessionSyncSuites": "session-sync 15 + dedup 2 + webdav-client 13, plus webdav suite 22 and zcode suites 77 — all green",
+    "serveSmoke": "isolated USERPROFILE/HOME: 401/200 auth, empty listing without listError, NOT_CONFIGURED refusal",
+    "uiVisualCheck": "browser screenshot of the Conversation-sync view reviewed: two cards, segmented control, empty states, consistent dark theme; checkbox styling aligned with existing conventions",
+    "realDataReadonly": "16 real local Codex conversations list with fresh cursors (incl. a 28MB active session)"
+  },
+  "boundaries": [
+    "real Jianguoyun two-machine relay pending user acceptance",
+    "codex resume picker display for imported sessions to be confirmed on real machines",
+    "ZCode GUI continuation and Antigravity real-device behavior pending (Antigravity not installed on the Windows build machine)",
+    "Windows GUI install and macOS fullscreen dual-screen interactions remain user-acceptance items as in previous releases"
+  ]
+}

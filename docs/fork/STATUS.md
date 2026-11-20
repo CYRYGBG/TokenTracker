@@ -1,5 +1,15 @@
 # STATUS — 个人同步版事实状态
 
+## 2026-11-21 personal-v1.5.7 双平台发布完成（session-sync 对话同步）
+
+- 用户明确授权：实现跨设备对话同步、检查无误后发布双系统新版本、UI 风格与功能逻辑与现有一致。已于 2026-11-21 00:20 前后（Asia/Shanghai）公开发布 [personal-v1.5.7](https://github.com/CYRYGBG/TokenTracker/releases/tag/personal-v1.5.7)（release ID 452887355，draft=false、prerelease=false、latest）。标签与双平台构建源码固定 `d8f80726`（feat 提交；tag 先于 Release 创建，Release 由既有 tag 生成）。
+- 资产：DMG 72,542,443 字节（SHA256 `9c0b9a1d…8d8009`）、Windows Setup 299,714,994 字节（SHA256 `65a588e0…ece7b`）、SHA256SUMS.txt 212 字节。Windows Setup 首传中断留 starter 态资产，同名重传 742 秒成功（HTTP 201，与历史同款问题同解法）。
+- macOS：Actions run 44766281078 **首次派发即成功**（headSha=d8f80726；artifact 14645876232，59,618,935 字节 zip 取回）；DMG 哈希与 macos-build.json 一致，87 原生源清单在 manifest。
+- Windows 本机：bundle-node（Node 22.22.2 官方校验）→ dotnet 8.0.427 self-contained publish → **publish/EmbeddedServer 新鲜重拷**（csproj 不追踪内嵌树，增量残留会带旧版——与 1.5.3 教训相同）→ verify-windows-package 通过（335 输入字节一致、2590 文件、sourceSha d8f80726）→ Inno Setup 6.7.3 `/DMyAppVersion=1.5.7` 编译（注意：git bash 需 `MSYS2_ARG_CONV_EXCL="*"` 防止 `/D` 被路径转换）。包内 Node 冒烟：session-sync+dedup 15/15、webdav-client 13/13。
+- 发布前补充检查：浏览器实测对话同步视图（截图审阅：卡片/分段控件/空态/深色主题一致，无布局破损）；复选框样式从 `accent-oai-brand-600` 改为与既有 `includeHidden` 一致的朴素样式（accent 无先例）。
+- 远端核验：匿名 API latest 解析为 personal-v1.5.7；三资产 digest/大小匹配；SHA256SUMS 匿名下载字节一致；DMG 全量匿名下载哈希一致；两安装包匿名 ranged 206 首 1MiB 一致。证据：`evidence/release-1.5.7.json`、`verification-1.5.7.json`、`windows-package-1.5.7.json`；交付现场 `dist/reviewed/`。
+- 实现细节、测试数字、防重复计数设计与未验证边界见下节 2026-11-20 条目；用户下一步动作：两台电脑应用内「检查更新」升级到 1.5.7 后实测坚果云双机对话接力。
+
 ## 2026-11-20 session-sync 跨设备对话同步：实现完成（待用户实测）
 
 用户确认的需求见 REQUIREMENTS §13（Codex/ZCode/Antigravity 三 agent、坚果云 WebDAV、不加密、全手动勾选、追加式接力），技术设计见 SYNC_DESIGN §12。本轮实现事实：
@@ -16,8 +26,7 @@
 - Node 定向：session-sync 15 项（remote 往返/注册表/三适配器/两设备接力/忙锁拒绝/流量记账）+ dedup 2 项（**导入前缀零计数、追加只计一次、连续两扫幂等**——真实 parseRolloutIncremental 驱动）全过；webdav 三套件 22 项、zcode 全部 77 项、localization-regressions 10 项无回归。首轮全量 3964 项中 3920 过/43 跳过/1 失败——失败为 localization 锚定用例，根因是批量脚本用 csv 模块重写了整个 copy.csv（剥掉既有行引号+改 CRLF）；已恢复原文件并改为**纯文本追加** 37 行（原字节零改动）。**最终全量：3964 项，3921 通过 / 0 失败 / 43 既有跳过**（/tmp/tt-session-sync-full-node-2.log）。
 - Dashboard：SessionSyncPanel 5 项（列表/徽标/上传/导入/结构化错误本地化）+ SessionsPage 既有 23 项 + 全量 152 文件/1333 项全过；tsc strict、生产构建、copy/locale/ui-hardcode/guardrails/bot-frames/versions/architecture 全绿。
 - serve 冒烟（隔离 USERPROFILE/HOME）：端点 401/200 鉴权正确、隔离目录空列表无 listError、无配置时 NOT_CONFIGURED。真实数据只读演练：本机 16 个真实 Codex 会话全部可列出（标题来自 session_index），prepareUpload 游标全部新鲜（含当日 28MB 活跃会话）——hook 触发的采集使新鲜度在实践中天然成立。
-- **未验证边界**：真实坚果云双机接力（Mac↔本机）、Codex `codex resume` 选择器对新导入会话的显示（session_index 追加是否足够，实测为准）、ZCode GUI 导入后续聊体验、Antigravity 真机（本机未安装，夹具验证）；Windows 实机安装包构建/发布本轮未做（需另行授权）。
-- 本轮未推送远端、未构建安装包、未发布、未触碰真实统计目录与网盘配置。
+- **未验证边界**：真实坚果云双机接力（Mac↔本机）、Codex `codex resume` 选择器对新导入会话的显示（session_index 追加是否足够，实测为准）、ZCode GUI 导入后续聊体验、Antigravity 真机（本机未安装，夹具验证）；构建/发布已随 1.5.7 完成（见上节），实机验收仍待用户。
 
 ## 2026-11-20 跨设备 agent 会话同步开源方案调研（只读，未实施）
 
