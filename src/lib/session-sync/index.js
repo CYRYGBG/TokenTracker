@@ -13,6 +13,7 @@ const path = require("node:path");
 const traffic = require("../webdav/traffic");
 const remote = require("./remote");
 const store = require("./store");
+const usageLog = require("./log");
 const {
   sessionSyncDirFor,
   isValidAgent,
@@ -113,7 +114,9 @@ function createSessionSyncManager({
       })),
     };
     currentJob = job;
+    const jobStartedMs = Date.now();
     await fs.mkdir(sessionSyncDirFor(trackerDir), { recursive: true });
+    await usageLog.appendEvent(trackerDir, "job_start", { jobId: job.id, jobType: type, itemCount: job.items.length });
     const { openLock } = require("../fs");
     const lock = await openLock(path.join(sessionSyncDirFor(trackerDir), "job.lock"));
     if (!lock) {
@@ -133,6 +136,15 @@ function createSessionSyncManager({
       } finally {
         job.finishedAt = nowIso();
         await store.writeJob(trackerDir, job).catch(() => {});
+        await usageLog.appendEvent(trackerDir, "job_end", {
+          jobId: job.id,
+          jobType: job.type,
+          status: job.state,
+          durationMs: Date.now() - jobStartedMs,
+          doneCount: job.items.filter((item) => item.status === "done").length,
+          errorCount: job.items.filter((item) => item.status === "error").length,
+          ...(job.error?.code ? { code: job.error.code } : {}),
+        });
         // Bytes were on the wire whether the job succeeded or not; same flush
         // contract as the statistics scheduler.
         const spent = traffic.snapshot();
@@ -202,9 +214,10 @@ function createSessionSyncManager({
       for (const jobItem of job.items) {
         jobItem.status = "working";
         await store.writeJob(trackerDir, job).catch(() => {});
+        let prepared = null;
         try {
           const adapter = adapterFor(jobItem.agent);
-          const prepared = await adapter.prepareUpload(
+          prepared = await adapter.prepareUpload(
             adapter === codexAdapter
               ? { home, trackerDir, sessionId: jobItem.sessionId }
               : adapter === antigravityAdapter
@@ -273,6 +286,17 @@ function createSessionSyncManager({
           jobItem.code = error?.code || "SESSION_SYNC_ERROR";
           jobItem.message = safeMessage(error);
         }
+        await usageLog.appendEvent(trackerDir, "item_result", {
+          jobId: job.id,
+          agent: jobItem.agent,
+          sessionId: jobItem.sessionId,
+          title: prepared?.meta?.title || null,
+          status: jobItem.status,
+          ...(jobItem.code ? { code: jobItem.code } : {}),
+          ...(jobItem.message ? { message: jobItem.message } : {}),
+          ...(jobItem.bytes ? { bytes: jobItem.bytes } : {}),
+          ...(jobItem.revision ? { revision: jobItem.revision } : {}),
+        });
         await store.writeJob(trackerDir, job).catch(() => {});
       }
     });
@@ -296,6 +320,10 @@ function createSessionSyncManager({
       await store.updateRegistry(trackerDir, (current) => {
         current.remoteCache = { fetchedAt: nowIso(), devices };
         return current;
+      });
+      await usageLog.appendEvent(trackerDir, "refresh", {
+        deviceCount: Object.keys(devices).length,
+        sessionCount: Object.values(devices).reduce((sum, device) => sum + (device.sessions?.length || 0), 0),
       });
       return { ok: true, fetchedAt: nowIso(), devices };
     } finally {
@@ -345,8 +373,10 @@ function createSessionSyncManager({
       for (const jobItem of job.items) {
         jobItem.status = "working";
         await store.writeJob(trackerDir, job).catch(() => {});
+        let bundle = null;
+        let result = null;
         try {
-          const bundle = await remote.fetchBundle(client, {
+          bundle = await remote.fetchBundle(client, {
             directory,
             machineId: jobItem.device,
             agent: jobItem.agent,
@@ -368,7 +398,7 @@ function createSessionSyncManager({
           const registry = await store.readRegistry(trackerDir);
           const prior = registry.imported[`${jobItem.agent}:${jobItem.sessionId}`];
           const adapter = adapterFor(jobItem.agent);
-          const result = await adapter.importBundle(
+          result = await adapter.importBundle(
             adapter === codexAdapter
               ? { home, trackerDir, files: bundle.files, meta: bundle.meta, backupsDir, priorSha256: prior?.sha256Plain }
               : adapter === antigravityAdapter
@@ -394,6 +424,20 @@ function createSessionSyncManager({
           jobItem.code = error?.code || "SESSION_SYNC_ERROR";
           jobItem.message = safeMessage(error);
         }
+        await usageLog.appendEvent(trackerDir, "item_result", {
+          jobId: job.id,
+          agent: jobItem.agent,
+          sessionId: jobItem.sessionId,
+          device: jobItem.device,
+          title: bundle?.meta?.title || null,
+          status: jobItem.status,
+          ...(jobItem.code ? { code: jobItem.code } : {}),
+          ...(jobItem.message ? { message: jobItem.message } : {}),
+          ...(jobItem.bytes ? { bytes: jobItem.bytes } : {}),
+          ...(jobItem.revision ? { revision: jobItem.revision } : {}),
+          ...(jobItem.backup ? { backup: true } : {}),
+          ...(result?.insertedMessageIds ? { insertedMessages: result.insertedMessageIds.length } : {}),
+        });
         await store.writeJob(trackerDir, job).catch(() => {});
       }
     });
@@ -426,6 +470,7 @@ function createSessionSyncManager({
         sessionId,
         summaries: await summaryList(nextRegistry),
       });
+      await usageLog.appendEvent(trackerDir, "delete", { agent, sessionId });
       return { ok: true };
     } finally {
       const spent = traffic.snapshot();

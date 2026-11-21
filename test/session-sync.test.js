@@ -846,3 +846,82 @@ test("session-sync manager: gzip payload bytes counted in traffic ledger", async
     }
   });
 });
+
+test("session-sync usage log: jobs, items, refresh and delete leave analyzable event trails", async () => {
+  await withTempDir(async (dir) => {
+    const usageLog = require("../src/lib/session-sync/log");
+    const home = path.join(dir, "home");
+    const tracker = path.join(dir, "tracker");
+    const content = codexRolloutContent();
+    const absPath = await writeCodexFixture(home, content, {
+      indexEntries: [{ id: CODEX_SESSION_ID, thread_name: "日志对话", updated_at: "2026-11-14T02:14:44.000Z" }],
+    });
+    await writeLegacyCursor(tracker, absPath, freshCursorFor(content));
+    const server = createBinaryWebDavServer();
+    const baseUrl = await server.listen();
+    try {
+      const manager = makeManager({ trackerDir: tracker, baseUrl, machineId: "deviceL", home });
+      await manager.startUpload([{ agent: "codex", sessionId: CODEX_SESSION_ID }]);
+      const uploadJob = await waitForJob(manager);
+      await manager.refreshRemote();
+      await manager.deleteRemote("codex", CODEX_SESSION_ID);
+      const events = await usageLog.readEvents(tracker);
+      const types = events.map((event) => event.type);
+      assert.ok(types.includes("job_start"), "job_start logged");
+      assert.ok(types.includes("job_end"), "job_end logged");
+      assert.ok(types.includes("refresh"), "refresh logged");
+      assert.ok(types.includes("delete"), "delete logged");
+      const itemResult = events.find((event) => event.type === "item_result");
+      assert.equal(itemResult.agent, "codex");
+      assert.equal(itemResult.sessionId, CODEX_SESSION_ID);
+      assert.equal(itemResult.title, "日志对话");
+      assert.equal(itemResult.status, "done");
+      assert.equal(itemResult.revision, 1);
+      assert.ok(itemResult.bytes > 0);
+      const jobEnd = events.find((event) => event.type === "job_end");
+      assert.equal(jobEnd.status, "done");
+      assert.equal(jobEnd.doneCount, 1);
+      assert.ok(jobEnd.durationMs >= 0);
+      const refresh = events.find((event) => event.type === "refresh");
+      assert.equal(refresh.deviceCount, 0, "own device excluded from refresh log");
+      // Unknown fields never reach the file: content, URLs, credentials.
+      const raw = await fs.readFile(usageLog.logPathFor(tracker), "utf8");
+      assert.ok(!raw.includes("http://"), "no URLs in usage log");
+    } finally {
+      await server.close();
+    }
+  });
+});
+
+test("session-sync usage log: sanitizes payloads and rotates past the size cap", async () => {
+  await withTempDir(async (dir) => {
+    const usageLog = require("../src/lib/session-sync/log");
+    const tracker = path.join(dir, "tracker");
+    const sanitized = usageLog.sanitizeEvent({
+      jobId: "j1",
+      title: "  ".padEnd(400, "长标题"),
+      content: "SHOULD NOT APPEAR",
+      url: "https://example.com/secret",
+      bytes: 123,
+      nested: { deep: true },
+      sessionId: "s1",
+    });
+    assert.equal(sanitized.title.length, 120);
+    assert.equal(sanitized.bytes, 123);
+    assert.ok(!("content" in sanitized));
+    assert.ok(!("url" in sanitized));
+    assert.ok(!("nested" in sanitized));
+
+    // Rotation: write events until the cap trips; the old generation moves to
+    // .1 and readEvents still returns the merged history.
+    for (let i = 0; i < 6000; i += 1) {
+      await usageLog.appendEvent(tracker, "refresh", { deviceCount: i, sessionCount: i * 2, title: "t".repeat(120) });
+    }
+    assert.ok(fssync.existsSync(usageLog.logPathFor(tracker)));
+    const rotated = usageLog.rotatedPathFor(tracker);
+    assert.ok(fssync.existsSync(rotated), "log rotated to .1 after the size cap");
+    const events = await usageLog.readEvents(tracker);
+    assert.ok(events.length > 0);
+    assert.ok(events.every((event) => event.type === "refresh" && Number.isFinite(event.deviceCount)));
+  });
+});

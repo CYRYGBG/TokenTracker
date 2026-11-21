@@ -183,7 +183,15 @@
   job.json         # 当前/最近任务逐条进度（原子写）
   job.lock         # openLock；与统计 sync.lock 独立，互不阻塞
   backups/         # 冲突覆盖前本地分歧版本的备份（绝不留在 agent 目录内，避免被扫描器拾取）
+  log.jsonl[.1]    # 本地使用日志（§12.8）
 ```
+
+### 12.8 本地使用日志（log.jsonl）
+
+- 目的：记录真实使用痕迹（任务起止/逐条结果/刷新/删除），供下一次版本开发前研究并针对性优化。仅本机，绝不随任何同步通道外发。
+- 事件类型：`job_start`（jobId/jobType/itemCount）、`item_result`（jobId/agent/sessionId/title≤120/status/code/message≤200/bytes/revision/backup/insertedMessages/device）、`job_end`（jobId/jobType/status/durationMs/doneCount/errorCount/code）、`refresh`（deviceCount/sessionCount）、`delete`（agent/sessionId）。每行 `{ts, type, ...}`。
+- 字段白名单落盘（sanitizeEvent）：标题/消息截长，URL、对话内容、凭证等未知字段一律丢弃；写失败静默（日志绝不影响被记录的操作本身）。
+- 轮转：超过 1MiB 时滚动为 `log.jsonl.1`（保留一代）；`readEvents` 合并两代读取。
 
 ### 12.3 修订与冲突语义
 
