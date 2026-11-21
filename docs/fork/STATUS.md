@@ -1,6 +1,12 @@
 # STATUS — 个人同步版事实状态
 
-## 2026-11-21 session-sync 首次真实使用排障（用户报告无法同步）+ UI 改进（开发中，待发布 1.5.10）
+## 2026-11-21 personal-v1.5.10 发布完成（session-sync Codex 上传 409 修复 + 面板工具栏/筛选）
+
+- 用户授权发布后已公开 [personal-v1.5.10](https://github.com/CYRYGBG/TokenTracker/releases/tag/personal-v1.5.10)（release ID 453511962，latest，draft=false/prerelease=false）。标签固定 `8c7152b5`（版本提交；功能提交 `b2796e48`）。资产：DMG 72,543,175 字节（SHA256 `32c3252b…51c1e`）、Windows Setup 299,713,457 字节（SHA256 `e364613f…72fd`）、SHA256SUMS.txt 200 字节。证据 `evidence/release-1.5.10.json`。
+- macOS：Actions run 44878652209 首次派发即成功（artifact 14696278806），DMG 哈希与 macos-build.json 一致。Windows：bundle → publish → EmbeddedServer 新鲜重拷 → verify 336 输入/2591 文件（sourceSha 8c7152b5）→ Inno 6.7.3 `/DMyAppVersion=1.5.10`；包内 Node 冒烟 18/18。远端核验：latest 解析、三资产 digest、SUMS 字节一致、两安装包 ranged 206 首 1MiB 一致。
+- 发布前已在**真实坚果云**端到端复验修复（嵌套 key 上传/刷新/字节级取回/删除，零 409）。用户下一步：两台电脑「检查更新」到 1.5.10 后重试对话接力（本机 Windows 也需更新——1.5.9 的 Windows 端上传虽可用，但两端一致更稳）；MacBook 上重试此前失败的 Codex 对话上传。
+
+## 2026-11-21 session-sync 首次真实使用排障（用户报告无法同步）+ UI 改进（已完成，见上条发布）
 
 - 用户报告（附 MacBook 截图）：无法刷新出对端对话；MacBook 上选 Codex 对话上传直接报「Codex · 失败： 对话同步失败，请重试。」；并要求上传按钮移到顶部、增加 agent 筛选。
 - **排障过程（1.5.9 使用日志第一次立功）**：本机 log.jsonl 只有 3 行——zcode 上传成功（11:47，revision 1），无任何 codex 失败记录 → 截图来自 MacBook。只读探针（PROPFIND/GET，合计约 10KB 流量）核实真实坚果云：Windows 设备条目完整（device.json+index.json+zcode 会话）；Mac 设备只有 device.json、无 index.json → 上传中途夭折。以 Mac 的 machineId 模拟其刷新视角：能正确列出 Windows 的 zcode 会话（刷新逻辑无缺陷，「刷不出」是因为 Mac 从未成功上传过任何内容）。

@@ -1,0 +1,56 @@
+{
+  "version": "1.5.10",
+  "tag": "personal-v1.5.10",
+  "tagCommit": "8c7152b51e0f071edaccc219206821f84ff9a74f",
+  "featureCommit": "b2796e48",
+  "builtOn": "2026-11-21",
+  "releaseId": 453511962,
+  "releaseUrl": "https://github.com/CYRYGBG/TokenTracker/releases/tag/personal-v1.5.10",
+  "authorization": "user selected \"发布 1.5.10（推荐）\" in-session after fix verification report",
+  "purpose": "session-sync codex upload 409 fix (jianguoyun nested payload MKCOL) + panel toolbar/agent-filter UI",
+  "assets": {
+    "dmg": {
+      "name": "TokenTrackerPersonal-macOS-arm64.dmg",
+      "bytes": 72543175,
+      "sha256": "32c3252bbabf9cfbfb21c8a588ab9a3d8f776abb27e14cf6a216720645d51c1e"
+    },
+    "setup": {
+      "name": "TokenTracker-Setup-v1.5.10.exe",
+      "bytes": 299713457,
+      "sha256": "e364613f170e94773ae58d2a39b8a4ca34ff5a9417041360ae3cb21bad8b72fd"
+    },
+    "sums": {
+      "name": "SHA256SUMS.txt",
+      "bytes": 200,
+      "sha256": "7e4a5c1d99bde13f862e38b4e6f0d304c6899e74badeb4c9482defda7c35a61c"
+    }
+  },
+  "macos": {
+    "workflowRun": 44878652209,
+    "firstDispatch": true,
+    "conclusion": "success",
+    "artifact": { "id": 14696278806, "name": "TokenTrackerPersonal-macos-1.5.10", "zipBytes": 59851294 },
+    "dmgShaMatchesManifest": true
+  },
+  "windows": {
+    "bundleNode": { "nodeVersion": "22.22.2", "embeddedServerBytes": "125.7 MB" },
+    "dotnetPublish": "Release win-x64 self-contained; publish/EmbeddedServer re-copied fresh",
+    "verifyWindowsPackage": { "sourceSha": "8c7152b51e0f071edaccc219206821f84ff9a74f", "matchedInputs": 336, "packageFiles": 2591 },
+    "packagedNodeSmoke": "session-sync + dedup 18/18 pass under publish/EmbeddedServer/node.exe",
+    "innoSetup": { "version": "6.7.3 (user-local install)", "define": "/DMyAppVersion=1.5.10", "compileSeconds": 74.0 }
+  },
+  "verification": {
+    "latest": "anonymous /releases/latest resolves personal-v1.5.10 (draft=false, prerelease=false)",
+    "digests": "all three asset digests match local SHA256SUMS",
+    "sumsDownload": "anonymous SUMS download byte-identical",
+    "rangedProbes": "both installers: HTTP 206 first 1 MiB byte-identical"
+  },
+  "testing": {
+    "nodeSuite": "3967 tests, 0 fail",
+    "dashboardVitest": "1335/1335",
+    "tsc": "0 errors",
+    "dashboardBuild": "pass",
+    "validators": "copy (2347 keys) / locale 100% x5 / ui-hardcode / guardrails / versions all pass",
+    "realJianguoyunE2E": "uploadBundle nested keys (.jsonl + .zst) -> refresh listing -> byte-identical fetch -> delete, no 409"
+  }
+}
