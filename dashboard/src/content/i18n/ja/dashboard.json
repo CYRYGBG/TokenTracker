@@ -682,5 +682,6 @@
   "session_sync.error.digest_mismatch": "転送データがチェックサムと一致しません。再試行してください。",
   "session_sync.error.payload_too_large": "単一ペイロードが 100MB 制限を超えています。",
   "session_sync.error.remote_missing": "リモートのコピーが見つかりません。一覧を更新して再試行してください。",
-  "session_sync.error.remote_invalid": "リモートのコピーが不正です。一覧を更新して再試行してください。"
+  "session_sync.error.remote_invalid": "リモートのコピーが不正です。一覧を更新して再試行してください。",
+  "session_sync.error.local_missing": "この会話はこの端末に存在しません。一覧を更新して再試行してください。"
 }

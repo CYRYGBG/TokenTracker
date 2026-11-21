@@ -125,4 +125,31 @@ describe("SessionSyncPanel", () => {
     await user.click(screen.getByRole("button", { name: "Upload selected (1)" }));
     expect(await screen.findByRole("alert")).toHaveTextContent("changed since the last sync");
   });
+
+  test("a stale persisted job from a previous session never surfaces its errors", async () => {
+    // Regression for the release-night incident: the backend keeps the last
+    // job on disk for crash recovery, and the panel used to replay its
+    // per-item errors on every visit as if it had just failed.
+    fetchMock.mockImplementation(async (path) => {
+      const url = String(path);
+      if (url.startsWith("/api/session-sync/status")) {
+        return { ok: true, status: 200, json: async () => ({
+          job: {
+            id: "job-old-1",
+            type: "upload",
+            state: "done-with-errors",
+            startedAt: "2026-11-20T15:24:54.203Z",
+            items: [{ agent: "codex", sessionId: "x", status: "error", code: "SESSION_SYNC_LOCAL_MISSING" }],
+          },
+          uploadedCount: 0, importedCount: 0, remoteFetchedAt: null,
+        }) };
+      }
+      const handler = Object.entries(statusHandlers).find(([prefix]) => url.startsWith(prefix))?.[1];
+      return { ok: true, status: 200, json: async () => handler() };
+    });
+    await renderPanel();
+    expect(await screen.findByText("Codex 对话")).toBeInTheDocument();
+    expect(screen.queryByRole("alert")).toBeNull();
+    expect(screen.queryByText(/conversation sync failed/i)).toBeNull();
+  });
 });

@@ -63,6 +63,8 @@ export function describeSessionSyncFailure(code) {
       return copy("session_sync.error.conflict");
     case "SESSION_SYNC_LOCAL_EXISTS":
       return copy("session_sync.error.local_exists");
+    case "SESSION_SYNC_LOCAL_MISSING":
+      return copy("session_sync.error.local_missing");
     case "SESSION_SYNC_LAYOUT_MISMATCH":
       return copy("session_sync.error.layout_mismatch");
     case "SESSION_SYNC_DIGEST_MISMATCH":

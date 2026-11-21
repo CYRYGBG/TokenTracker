@@ -682,5 +682,6 @@
   "session_sync.error.digest_mismatch": "전송된 데이터가 체크섬과 일치하지 않습니다. 다시 시도하세요.",
   "session_sync.error.payload_too_large": "단일 페이로드가 100MB 제한을 초과했습니다.",
   "session_sync.error.remote_missing": "원격 사본이 없습니다. 목록을 새로 고침 후 다시 시도하세요.",
-  "session_sync.error.remote_invalid": "원격 사본이 손상되었습니다. 목록을 새로 고침 후 다시 시도하세요."
+  "session_sync.error.remote_invalid": "원격 사본이 손상되었습니다. 목록을 새로 고침 후 다시 시도하세요.",
+  "session_sync.error.local_missing": "이 대화가 이 기기에 더 이상 없습니다. 목록을 새로 고침 후 다시 시도하세요."
 }

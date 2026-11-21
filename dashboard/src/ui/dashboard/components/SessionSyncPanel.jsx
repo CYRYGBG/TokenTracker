@@ -81,6 +81,11 @@ export function SessionSyncPanel() {
   const [actionBusy, setActionBusy] = useState(false);
   const [error, setError] = useState("");
   const pollTimer = useRef(null);
+  // Job results are only surfaced for jobs this panel instance started. The
+  // backend persists the last job for crash recovery, but replaying an old
+  // finished job's errors on every visit (possibly from days ago, or from a
+  // different window) reads as a fresh failure.
+  const ownJobIds = useRef(new Set());
 
   const localItems = useMemo(() => (Array.isArray(local?.items) ? local.items : []), [local]);
   const uploadable = useMemo(
@@ -163,8 +168,9 @@ export function SessionSyncPanel() {
         return;
       }
       setSelectedUpload(new Set());
+      if (result?.jobId) ownJobIds.current.add(result.jobId);
       // The job runs detached; polling drives the progress display.
-      setStatus((prior) => ({ ...prior, job: { ...(prior?.job || {}), state: "running" } }));
+      setStatus((prior) => ({ ...prior, job: { ...(prior?.job || {}), id: result.jobId, state: "running" } }));
     } catch (e) {
       setError(e?.code ? describeSessionSyncFailure(e.code) : copy("session_sync.error.generic"));
     } finally {
@@ -190,7 +196,8 @@ export function SessionSyncPanel() {
         return;
       }
       setSelectedImport(new Set());
-      setStatus((prior) => ({ ...prior, job: { ...(prior?.job || {}), state: "running" } }));
+      if (result?.jobId) ownJobIds.current.add(result.jobId);
+      setStatus((prior) => ({ ...prior, job: { ...(prior?.job || {}), id: result.jobId, state: "running" } }));
     } catch (e) {
       setError(e?.code ? describeSessionSyncFailure(e.code) : copy("session_sync.error.generic"));
     } finally {
@@ -214,7 +221,8 @@ export function SessionSyncPanel() {
     }
   }
 
-  const jobItems = (status?.job && status.job.state !== "running")
+  const jobItems = (status?.job && status.job.state !== "running"
+    && ownJobIds.current.has(status.job.id))
     ? (Array.isArray(status.job.items) ? status.job.items : [])
     : [];
   const jobErrors = jobItems.filter((item) => { return item.status === "error"; });

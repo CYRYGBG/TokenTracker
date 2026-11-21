@@ -2340,3 +2340,4 @@ session_sync.error.digest_mismatch,ui,SessionsPage,SessionSyncPanel,error,"The t
 session_sync.error.payload_too_large,ui,SessionsPage,SessionSyncPanel,error,"A single payload exceeds the 100MB limit.",,active
 session_sync.error.remote_missing,ui,SessionsPage,SessionSyncPanel,error,"The remote copy is missing. Refresh the list and retry.",,active
 session_sync.error.remote_invalid,ui,SessionsPage,SessionSyncPanel,error,"The remote copy is malformed. Refresh the list and retry.",,active
+session_sync.error.local_missing,ui,SessionsPage,SessionSyncPanel,error,"This conversation no longer exists on this device. Refresh the list and retry.",,active

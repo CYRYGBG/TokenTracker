@@ -1131,5 +1131,6 @@
   "session_sync.error.digest_mismatch": "傳輸內容與校驗和不符，請重試。",
   "session_sync.error.payload_too_large": "單一載荷超過 100MB 限制。",
   "session_sync.error.remote_missing": "遠端內容已缺失，請重新整理清單後重試。",
-  "session_sync.error.remote_invalid": "遠端內容格式異常，請重新整理清單後重試。"
+  "session_sync.error.remote_invalid": "遠端內容格式異常，請重新整理清單後重試。",
+  "session_sync.error.local_missing": "該對話在本機已不存在，請重新整理清單後重試。"
 }
