@@ -307,3 +307,7 @@
 ## 2026-11-21 personal-v1.5.7 发布检查点
 
 本轮无上游集成（session-sync 为 fork 独立功能）。发布前经代理确认无需摘取的上游新修复参与本版；upstream 跟踪状态不变（上次检查点 2026-11-19，`3f728610`）。改动地图新增：`src/lib/session-sync/*`（对话同步独立模块）、local-api `/api/session-sync/*` 路由、sync.js zcode 读取过滤、webdav/client.js getBinary、dashboard 会话页同步视图。发布事实见 STATUS 同日条目。
+
+## 2026-11-21 personal-v1.5.8 热修复检查点
+
+无上游内容（fork 自身 UI 缺陷修复：对话同步面板不再回放持久化旧任务的错误）。upstream 跟踪状态不变。

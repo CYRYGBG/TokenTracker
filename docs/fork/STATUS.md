@@ -1,5 +1,13 @@
 # STATUS — 个人同步版事实状态
 
+## 2026-11-21 personal-v1.5.8 热修复发布完成（1.5.7 对话同步面板残留任务回放）
+
+- 用户报告：打开 1.5.7 未使用对话同步即见红字「Codex · 失败: 对话同步失败，请重试。」。根因：发布夜一次冒烟测试未做完整 profile 隔离，向真实 `~/.tokentracker-personal/tracker/session-sync/job.json` 写入一条注定失败的测试任务（sessionId "x"，SESSION_SYNC_LOCAL_MISSING），而面板把「最近一次持久化任务」的逐条错误在每次进入视图时回放。**仅观感问题**：无网络传输、无上传/注册表记录、统计未受影响；受污染目录已从用户机器删除。
+- 修复（提交 923e24db）：面板只显示**本视图实例启动的任务**的结果（ownJobIds 跟踪；运行中任务仍显示进度）；`SESSION_SYNC_LOCAL_MISSING` 补五语言本地化文案；新增 stale-job 回归测试（旧任务挂载后不出现 alert）。
+- 已于 2026-11-21 10:20 前后（Asia/Shanghai）公开发布 [personal-v1.5.8](https://github.com/CYRYGBG/TokenTracker/releases/tag/personal-v1.5.8)（release ID 453372898，latest，draft=false/prerelease=false）。资产：DMG 72,257,267 字节（SHA256 `7637daf8…5f77`）、Windows Setup 299,711,193 字节（SHA256 `044a2e42…a715`）、SHA256SUMS.txt 212 字节。标签固定 923e24db。
+- macOS Actions run 44853592749 首次派发即成功（artifact 14686696385）；Windows 本机完整链路（bundle → publish → EmbeddedServer 重拷 → verify 335/2590 → Inno `/DMyAppVersion=1.5.8`）+ 包内 Node 冒烟 15/15。远端核验：latest 解析、digest/大小匹配、SUMS 逐字节、两安装包 ranged 206 首 1MiB 一致。证据 `evidence/release-1.5.8.json`。
+- 验证：dashboard 152 文件/1334 项（含新回归）、tsc、构建、copy/locale/ui-hardcode/guardrails/versions 全绿；Node 定向 25 项 0 失败。用户下一步：两台电脑「检查更新」升级到 **1.5.8**（1.5.7 可直接跳过）。
+
 ## 2026-11-21 personal-v1.5.7 双平台发布完成（session-sync 对话同步）
 
 - 用户明确授权：实现跨设备对话同步、检查无误后发布双系统新版本、UI 风格与功能逻辑与现有一致。已于 2026-11-21 00:20 前后（Asia/Shanghai）公开发布 [personal-v1.5.7](https://github.com/CYRYGBG/TokenTracker/releases/tag/personal-v1.5.7)（release ID 452887355，draft=false、prerelease=false、latest）。标签与双平台构建源码固定 `d8f80726`（feat 提交；tag 先于 Release 创建，Release 由既有 tag 生成）。

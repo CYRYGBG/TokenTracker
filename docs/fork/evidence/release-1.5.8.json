@@ -1,0 +1,44 @@
+{
+  "release": "personal-v1.5.8",
+  "releaseId": 453372898,
+  "url": "https://github.com/CYRYGBG/TokenTracker/releases/tag/personal-v1.5.8",
+  "tag": "personal-v1.5.8",
+  "tagCommit": "923e24db2a16abca8e3dc0341f578758b83c26e0",
+  "branch": "codex/personal-release-20261027",
+  "draft": false,
+  "prerelease": false,
+  "purpose": "hotfix for 1.5.7 conversation-sync panel replaying stale persisted job errors (release-night incident)",
+  "incident": {
+    "what": "User opened the app (1.5.7) before ever using conversation sync and saw a red 'Codex · 失败: 对话同步失败，请重试。' banner",
+    "rootCause": "A release-night smoke test without full profile isolation POSTed /api/session-sync/upload against the real ~/.tokentracker-personal directory; the doomed test job (sessionId 'x') was persisted to session-sync/job.json, and the panel replayed the last finished job's errors on every mount",
+    "impact": "cosmetic only — no network transfer, no registry/upload record, no statistics touched; the polluted directory was removed from the user's machine",
+    "fix": "panel surfaces job results only for jobs started in the current view instance (ownJobIds); SESSION_SYNC_LOCAL_MISSING localized; regression test added"
+  },
+  "assets": {
+    "TokenTrackerPersonal-macOS-arm64.dmg": {
+      "bytes": 72257267,
+      "sha256": "7637daf842ba7ec25c93f08d5fe5398b8eb7c6195825d703d4ae7c2df32b5f77"
+    },
+    "TokenTrackerPersonal-Windows-x64-Setup.exe": {
+      "bytes": 299711193,
+      "sha256": "044a2e420535dcd5e750f8ba6147f0052aa0d651f0faec5f0a743452e2d9a715"
+    },
+    "SHA256SUMS.txt": {
+      "bytes": 212
+    }
+  },
+  "macosBuild": {
+    "actionsRun": 44853592749,
+    "headSha": "923e24db2a16abca8e3dc0341f578758b83c26e0",
+    "result": "success (first dispatch)",
+    "artifactId": 14686696385,
+    "dmgShaMatchesManifest": true
+  },
+  "verification": {
+    "dashboard": "152 files / 1334 tests (incl. new stale-job regression), tsc, production build, all validators green",
+    "nodeTargeted": "session-sync 15 + dedup 2 + localization-regressions 10 — 0 fail",
+    "packagedNodeSmoke": "session-sync + dedup 15/15",
+    "windowsPackage": "verify-windows-package: 335 inputs, 2590 files, sourceSha 923e24db",
+    "remote": "latest=personal-v1.5.8; asset digests match; SHA256SUMS byte-identical; both installers ranged 206 first-1MiB match"
+  }
+}
