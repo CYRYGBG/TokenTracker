@@ -1,5 +1,13 @@
 # STATUS — 个人同步版事实状态
 
+## 2026-11-21 personal-v1.5.9 发布完成（session-sync 本地使用日志）
+
+- 用户要求：在本机记录对话同步的使用痕迹，下一次发布新版本前研究该日志继续优化。已实现 `<trackerDir>/session-sync/log.jsonl`（SYNC_DESIGN §12.8）：JSONL 事件流（job_start/job_end 含时长与计数、item_result 含 agent/会话 id/标题/字节/修订/错误码/备份/插入消息数、refresh、delete），字段白名单落盘（URL/内容/凭证不可能进入），写失败静默，超 1MiB 轮转保留一代；绝不随任何同步通道外发。
+- 已于 2026-11-21 10:40 前后（Asia/Shanghai）公开发布 [personal-v1.5.9](https://github.com/CYRYGBG/TokenTracker/releases/tag/personal-v1.5.9)（release ID 453383812，latest）。资产：DMG 72,259,168 字节（SHA256 `a9248185…6f06`）、Windows Setup 299,714,641 字节（SHA256 `9024ff18…f094`）、SHA256SUMS.txt 212 字节。标签固定 `2a43eaa4`。
+- macOS Actions run 44855434154 首次派发即成功；Windows 完整链路（bundle → publish → 重拷 → verify 336/2591 → Inno `/DMyAppVersion=1.5.9`）+ 包内 Node 冒烟 17/17。远端核验：latest/digest/SUMS/ranged 全过。证据 `evidence/release-1.5.9.json`。
+- 开发中修复的自身缺陷：日志事件名字段被 payload 的 `type` 覆盖（白名单字段改名 `jobType`）；轮转测试量级不足。
+- **下一版本开发前必做**：读取两台机器的 `session-sync/log.jsonl`（Mac 路径 `~/.tokentracker-personal/tracker/session-sync/log.jsonl`），按 item_result 的 code 分布（SCAN_PENDING 频率、CONFLICT、digest 错误）、bytes 分布（压缩率/流量）、durationMs（慢点）与 refresh 频率分析真实使用模式，针对性优化。用户下一步：两台电脑「检查更新」到 1.5.9 后正常使用即可，日志自动累积。
+
 ## 2026-11-21 personal-v1.5.8 热修复发布完成（1.5.7 对话同步面板残留任务回放）
 
 - 用户报告：打开 1.5.7 未使用对话同步即见红字「Codex · 失败: 对话同步失败，请重试。」。根因：发布夜一次冒烟测试未做完整 profile 隔离，向真实 `~/.tokentracker-personal/tracker/session-sync/job.json` 写入一条注定失败的测试任务（sessionId "x"，SESSION_SYNC_LOCAL_MISSING），而面板把「最近一次持久化任务」的逐条错误在每次进入视图时回放。**仅观感问题**：无网络传输、无上传/注册表记录、统计未受影响；受污染目录已从用户机器删除。

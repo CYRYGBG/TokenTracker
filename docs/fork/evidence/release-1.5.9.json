@@ -1,0 +1,34 @@
+{
+  "release": "personal-v1.5.9",
+  "releaseId": 453383812,
+  "url": "https://github.com/CYRYGBG/TokenTracker/releases/tag/personal-v1.5.9",
+  "tag": "personal-v1.5.9",
+  "tagCommit": "2a43eaa44ce7f4c38f3c3d48e620683eae1932ba",
+  "draft": false,
+  "prerelease": false,
+  "purpose": "local usage event log for session-sync, to study real usage before the next optimization round",
+  "assets": {
+    "TokenTrackerPersonal-macOS-arm64.dmg": {
+      "bytes": 72259168,
+      "sha256": "a924818537e9c8b300937226d10b8f1bb20a0e308559101d122497ac9e876f06"
+    },
+    "TokenTrackerPersonal-Windows-x64-Setup.exe": {
+      "bytes": 299714641,
+      "sha256": "9024ff18f2082279810c449af7d4177889f61a92e1a25dc3a613958f01a4f094"
+    },
+    "SHA256SUMS.txt": {
+      "bytes": 212
+    }
+  },
+  "macosBuild": {
+    "actionsRun": 44855434154,
+    "result": "success (first dispatch)",
+    "dmgShaMatchesManifest": true
+  },
+  "verification": {
+    "nodeTargeted": "session-sync 15/15 (incl. 2 new logging tests), dedup 2/2, webdav/zcode regressions 17/17",
+    "packagedNodeSmoke": "17/17 on bundled node.exe",
+    "windowsPackage": "verify-windows-package: 336 inputs, 2591 files, sourceSha 2a43eaa4",
+    "remote": "latest=personal-v1.5.9; digests match; SUMS byte-identical; ranged 206 first-1MiB match on both installers"
+  }
+}
