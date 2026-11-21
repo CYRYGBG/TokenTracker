@@ -5,6 +5,7 @@
 - 用户授权发布后已公开 [personal-v1.5.10](https://github.com/CYRYGBG/TokenTracker/releases/tag/personal-v1.5.10)（release ID 453511962，latest，draft=false/prerelease=false）。标签固定 `8c7152b5`（版本提交；功能提交 `b2796e48`）。资产：DMG 72,543,175 字节（SHA256 `32c3252b…51c1e`）、Windows Setup 299,713,457 字节（SHA256 `e364613f…72fd`）、SHA256SUMS.txt 200 字节。证据 `evidence/release-1.5.10.json`。
 - macOS：Actions run 44878652209 首次派发即成功（artifact 14696278806），DMG 哈希与 macos-build.json 一致。Windows：bundle → publish → EmbeddedServer 新鲜重拷 → verify 336 输入/2591 文件（sourceSha 8c7152b5）→ Inno 6.7.3 `/DMyAppVersion=1.5.10`；包内 Node 冒烟 18/18。远端核验：latest 解析、三资产 digest、SUMS 字节一致、两安装包 ranged 206 首 1MiB 一致。
 - 发布前已在**真实坚果云**端到端复验修复（嵌套 key 上传/刷新/字节级取回/删除，零 409）。用户下一步：两台电脑「检查更新」到 1.5.10 后重试对话接力（本机 Windows 也需更新——1.5.9 的 Windows 端上传虽可用，但两端一致更稳）；MacBook 上重试此前失败的 Codex 对话上传。
+- **发布后修正（资产命名事故）**：首次上传误用 Inno 输出名 `TokenTracker-Setup-v1.5.10.exe`，而 Windows 更新器（UpdateReleaseClient.SetupAssetName）只认无版本号惯例名 `TokenTrackerPersonal-Windows-x64-Setup.exe`（1.5.7–1.5.9 的命名），导致用户点「检查更新」报「暂时无法检查更新」。已 PATCH 改名资产 + 重新生成并上传 SHA256SUMS.txt（212 字节，含两个惯例名），按更新器视角匿名核验（资产名/SUMS FindDigest 命中/改名后 URL ranged 206 字节一致）。**发布清单新增红线：Windows 安装包资产必须命名为 `TokenTrackerPersonal-Windows-x64-Setup.exe`，SHA256SUMS.txt 内同样用该名**（详见 evidence/release-1.5.10.json incident_assetNaming）。
 
 ## 2026-11-21 session-sync 首次真实使用排障（用户报告无法同步）+ UI 改进（已完成，见上条发布）
 

@@ -15,15 +15,21 @@
       "sha256": "32c3252bbabf9cfbfb21c8a588ab9a3d8f776abb27e14cf6a216720645d51c1e"
     },
     "setup": {
-      "name": "TokenTracker-Setup-v1.5.10.exe",
+      "name": "TokenTrackerPersonal-Windows-x64-Setup.exe",
       "bytes": 299713457,
       "sha256": "e364613f170e94773ae58d2a39b8a4ca34ff5a9417041360ae3cb21bad8b72fd"
     },
     "sums": {
       "name": "SHA256SUMS.txt",
-      "bytes": 200,
-      "sha256": "7e4a5c1d99bde13f862e38b4e6f0d304c6899e74badeb4c9482defda7c35a61c"
+      "bytes": 212,
+      "note": "regenerated after the incident below; lists the two conventional asset names"
     }
+  },
+  "incident_assetNaming": {
+    "what": "initial upload used the Inno output name TokenTracker-Setup-v1.5.10.exe and a SUMS listing that name; UpdateReleaseClient.SetupAssetName expects the version-less TokenTrackerPersonal-Windows-x64-Setup.exe (the 1.5.7-1.5.9 convention), so every in-app check for updates failed with the release-has-no-usable-installer error (user reported the 暂时无法检查更新 dialog)",
+    "fix": "PATCH-renamed the setup asset (id 774768915) to the conventional name, regenerated SHA256SUMS.txt (212 bytes), deleted and re-uploaded the SUMS asset",
+    "verified": "anonymous latest shows the three conventional asset names; SUMS contains the conventional setup filename (FindDigest matches); ranged 206 first-1MiB of the renamed setup URL is byte-identical",
+    "lesson": "release checklist: Windows setup asset MUST be named TokenTrackerPersonal-Windows-x64-Setup.exe and SHA256SUMS.txt must list that exact name"
   },
   "macos": {
     "workflowRun": 44878652209,
