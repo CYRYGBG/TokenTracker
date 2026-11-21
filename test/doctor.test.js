@@ -8,6 +8,11 @@ const { buildDoctorReport } = require("../src/lib/doctor");
 const { cmdDoctor } = require("../src/commands/doctor");
 const { withHome } = require("./helpers/with-home");
 
+// Doctor's install discovery shells out to wsl.exe, which can stall for tens
+// of seconds when the host's distros are busy; these tests exercise report
+// shaping, not host WSL state.
+process.env.TOKENTRACKER_WSL_MODE = "native-only";
+
 test("doctor marks invalid config.json as critical", async () => {
   const tmp = await fs.mkdtemp(path.join(os.tmpdir(), "tokentracker-doctor-"));
   const trackerDir = path.join(tmp, ".tokentracker", "tracker");

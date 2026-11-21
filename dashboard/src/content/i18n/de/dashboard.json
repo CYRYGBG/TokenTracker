@@ -694,5 +694,11 @@
   "session_sync.error.payload_too_large": "Eine einzelne Datei überschreitet das 100-MB-Limit.",
   "session_sync.error.remote_missing": "Die Remote-Kopie fehlt. Liste aktualisieren und erneut versuchen.",
   "session_sync.error.remote_invalid": "Die Remote-Kopie ist fehlerhaft. Liste aktualisieren und erneut versuchen.",
-  "session_sync.error.local_missing": "Diese Unterhaltung existiert auf diesem Gerät nicht mehr. Liste aktualisieren und erneut versuchen."
+  "session_sync.error.local_missing": "Diese Unterhaltung existiert auf diesem Gerät nicht mehr. Liste aktualisieren und erneut versuchen.",
+  "session_sync.filter.agent_aria": "Unterhaltungen nach Agent filtern",
+  "session_sync.filter.all": "Alle Agents",
+  "session_sync.filter.no_match": "Keine Unterhaltungen passen zum aktuellen Filter.",
+  "session_sync.error.webdav_http": "Der WebDAV-Speicher hat einen Fehler gemeldet. Speicherstatus prüfen und erneut versuchen.",
+  "session_sync.error.webdav_network": "Der WebDAV-Speicher ist nicht erreichbar. Netzwerk prüfen und erneut versuchen.",
+  "session_sync.error.webdav_timeout": "Zeitüberschreitung beim WebDAV-Speicher. Bitte später erneut versuchen."
 }

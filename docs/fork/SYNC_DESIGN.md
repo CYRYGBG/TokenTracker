@@ -172,7 +172,8 @@
 
 - `agent ∈ {codex,zcode,antigravity}`；`sessionId` 为各 agent 原生会话 id（uuid，文件系统安全）；machineId 校验与统计同步相同（`/^[a-zA-Z0-9_-]{1,128}$/`）。
 - 设备发现：PROPFIND `session-sync/devices/`（同统计同步方式，无顶层 manifest）；对端列表只 GET 各设备 `sessions/index.json`（KB 级，省流量）。
-- 上传：`WebDavClient.putAtomic`（PUT .part → MOVE）；每次上传 revision+1、全量文件 + sha256；单 payload 文件 >100MB 拒绝。gzip 用内置 zlib。
+- 上传：**直接 PUT**（不走 putAtomic 的 MOVE——目标已存在时 `Overwrite:F` 会 412）；每次上传 revision+1、全量文件 + sha256；单 payload 文件 >100MB 拒绝。gzip 用内置 zlib。导入端逐文件 sha256 校验是截断安全网。
+- **嵌套 payload key 必须逐级 MKCOL**（2026-11-21 事故修复）：payload key 是 bundle 内相对路径，Codex 形如 `sessions/YYYY/MM/DD/rollout-*.jsonl` → 远端 `payload/sessions/…/xx.jsonl.gz`。RFC 4918 服务器（坚果云实测）对父集合缺失的 PUT 返回 **409**；`uploadBundle` 现对每个 payload 的父目录链 `ensureCollection`（405=已存在视为成功，按去重集合避免重复请求）。1.5.7 的回环测试夹具曾对 PUT 自动建父目录，掩盖了该问题（真实环境表现为 Codex 上传必败、ZCode 扁平 key 正常）；夹具已改为 409 严格模式作为回归防线。
 - 流量自动计入 `webdav/traffic.json` 月度统计（共享 client 内建埋点）。
 
 ### 12.2 本地状态
@@ -216,8 +217,9 @@
 
 ### 12.6 端点与 UI
 
-- local-api：`/api/session-sync/{local,upload,remote-refresh,remote,import,status,delete-remote}`，全部手动触发、逐端点本地鉴权；模块惰性单例（serve.js 不动）。
+- local-api：`/api/session-sync/{local,upload,remote-refresh,remote,import,status,delete-remote}`，全部手动触发、逐端点本地鉴权；模块惰性单例（serve.js 不动）。`status` 含 `running` 标志：持久化 job 状态先于进程内 running 清零写下，测试与 UI 应等两者都静默才算完全结束。
 - Dashboard 会话页新增「对话同步」视图：本机对话多选上传 / 远端对话（设备分组）多选导入 / 手动刷新 / 冲突显式选择；文案走 copy + 五语言。
+- **操作栏在卡片顶部**（2026-11-21 用户反馈）：全选 + 主按钮（上传所选/同步所选到本机）固定在列表上方，不需滚到长列表底部；两张卡片共用一个 agent 筛选下拉（全部/Codex/ZCode/Antigravity），筛选同时作用于本机与远端列表，全选只作用于当前可见行；错误行会附上后端净化后的诊断 message（URL 已剥离）。
 
 ### 12.7 边界（如实标注）
 

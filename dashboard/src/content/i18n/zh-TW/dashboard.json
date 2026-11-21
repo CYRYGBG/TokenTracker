@@ -1132,5 +1132,11 @@
   "session_sync.error.payload_too_large": "單一載荷超過 100MB 限制。",
   "session_sync.error.remote_missing": "遠端內容已缺失，請重新整理清單後重試。",
   "session_sync.error.remote_invalid": "遠端內容格式異常，請重新整理清單後重試。",
-  "session_sync.error.local_missing": "該對話在本機已不存在，請重新整理清單後重試。"
+  "session_sync.error.local_missing": "該對話在本機已不存在，請重新整理清單後重試。",
+  "session_sync.filter.agent_aria": "按工具篩選對話",
+  "session_sync.filter.all": "全部工具",
+  "session_sync.filter.no_match": "沒有符合目前篩選的對話。",
+  "session_sync.error.webdav_http": "WebDAV 網碟回傳了錯誤，請檢查網碟狀態後重試。",
+  "session_sync.error.webdav_network": "無法連線 WebDAV 網碟，請檢查網路後重試。",
+  "session_sync.error.webdav_timeout": "WebDAV 網碟請求逾時，請稍後重試。"
 }

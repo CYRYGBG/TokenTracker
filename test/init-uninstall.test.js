@@ -12,6 +12,9 @@ const publicAnon = [Buffer.from('{"alg":"HS256"}').toString("base64url"),
 process.env.TOKENTRACKER_SKIP_LOCAL_RUNTIME_COPY = "1";
 process.env.TOKENTRACKER_SKIP_FIRST_SYNC = "1";
 process.env.TOKENTRACKER_SKIP_OPENCLAW_CLI = "1";
+// Same rationale for WSL: install discovery shells out to wsl.exe, which can
+// stall for tens of seconds when the host's distros are busy.
+process.env.TOKENTRACKER_WSL_MODE = "native-only";
 
 const {
   cmdInit,

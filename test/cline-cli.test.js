@@ -93,7 +93,10 @@ test("Cline status exposes present and absent installs in JSON and light output"
       const result = spawnSync(process.execPath, [path.join(__dirname, "../bin/tracker.js"), "status", format], {
         encoding: "utf8",
         timeout: 30_000,
-        env: { ...process.env, HOME: home, USERPROFILE: home, TOKENTRACKER_CLINE_SESSIONS_DIR: sessionsDir },
+        // WSL probing shells out to wsl.exe, which can stall for tens of
+        // seconds when the host's distros are busy — this test is about the
+        // Cline status output, not host WSL state (same isolation as below).
+        env: { ...process.env, HOME: home, USERPROFILE: home, TOKENTRACKER_CLINE_SESSIONS_DIR: sessionsDir, TOKENTRACKER_WSL_MODE: "native-only" },
       });
       assert.equal(result.status, 0, result.stderr);
       return result.stdout;

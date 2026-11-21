@@ -5,6 +5,11 @@ const os = require("node:os");
 const path = require("node:path");
 const { performance } = require("node:perf_hooks");
 
+// Provider install discovery shells out to wsl.exe, which can stall for tens
+// of seconds when the host's distros are busy; these tests exercise the
+// limits bank/cache layer, not host WSL state.
+process.env.TOKENTRACKER_WSL_MODE = "native-only";
+
 const { getUsageLimits, resetUsageLimitsCache } = require("./helpers/usage-limits");
 
 const WHAM_URL = "https://chatgpt.com/backend-api/wham/usage";

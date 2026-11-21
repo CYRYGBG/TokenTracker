@@ -4,6 +4,10 @@ import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import "@testing-library/jest-dom/vitest";
 
+// The panel drives base-ui select popups, which need full pointer-event
+// simulation; on a loaded machine the default 5s per test is tight.
+vi.setConfig({ testTimeout: 15000 });
+
 // The panel is a thin view over /api/session-sync/*; these tests stub the
 // transport and assert selection/upload/import flows and error rendering.
 
@@ -124,6 +128,33 @@ describe("SessionSyncPanel", () => {
     await user.click(await screen.findByRole("checkbox", { name: "Codex 对话" }));
     await user.click(screen.getByRole("button", { name: "Upload selected (1)" }));
     expect(await screen.findByRole("alert")).toHaveTextContent("changed since the last sync");
+  });
+
+  test("agent filter narrows both cards and scopes select-all to what is visible", async () => {
+    const user = userEvent.setup();
+    await renderPanel();
+    expect(await screen.findByText("Codex 对话")).toBeInTheDocument();
+    // Both cards render their top toolbar with a select-all control.
+    expect(screen.getAllByRole("button", { name: "Select all" }).length).toBe(2);
+    // Choose ZCode in the shared agent filter above the cards (userEvent:
+    // base-ui select items need full pointer events to commit).
+    await user.click(screen.getByRole("combobox", { name: "Filter conversations by agent" }));
+    await user.click(await screen.findByRole("option", { name: "ZCode" }));
+    // Local card: the codex row is hidden, the zcode row (badge "Uploaded v2") stays.
+    await waitFor(() => expect(screen.queryByText("Codex 对话")).toBeNull());
+    expect(screen.getByText("Uploaded v2")).toBeInTheDocument();
+    // Remote card: no zcode uploads exist, so the filter empty-state shows.
+    expect(screen.queryByText("接力对话")).toBeNull();
+    expect(screen.getByText("No conversations match the current filter.")).toBeInTheDocument();
+    // Select-all now applies to the visible zcode row only.
+    await user.click(screen.getAllByRole("button", { name: "Select all" })[0]);
+    await user.click(screen.getByRole("button", { name: "Upload selected (1)" }));
+    await waitFor(() => {
+      const call = fetchMock.mock.calls.find(([p]) => String(p).startsWith("/api/session-sync/upload"));
+      expect(call).toBeTruthy();
+    });
+    const [, options] = fetchMock.mock.calls.find(([p]) => String(p).startsWith("/api/session-sync/upload"));
+    expect(JSON.parse(options.body)).toEqual({ items: [{ agent: "zcode", sessionId: "s2" }] });
   });
 
   test("a stale persisted job from a previous session never surfaces its errors", async () => {

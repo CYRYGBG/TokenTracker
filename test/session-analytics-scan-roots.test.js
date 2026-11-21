@@ -76,7 +76,11 @@ test("providerRoots / discoverSessionFiles anchor a relative CODEX_HOME and CLAU
   const rollout = path.join(codexRoot, "sessions", "2026", "06", "30", "rollout-2026-06-30T00-00-00-019f16bd-4444-7555-8666-777777777777.jsonl");
   const session = path.join(claudeRoot, "projects", "p", "s.jsonl");
   fs.writeFileSync(rollout, ""); fs.writeFileSync(session, "");
-  const env = { CODEX_HOME: "profiles/codex", CLAUDE_CONFIG_DIR: "profiles/claude" };
+  // native-only: OMP home discovery resolves through the win32 install picker
+  // regardless of deps.platform, and its wsl.exe probe stalls for tens of
+  // seconds when the host's distros are busy. This test is about root
+  // anchoring, not host WSL state.
+  const env = { CODEX_HOME: "profiles/codex", CLAUDE_CONFIG_DIR: "profiles/claude", TOKENTRACKER_WSL_MODE: "native-only" };
   const deps = { platform: "darwin", homedir: () => home, scanRootsConfig: null };
   const cwd = process.cwd();
   process.chdir(tmpdir(t));
@@ -168,7 +172,9 @@ test("discoverSessionFiles walks config.scanRoots for Claude and Codex", async (
     homedir: () => home,
     scanRootsConfig: { claude: ["~/agent/claude", "~/missing/claude"], codex: [extraCodex] },
   };
-  const discovered = await discoverSessionFiles(home, {}, deps);
+  // Same as above: keep the OMP win32 install picker from probing a busy
+  // host WSL (it ignores deps.platform).
+  const discovered = await discoverSessionFiles(home, { TOKENTRACKER_WSL_MODE: "native-only" }, deps);
   const claude = discovered.claude.flat().sort();
   const codex = discovered.codex.flat().sort();
   assert.deepEqual(claude, [nativeSession, extraSession].sort());
@@ -184,12 +190,12 @@ test("discoverSessionFiles walks config.scanRoots for Claude and Codex", async (
     linked = false;
   }
   if (linked) {
-    const withLink = await discoverSessionFiles(home, {}, { ...deps, scanRootsConfig: { claude: [extraClaude, profileB] } });
+    const withLink = await discoverSessionFiles(home, { TOKENTRACKER_WSL_MODE: "native-only" }, { ...deps, scanRootsConfig: { claude: [extraClaude, profileB] } });
     assert.deepEqual(withLink.claude.flat().sort(), [nativeSession, extraSession].sort());
   }
 
   // Without config the extras are not walked (nothing else changed).
-  const plain = await discoverSessionFiles(home, {}, { platform: "darwin", homedir: () => home, scanRootsConfig: null });
+  const plain = await discoverSessionFiles(home, { TOKENTRACKER_WSL_MODE: "native-only" }, { platform: "darwin", homedir: () => home, scanRootsConfig: null });
   assert.deepEqual(plain.claude.flat(), [nativeSession]);
   assert.deepEqual(plain.codex.flat(), [nativeRollout]);
 });

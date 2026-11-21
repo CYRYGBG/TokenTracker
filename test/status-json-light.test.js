@@ -19,6 +19,9 @@ function runStatus(args) {
   const res = spawnSync(process.execPath, [TRACKER, "status", ...args], {
     encoding: "utf-8",
     timeout: 30_000,
+    // These tests assert output shape, not host install discovery; wsl.exe
+    // probes can stall for tens of seconds when the host's distros are busy.
+    env: { ...process.env, TOKENTRACKER_WSL_MODE: "native-only" },
   });
   return res;
 }

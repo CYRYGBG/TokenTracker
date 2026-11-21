@@ -201,6 +201,11 @@ test("the scheduler timer wakes near the pending retry instead of the full inter
   const dir = await fs.mkdtemp(path.join(os.tmpdir(), "tt-retry-timer-"));
   const dav = createWebDavTestServer();
   await dav.listen();
+  // Declared outside the try so the finally can always stop it: a leaked live
+  // scheduler kept retrying against the closed fixture server forever and
+  // hung the whole test file when an assert failed under CPU contention
+  // (--test-timeout=0).
+  let scheduler = null;
   try {
     await fs.mkdir(path.join(dir, "webdav"), { recursive: true });
     await writeState(path.join(dir, "webdav", "state.json"), {
@@ -211,7 +216,7 @@ test("the scheduler timer wakes near the pending retry instead of the full inter
       next_attempt_ms: Date.now() + 5400,
     });
     const started = Date.now();
-    const scheduler = createWebdavScheduler({
+    scheduler = createWebdavScheduler({
       trackerDir: dir,
       getConfig: async () => ({ url: dav.baseUrl(), username: "user", enabled: true, interval_minutes: 30 }),
       loadPassword: async () => "app-password",
@@ -221,18 +226,18 @@ test("the scheduler timer wakes near the pending retry instead of the full inter
     // The first tick fires at 5s (initial timer) while the retry is still
     // pending; the tick then re-arms for the remaining ~400ms and the cycle
     // runs well before the 30-minute interval would allow.
-    for (let i = 0; i < 80; i++) {
+    for (let i = 0; i < 150; i++) {
       await new Promise((r) => setTimeout(r, 100));
       const state = await readState(path.join(dir, "webdav", "state.json"));
       if (state.last_success_at) {
         const elapsed = Date.now() - started;
-        assert.ok(elapsed < 10_000, `retry fired after ${elapsed}ms, not at the 30-minute interval`);
-        scheduler.stop();
+        assert.ok(elapsed < 20_000, `retry fired after ${elapsed}ms, not at the 30-minute interval`);
         return;
       }
     }
     throw new Error("the pending retry never fired");
   } finally {
+    scheduler?.stop();
     await dav.close();
     await fs.rm(dir, { recursive: true, force: true });
   }

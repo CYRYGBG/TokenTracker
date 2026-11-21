@@ -5,6 +5,11 @@ const os = require("node:os");
 const path = require("node:path");
 const kiroProbe = `${process.platform === "win32" ? "where" : "which"} kiro-cli`;
 
+// Provider install discovery shells out to wsl.exe, which can stall for tens
+// of seconds when the host's distros are busy; these tests exercise the
+// fetch/IPC caching layer, not host WSL state.
+process.env.TOKENTRACKER_WSL_MODE = "native-only";
+
 const {
   getUsageLimits,
   resetUsageLimitsCache,

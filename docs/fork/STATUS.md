@@ -1,5 +1,21 @@
 # STATUS — 个人同步版事实状态
 
+## 2026-11-21 session-sync 首次真实使用排障（用户报告无法同步）+ UI 改进（开发中，待发布 1.5.10）
+
+- 用户报告（附 MacBook 截图）：无法刷新出对端对话；MacBook 上选 Codex 对话上传直接报「Codex · 失败： 对话同步失败，请重试。」；并要求上传按钮移到顶部、增加 agent 筛选。
+- **排障过程（1.5.9 使用日志第一次立功）**：本机 log.jsonl 只有 3 行——zcode 上传成功（11:47，revision 1），无任何 codex 失败记录 → 截图来自 MacBook。只读探针（PROPFIND/GET，合计约 10KB 流量）核实真实坚果云：Windows 设备条目完整（device.json+index.json+zcode 会话）；Mac 设备只有 device.json、无 index.json → 上传中途夭折。以 Mac 的 machineId 模拟其刷新视角：能正确列出 Windows 的 zcode 会话（刷新逻辑无缺陷，「刷不出」是因为 Mac 从未成功上传过任何内容）。
+- **根因（真实服务器 PUT 语义验证）**：坚果云对父集合缺失的 PUT 返回 **409**。Codex payload key 是嵌套相对路径（`sessions/YYYY/MM/DD/rollout-*.jsonl` → 远端 `payload/sessions/…/xx.jsonl.gz`），而 `uploadBundle` 只 MKCOL 了 `payload/` 本身 → Codex 上传必败（WEBDAV_HTTP→通用文案）；ZCode key 扁平（`session.json`/`messages.jsonl`）故本机成功——与两台机器的现象完全吻合。回环测试夹具对 PUT 自动建父目录，掩盖了该缺陷。
+- **修复**：`remote.js uploadBundle` 对每个 payload 的父目录链 `ensureCollection`（去重集合避免重复请求；405=已存在视为成功）。真实坚果云 E2E 复验通过：嵌套 key 上传（.jsonl 与 .zst 形态）→ 刷新列表 → 拉取字节级一致 → 删除，全程无 409。
+- **夹具加严（永久回归防线）**：回环 WebDAV 服务器 PUT/MKCOL 对缺父集合返回 409（RFC 4918）；新增事故回归测试（裸 PUT 必须 409；嵌套 key 上传后父链存在、往返一致）。session-sync 套件 16/16。
+- **测试竞态修复（与本次改动无关的既有缺陷，高负载全量跑暴露）**：`waitForJob` 以 job.json 状态判定结束，但进程内 `running` 标志晚一拍清零 → 紧随其后的 refresh/再次上传偶发 BUSY。`status()` 现返回 `running`，`waitForJob` 等待两者都静默。
+- **UI（用户要求）**：①两张卡片的操作栏（全选 + 上传所选/同步所选到本机）从列表底部移到顶部，无需滚动；②卡片上方新增共用 agent 筛选下拉（全部/Codex/ZCode/Antigravity），同时过滤本机与远端列表，全选只作用于可见行，被筛选隐藏的已选项保留并计入按钮计数，筛选后无匹配显示专门空态；③失败行附带后端净化诊断 message（URL 已剥离）——本次若有它，截图即可直接看到 "409"；④新增 WEBDAV_HTTP/WEBDAV_NETWORK/WEBDAV_TIMEOUT 专属本地化文案（五语言）；⑤未筛选时保留「设备未上传」占位（validate:copy 无未用键）。
+- 验证（最终，全绿）：**Node 全量 3967 项 0 失败**；dashboard vitest **1335/1335**；session-sync+dedup 18/18；面板 vitest 7/7（新增筛选回归：过滤两卡、全选仅可见行、上传仅含可见项）；tsc 0 错；dashboard:build 通过；validate:copy（2347 键/1919 用）/locale 100%/ui-hardcode（修复一处表达式箭头体引发的 rawText 误报，改花括号体）/guardrails 全绿。全量 Node 套件当日多组失败逐一定位并全部修复（均与本次功能改动无关的既有/环境问题）：
+  1. session-sync 测试竞态：`waitForJob` 以 job.json 判定结束早于进程内 `running` 清零 → 紧随操作偶发 BUSY（`status()` 增加 `running` 字段，测试等待完全静默）。
+  2. `webdav-retry-schedule.test.js` 失败路径泄漏存活 scheduler（`stop()` 只在成功路径调用）→ 整文件永久挂起（`--test-timeout=0`）、CPU 空转拖垮并行全量跑（本轮两次全量「卡死 30+ 分钟」即此）。已改为 finally 必停（声明提到 try 外）+ 轮询预算 8s→15s、断言上限 10s→20s。注意：首次修复把 `scheduler?.stop()` 放 finally 却未把声明外提，ReferenceError 使 stop 依旧不执行——已纠正并以独立运行复验。
+  3. 多个测试文件的子进程 spawn/in-process 发现路径撞上宿主 `wsl.exe` 变慢（本机 Ubuntu-24.04 WSL 运行中，`wsl --list` 实测 ~30 秒/次；status/init/doctor/限额/会话发现路径会探测 WSL，15s/次超时叠加超过测试上限）。按仓库既有惯例（cline-cli 第三个测试、anythingllm-parser 先例）补 `TOKENTRACKER_WSL_MODE=native-only`（cline-cli、status-json-light、init-local-runtime-reinstall、init-uninstall、usage-limits-singleflight、usage-limits-reset-bank、workbuddy-ipc、doctor、session-analytics-scan-roots——后者经 CPU profile 定位：OMP 主目录发现无视注入的 darwin 平台仍走 win32 安装选择器探 WSL，单测 17s→14ms）。产品代码无改动——真实使用不受影响（桌面版相应页面如遇 WSL 忙同样会慢，属上游既有行为，另行观察）。
+- 诊断痕迹：坚果云根目录残留一个空文件夹 `diag-tmp-delete-me`（WebDAV 探针创建；坚果云禁止根级 DELETE/MOVE，无法经 WebDAV 删除，可在网页端手动删除，无任何内容）。
+- 待办：与用户确认后走 1.5.10 双平台发布流程。
+
 ## 2026-11-21 personal-v1.5.9 发布完成（session-sync 本地使用日志）
 
 - 用户要求：在本机记录对话同步的使用痕迹，下一次发布新版本前研究该日志继续优化。已实现 `<trackerDir>/session-sync/log.jsonl`（SYNC_DESIGN §12.8）：JSONL 事件流（job_start/job_end 含时长与计数、item_result 含 agent/会话 id/标题/字节/修订/错误码/备份/插入消息数、refresh、delete），字段白名单落盘（URL/内容/凭证不可能进入），写失败静默，超 1MiB 轮转保留一代；绝不随任何同步通道外发。

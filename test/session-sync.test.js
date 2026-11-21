@@ -46,6 +46,9 @@ function createBinaryWebDavServer() {
     }
     if (req.method === "MKCOL") {
       if (state.collections.has(p) || state.files.has(p)) { res.writeHead(405); res.end(); return; }
+      // RFC 4918 §9.3.1: MKCOL fails when an intermediate collection is missing.
+      const parent = p.slice(0, p.lastIndexOf("/")) || "/";
+      if (!state.collections.has(parent)) { res.writeHead(409); res.end(); return; }
       state.collections.add(p);
       res.writeHead(201);
       res.end();
@@ -55,6 +58,11 @@ function createBinaryWebDavServer() {
       const chunks = [];
       req.on("data", (chunk) => chunks.push(chunk));
       req.on("end", () => {
+        // RFC 4918 servers (jianguoyun included) reject a PUT whose parent
+        // collection does not exist — the lenient auto-create this fixture
+        // used before masked the missing per-key MKCOL in uploadBundle.
+        const parent = p.slice(0, p.lastIndexOf("/")) || "/";
+        if (!state.collections.has(parent)) { res.writeHead(409); res.end(); return; }
         state.files.set(p, Buffer.concat(chunks));
         res.writeHead(201);
         res.end();
@@ -153,7 +161,10 @@ async function waitForJob(manager, { timeoutMs = 15_000 } = {}) {
   const started = Date.now();
   for (;;) {
     const status = await manager.status();
-    if (status.job && status.job.state !== "running") return status.job;
+    // Wait for full quiescence, not just the persisted job state: under load
+    // the detached body writes "done" to job.json a tick before it clears the
+    // in-process running flag, and an immediate follow-up would hit BUSY.
+    if (status.job && status.job.state !== "running" && status.running !== true) return status.job;
     if (Date.now() - started > timeoutMs) throw new Error("job did not finish in time");
     await sleep(50);
   }
@@ -397,6 +408,43 @@ test("session-sync remote: gzip survives the wire byte-for-byte", async () => {
 function cryptoRandom(bytes) {
   return require("node:crypto").randomBytes(bytes);
 }
+
+// 2026-11-21 incident regression: jianguoyun (RFC 4918) answers 409 to a PUT
+// whose parent collection is missing. Codex payload keys are nested
+// (sessions/YYYY/MM/DD/rollout-*.jsonl), so uploadBundle must MKCOL every
+// payload's parent chain — the lenient fixture used before auto-created
+// parents and masked this, breaking every real codex upload.
+test("session-sync remote: nested payload keys MKCOL their parent chain (jianguoyun 409)", async () => {
+  await withTempDir(async (dir) => {
+    const server = createBinaryWebDavServer();
+    const baseUrl = await server.listen();
+    try {
+      const client = remote.createClient({ config: { url: baseUrl, username: "user" }, password: "app-password" });
+      // Pin the fixture contract: a bare PUT to a path with missing parents
+      // fails the way jianguoyun does.
+      const bare = await client.put("/tt-fork/session-sync/devices/deviceA/sessions/codex/sess1/payload/a/b.jsonl.gz", Buffer.from("x"));
+      assert.equal(bare.ok, false);
+      assert.equal(bare.status, 409);
+
+      const buffer = Buffer.from("nested conversation\n", "utf8");
+      const files = [
+        { key: "sessions/2026/11/21/rollout-incident.jsonl", buffer, sha256: sha256(buffer), bytes: buffer.byteLength },
+        { key: "sessions/2026/11/21/rollout-incident-2.jsonl", buffer, sha256: sha256(buffer), bytes: buffer.byteLength },
+      ];
+      await remote.uploadBundle(client, {
+        directory: "tt-fork", machineId: "deviceA", agent: "codex", sessionId: "sess1",
+        meta: { title: "t", revision: 1, device: { name: "A" } }, files, summaries: [],
+      });
+      assert.ok(server.state.collections.has("/tt-fork/session-sync/devices/deviceA/sessions/codex/sess1/payload/sessions/2026/11/21"),
+        "nested payload parent chain must be created");
+      const bundle = await remote.fetchBundle(client, { directory: "tt-fork", machineId: "deviceA", agent: "codex", sessionId: "sess1" });
+      assert.equal(bundle.files.length, 2);
+      assert.equal(bundle.files[0].buffer.toString("utf8"), "nested conversation\n");
+    } finally {
+      await server.close();
+    }
+  });
+});
 
 // ---------------------------------------------------------------------------
 // Tests: codex adapter

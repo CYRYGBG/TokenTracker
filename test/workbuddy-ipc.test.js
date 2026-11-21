@@ -7,6 +7,12 @@ const path = require("node:path");
 const { createWorkbuddyBroker } = require("./helpers/workbuddy-ipc");
 const { readWorkbuddyIpcDiscovery, openWorkbuddyIpc } = require("../src/lib/workbuddy-ipc");
 const { fetchWorkbuddyLimits, fetchWorkbuddyAiLimits } = require("../src/lib/workbuddy-limits");
+
+// Provider install discovery shells out to wsl.exe, which can stall for tens
+// of seconds when the host's distros are busy; these tests exercise the IPC
+// aggregation layer, not host WSL state.
+process.env.TOKENTRACKER_WSL_MODE = "native-only";
+
 const { getUsageLimits, resetUsageLimitsCache } = require("./helpers/usage-limits");
 
 const PLAN = "TCACA_code_008_cfWoLwvjU4";
@@ -74,7 +80,7 @@ test("international quota uses only its own proxy and preserves a native English
 test("the limits aggregation retains Free and cancels IPC when the provider budget expires", async (t) => {
   const broker = await createWorkbuddyBroker(t, { respond: quotaResponse });
   const options = {
-    home: broker.root, env: { HOME: broker.root, WORKBUDDY_HOME: broker.home },
+    home: broker.root, env: { HOME: broker.root, WORKBUDDY_HOME: broker.home, TOKENTRACKER_WSL_MODE: "native-only" },
     trackerDir: path.join(broker.root, "tracker"), providerTimeoutMs: 1000,
     securityRunner: () => ({ status: 1, stdout: "" }),
     commandRunner: () => ({ status: 1, stdout: "" }),

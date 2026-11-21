@@ -484,6 +484,10 @@ function createSessionSyncManager({
     const job = currentJob || await store.readJob(trackerDir);
     const registry = await store.readRegistry(trackerDir);
     return {
+      // Exposed so callers (tests, future UI) can distinguish "job finished"
+      // from "manager fully quiescent": the detached body flips the persisted
+      // job state slightly before it releases the lock and clears `running`.
+      running,
       job: job ? {
         id: job.id,
         type: job.type,

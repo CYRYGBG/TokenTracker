@@ -1073,5 +1073,11 @@
   "session_sync.error.payload_too_large": "单个载荷超过 100MB 限制。",
   "session_sync.error.remote_missing": "远端内容已缺失，请刷新列表后重试。",
   "session_sync.error.remote_invalid": "远端内容格式异常，请刷新列表后重试。",
-  "session_sync.error.local_missing": "该对话在本机已不存在，请刷新列表后重试。"
+  "session_sync.error.local_missing": "该对话在本机已不存在，请刷新列表后重试。",
+  "session_sync.filter.agent_aria": "按工具筛选对话",
+  "session_sync.filter.all": "全部工具",
+  "session_sync.filter.no_match": "没有符合当前筛选的对话。",
+  "session_sync.error.webdav_http": "WebDAV 网盘返回了错误，请检查网盘状态后重试。",
+  "session_sync.error.webdav_network": "无法连接 WebDAV 网盘，请检查网络后重试。",
+  "session_sync.error.webdav_timeout": "WebDAV 网盘请求超时，请稍后重试。"
 }

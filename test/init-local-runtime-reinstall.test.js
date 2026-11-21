@@ -51,6 +51,9 @@ test("init first sync keeps local data and credentials without uploading when no
       const env = {
         ...process.env, HOME: tmp, USERPROFILE: tmp, CODEX_HOME: path.join(tmp, ".codex"),
         OPENCODE_CONFIG_DIR: path.join(tmp, ".config", "opencode"),
+        // init's provider discovery shells out to wsl.exe, which can stall
+        // for tens of seconds when the host's distros are busy.
+        TOKENTRACKER_WSL_MODE: "native-only",
       };
       delete env.TOKENTRACKER_SKIP_FIRST_SYNC;
       delete env.TOKENTRACKER_LOCAL_SYNC_ATTEMPT_ID;
@@ -85,6 +88,7 @@ test("init can rerun from installed local runtime without self-deleting app sour
     // can otherwise outlive init and recreate files during Windows cleanup.
     TOKENTRACKER_SKIP_FIRST_SYNC: "1",
     TOKENTRACKER_NO_TELEMETRY: "1",
+    TOKENTRACKER_WSL_MODE: "native-only",
   };
   delete env.TOKENTRACKER_DEVICE_TOKEN;
 

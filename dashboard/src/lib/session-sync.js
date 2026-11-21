@@ -57,6 +57,12 @@ export function describeSessionSyncFailure(code) {
       return copy("session_sync.error.missing_credential");
     case "WEBDAV_UNAUTHORIZED":
       return copy("session_sync.error.unauthorized");
+    case "WEBDAV_HTTP":
+      return copy("session_sync.error.webdav_http");
+    case "WEBDAV_NETWORK":
+      return copy("session_sync.error.webdav_network");
+    case "WEBDAV_TIMEOUT":
+      return copy("session_sync.error.webdav_timeout");
     case "SESSION_SYNC_SCAN_PENDING":
       return copy("session_sync.error.scan_pending");
     case "SESSION_SYNC_CONFLICT":

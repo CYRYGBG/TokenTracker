@@ -683,5 +683,11 @@
   "session_sync.error.payload_too_large": "단일 페이로드가 100MB 제한을 초과했습니다.",
   "session_sync.error.remote_missing": "원격 사본이 없습니다. 목록을 새로 고침 후 다시 시도하세요.",
   "session_sync.error.remote_invalid": "원격 사본이 손상되었습니다. 목록을 새로 고침 후 다시 시도하세요.",
-  "session_sync.error.local_missing": "이 대화가 이 기기에 더 이상 없습니다. 목록을 새로 고침 후 다시 시도하세요."
+  "session_sync.error.local_missing": "이 대화가 이 기기에 더 이상 없습니다. 목록을 새로 고침 후 다시 시도하세요.",
+  "session_sync.filter.agent_aria": "에이전트로 대화 필터링",
+  "session_sync.filter.all": "모든 에이전트",
+  "session_sync.filter.no_match": "현재 필터에 일치하는 대화가 없습니다.",
+  "session_sync.error.webdav_http": "WebDAV 드라이브가 오류를 반환했습니다. 드라이브 상태를 확인하고 다시 시도하세요.",
+  "session_sync.error.webdav_network": "WebDAV 드라이브에 연결할 수 없습니다. 네트워크를 확인하고 다시 시도하세요.",
+  "session_sync.error.webdav_timeout": "WebDAV 드라이브 요청이 시간 초과되었습니다. 잠시 후 다시 시도하세요."
 }

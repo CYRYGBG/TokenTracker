@@ -124,14 +124,25 @@ async function ensureDeviceCollection(client, directory, machineId, deviceInfo) 
 // both plain and gzip digests so the importer can validate every hop.
 async function uploadBundle(client, { directory, machineId, agent, sessionId, meta, files, summaries }) {
   await ensureDeviceCollection(client, directory, machineId, meta.device);
-  const dir = sessionDirPath(directory, machineId, agent, sessionId);
-  const ensured = await client.ensureCollection(`${dir}/payload`);
-  if (!ensured.ok) {
-    const error = new Error(`webdav MKCOL failed with ${ensured.status}`);
-    error.code = "WEBDAV_HTTP";
-    error.status = ensured.status;
-    throw error;
-  }
+  // Payload keys can be nested relative paths (codex: sessions/YYYY/MM/DD/
+  // rollout-*.jsonl), and RFC 4918 servers — jianguoyun included — reject a
+  // PUT whose parent collection does not exist with 409. Ensure every
+  // payload's parent chain; ensureCollection walks from the root and treats
+  // 405 (already exists) as success, so repeats are cheap no-ops. Unique
+  // parents are remembered because bundle keys cluster in few directories.
+  const ensuredParents = new Set();
+  const ensurePayloadParent = async (filePath) => {
+    const parent = filePath.slice(0, filePath.lastIndexOf("/"));
+    if (ensuredParents.has(parent)) return;
+    const ensured = await client.ensureCollection(parent);
+    if (!ensured.ok) {
+      const error = new Error(`webdav MKCOL failed with ${ensured.status}`);
+      error.code = "WEBDAV_HTTP";
+      error.status = ensured.status;
+      throw error;
+    }
+    ensuredParents.add(parent);
+  };
   const fileEntries = [];
   for (const file of files) {
     if (!isValidPayloadKey(file.key)) {
@@ -140,6 +151,7 @@ async function uploadBundle(client, { directory, machineId, agent, sessionId, me
       throw error;
     }
     const gz = gzipBuffer(file.buffer);
+    await ensurePayloadParent(payloadPath(directory, machineId, agent, sessionId, file.key));
     await publishPayload(client, payloadPath(directory, machineId, agent, sessionId, file.key), gz);
     fileEntries.push({
       key: file.key,

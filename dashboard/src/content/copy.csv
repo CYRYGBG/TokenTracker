@@ -2341,3 +2341,9 @@ session_sync.error.payload_too_large,ui,SessionsPage,SessionSyncPanel,error,"A s
 session_sync.error.remote_missing,ui,SessionsPage,SessionSyncPanel,error,"The remote copy is missing. Refresh the list and retry.",,active
 session_sync.error.remote_invalid,ui,SessionsPage,SessionSyncPanel,error,"The remote copy is malformed. Refresh the list and retry.",,active
 session_sync.error.local_missing,ui,SessionsPage,SessionSyncPanel,error,"This conversation no longer exists on this device. Refresh the list and retry.",,active
+session_sync.filter.agent_aria,ui,SessionsPage,SessionSyncPanel,aria,"Filter conversations by agent",,active
+session_sync.filter.all,ui,SessionsPage,SessionSyncPanel,option,"All agents",,active
+session_sync.filter.no_match,ui,SessionsPage,SessionSyncPanel,empty,"No conversations match the current filter.",,active
+session_sync.error.webdav_http,ui,SessionsPage,SessionSyncPanel,error,"The WebDAV drive returned an error. Check the drive status and retry.",,active
+session_sync.error.webdav_network,ui,SessionsPage,SessionSyncPanel,error,"Could not reach the WebDAV drive. Check the network and retry.",,active
+session_sync.error.webdav_timeout,ui,SessionsPage,SessionSyncPanel,error,"The WebDAV drive timed out. Retry in a moment.",,active

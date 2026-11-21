@@ -683,5 +683,11 @@
   "session_sync.error.payload_too_large": "単一ペイロードが 100MB 制限を超えています。",
   "session_sync.error.remote_missing": "リモートのコピーが見つかりません。一覧を更新して再試行してください。",
   "session_sync.error.remote_invalid": "リモートのコピーが不正です。一覧を更新して再試行してください。",
-  "session_sync.error.local_missing": "この会話はこの端末に存在しません。一覧を更新して再試行してください。"
+  "session_sync.error.local_missing": "この会話はこの端末に存在しません。一覧を更新して再試行してください。",
+  "session_sync.filter.agent_aria": "エージェントで会話を絞り込む",
+  "session_sync.filter.all": "すべてのエージェント",
+  "session_sync.filter.no_match": "現在の絞り込みに一致する会話はありません。",
+  "session_sync.error.webdav_http": "WebDAV ドライブがエラーを返しました。ドライブの状態を確認して再試行してください。",
+  "session_sync.error.webdav_network": "WebDAV ドライブに接続できません。ネットワークを確認して再試行してください。",
+  "session_sync.error.webdav_timeout": "WebDAV ドライブがタイムアウトしました。しばらくしてから再試行してください。"
 }
