@@ -1,5 +1,16 @@
 # STATUS — 个人同步版事实状态
 
+## 2026-11-23 personal-v1.5.12 紧急修复发布（1.5.11 仪表盘崩溃）
+
+- **1.5.11 回归事故**：rollover 修复引入 TDZ——DashboardPage 的 `todayKey`（useDayKey）声明在 `range` memo 依赖数组引用它之后约 160 行，依赖数组在首次渲染即求值，页面两平台进入仪表盘必崩（用户 Mac 截图 `Cannot access 'kt' before initialization`；'kt' 即压缩后的 todayKey）。漏网原因：tsc 不检查 .jsx、且无任何测试真实渲染 DashboardPage。
+- **修复与验证**（a1255a71，tag personal-v1.5.12）：todayKey 声明提前；六处 TS-hook 导入去掉 .js 后缀使 vitest 可解析该页面；新增 `DashboardPage.render.test.jsx`（坏顺序上精确复现该 ReferenceError、修复后通过）；启用 eslint `no-use-before-define`（TS 变体 ignoreTypeReferences，函数声明豁免）并纳入 ci:local；顺带修复 16 处前向引用与 4 处既有 lint 违规（含 limits-providers 上游合并遗留的 workbuddyAi 死分支——恢复缺失 case 标签）；ui-hardcode 基线重生成（语义 diff 仅新增测试文件标记 + 三个已删官方登录组件陈旧条目）。
+- 全量回归：Dashboard 154 文件/1342 项 0 失败（+1 文件/+1 项即新回归测试）、lint 清洁、tsc 严格通过、生产构建通过；Node 全量 3976 项 0 失败（43 跳过）；C# 182 项（181 过/1 跳过/0 失败）；全部项目校验器通过。浏览器实证：1.5.11 构建产物在 Chromium 复现原错误卡片，修复后构建产物完整渲染仪表盘。
+- Windows：bundle-node（Node 22.22.2）→ publish → EmbeddedServer 新鲜重拷 → verify（336 输入/2591 文件/sourceSha a1255a71）→ Inno `/DMyAppVersion=1.5.12`（Setup 299,726,990 字节，SHA256 `1b584d83…88ac`）→ 包内 Node 冒烟 12 文件 121 项（120 过/1 跳过/0 失败）。
+- macOS：run 45143417884 首次派发即成功（headSha=a1255a71，无排队取消）；DMG 73,295,159 字节（SHA256 `cc6222ae…df271`）与 macos-build.json 一致；artifact id 14803247234（代理断点续传一次）。
+- 发布：2026-11-23 17:48 前后 [personal-v1.5.12](https://github.com/CYRYGBG/TokenTracker/releases/tag/personal-v1.5.12) 设为 latest（draft=false / prerelease=false）；tag == 构建源 == a1255a71；SHA256SUMS.txt 212 字节；匿名核验 latest 解析、三资产尺寸、SUMS 字节一致、DMG 全量下载 SHA 一致、两安装包 ranged 0-1MiB 206 一致（资产走 7897 显式代理）。
+- 交付现场 `dist/reviewed/`；证据 `evidence/release-1.5.12.json`、`evidence/verification-1.5.12.json`、`evidence/windows-package-1.5.12.json`。Windows 实机安装/GUI 仍待用户验收；macOS ad-hoc 签名未公证。
+- 用户路径：托盘"检查更新"到 1.5.12（1.5.11 的崩溃在 dashboard 层，托盘/更新原生侧未坏）；若更新入口被坏页面挡住，按发布说明直接下载覆盖安装。1.5.11 的功能修复（跨天细目自动刷新等）在 1.5.12 完整保留。
+
 ## 2026-11-23 personal-v1.5.11 双平台发布完成
 
 - 2026-11-23 11:19 前后（Asia/Shanghai）已公开发布 [personal-v1.5.11](https://github.com/CYRYGBG/TokenTracker/releases/tag/personal-v1.5.11)，设为 latest，draft=false / prerelease=false；标签与双平台构建源码固定 `e77ec1e2`（tag 先于 Release 创建）。资产：DMG 72,525,311 字节（SHA256 `94f7d260…b40e2`）、Windows Setup 299,730,674 字节（SHA256 `f38c2b86…8205`）、SHA256SUMS.txt 212 字节；两资产均按惯例无版本号命名（1.5.10 红线首传即合规）。

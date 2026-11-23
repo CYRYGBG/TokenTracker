@@ -328,3 +328,7 @@
 ## 2026-11-21 personal-v1.5.9 检查点
 
 无上游内容（fork 自身：session-sync 本地使用日志）。upstream 跟踪状态不变。
+
+## 2026-11-23 personal-v1.5.12 热修复检查点
+
+无上游内容（fork 自身：1.5.11 DashboardPage todayKey TDZ 崩溃热修复 + lint/回归测试加固）。upstream 跟踪状态不变（上次检查点 2026-11-23 v1.5.25 集成轮）。改动地图新增：`dashboard/src/pages/DashboardPage.render.test.jsx`（首个 DashboardPage 渲染回归测试）；`dashboard/.eslintrc.cjs` 启用 no-use-before-define 并接入 ci:local。

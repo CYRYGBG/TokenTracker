@@ -1,0 +1,96 @@
+{
+  "version": "1.5.12",
+  "sourceCommit": "a1255a71dc96776a797d9387abcb5b40a8778e83",
+  "machine": "Windows x64 (native build)",
+  "bugfix": {
+    "report": "user screenshot 2026-11-23 (macOS): dashboard replaced by error card 'Cannot access 'kt' before initialization'",
+    "rootCause": "1.5.11 regression introduced by the rollover fix: DashboardPage declared `const todayKey = useDayKey(...)` ~160 lines AFTER the `range` useMemo whose dependency array reads todayKey. Deps arrays evaluate at first render, so the page crashed deterministically on mount on BOTH platforms ('kt' is the minified todayKey). Shipped because tsc does not check .jsx files and no test rendered DashboardPage.",
+    "reproduction": "built 1.5.11 dashboard/dist served statically and loaded in Chromium: exact error card reproduced; fixed bundle renders the full dashboard (sidebar, stats, heatmap, trend, daily breakdown) with no error card",
+    "fix": "moved the todayKey declaration above the range memo; also dropped .js specifiers on six TS-hook imports so vitest can resolve/transform the page at all",
+    "regression": "dashboard/src/pages/DashboardPage.render.test.jsx — verified to FAIL with the exact 'Cannot access 'todayKey' before initialization' ReferenceError on the broken ordering and pass on the fix"
+  },
+  "hardening": {
+    "eslint": "no-use-before-define enabled (variables; TS variant with ignoreTypeReferences; hoisted function declarations exempt); dashboard lint wired into ci:local",
+    "forwardRefsFixed": 16,
+    "preExistingLintFixed": [
+      "limits-providers.js: orphan return after case 'workbuddy' (no-unreachable) — restores the missing case 'workbuddyAi' label lost in an upstream merge",
+      "ForkSyncPage.jsx: empty catch (no-empty) — comment added",
+      "TokenGalaxy.jsx: resize/animate inner function declarations (no-inner-declarations) — converted to const arrows (behavior unchanged, animate() still invoked after definition)"
+    ],
+    "uiHardcodeBaseline": "regenerated; semantic diff = new test-file marker only + stale entries for three deleted official-login components + a TrendMonitor test cleanup (2->1)"
+  },
+  "node": {
+    "tests": 3976,
+    "passed": 3933,
+    "skipped": 43,
+    "failed": 0
+  },
+  "dashboard": {
+    "files": 154,
+    "passed": 1342,
+    "failed": 0,
+    "strictTypecheck": true,
+    "lint": "eslint src/**/*.{js,jsx,ts,tsx} clean",
+    "productionBuild": true
+  },
+  "csharp": {
+    "project": "TokenTrackerWin.Tests",
+    "tests": 182,
+    "passed": 181,
+    "skipped": 1,
+    "failed": 0
+  },
+  "validators": [
+    "copy (2348 entries)",
+    "locale",
+    "guardrails",
+    "versions (1.5.12)",
+    "ui-hardcode (baseline refreshed)",
+    "bot-frames",
+    "architecture-guardrails"
+  ],
+  "windows": {
+    "build": ".NET SDK 8 self-contained win-x64 native build on Windows",
+    "installer": "Inno Setup 6 (native ISCC.exe, /DMyAppVersion=1.5.12)",
+    "sourceSha": "a1255a71dc96776a797d9387abcb5b40a8778e83",
+    "matchedInputs": 336,
+    "packageFiles": 2591,
+    "verifyReport": "docs/fork/evidence/windows-package-1.5.12.json",
+    "setupBytes": 299726990,
+    "setupSha256": "1b584d83050dfa69f3b9645662b5dc93d13c16190a12e3e4506ed3f9c5a488ac",
+    "node22Runtime": "22.22.2 (packaged EmbeddedServer/node.exe, native)",
+    "smokeFiles": 12,
+    "smokeTests": 121,
+    "smokePassed": 120,
+    "smokeSkipped": 1,
+    "smokeFailed": 0,
+    "installerGUIOrRealWindowsTested": false
+  },
+  "macOS": {
+    "workflow": "release-personal-macos.yml (workflow_dispatch, macos-15)",
+    "runId": 45143417884,
+    "headSha": "a1255a71dc96776a797d9387abcb5b40a8778e83",
+    "conclusion": "success",
+    "attempts": 1,
+    "queueCancellations": 0,
+    "dmgBytes": 73295159,
+    "dmgSha256": "cc6222ae10fe11277eb8925d8fef3742530b4d4b06c7ae016e024951b47df271",
+    "dmgShaMatchesBuildManifest": true,
+    "artifactDownloadNote": "artifact API id 14803247234 zip (59,730,761 bytes), resumable curl via proxy, one resume needed"
+  },
+  "remoteAnonymousVerification": {
+    "latestApiResolvesTo": "personal-v1.5.12",
+    "draft": false,
+    "prerelease": false,
+    "sha256sumsBytes": 212,
+    "sha256sumsByteIdentical": true,
+    "dmgFullDownloadShaMatches": true,
+    "rangedFirst1MiBIdentical": ["TokenTrackerPersonal-macOS-arm64.dmg", "TokenTrackerPersonal-Windows-x64-Setup.exe"],
+    "proxyRoute": "127.0.0.1:7897 for asset downloads"
+  },
+  "limitations": [
+    "Windows real installation/GUI/resident behavior not tested",
+    "macOS in-app update from a crashed 1.5.11 install not exercised (native tray side intact per 1.5.11 design; manual overwrite documented as fallback)",
+    "macOS ad-hoc signature, not notarized"
+  ]
+}

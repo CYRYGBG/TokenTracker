@@ -1,0 +1,41 @@
+{
+  "version": "1.5.12",
+  "sourceCommit": "a1255a71dc96776a797d9387abcb5b40a8778e83",
+  "releasedAt": "2026-11-23T17:48+08:00",
+  "tag": "personal-v1.5.12",
+  "tagTarget": "a1255a71dc96776a797d9387abcb5b40a8778e83",
+  "url": "https://github.com/CYRYGBG/TokenTracker/releases/tag/personal-v1.5.12",
+  "latest": true,
+  "draft": false,
+  "prerelease": false,
+  "hotfixFor": "personal-v1.5.11 first-render crash (todayKey TDZ)",
+  "artifacts": {
+    "macos-arm64-dmg": {
+      "bytes": 73295159,
+      "sha256": "cc6222ae10fe11277eb8925d8fef3742530b4d4b06c7ae016e024951b47df271",
+      "builtBy": "GitHub Actions run 45143417884 (macos-15, head a1255a71; attempt 1, no queue cancellation)",
+      "matchesBuildManifest": true,
+      "fullAnonymousDownloadShaMatches": true
+    },
+    "windows-x64-setup": {
+      "bytes": 299726990,
+      "sha256": "1b584d83050dfa69f3b9645662b5dc93d13c16190a12e3e4506ed3f9c5a488ac",
+      "builtBy": "local .NET SDK 8 self-contained win-x64 + Inno Setup 6 (ISCC.exe, /DMyAppVersion=1.5.12)",
+      "assetNameConvention": "TokenTrackerPersonal-Windows-x64-Setup.exe (version-less red line upheld on first upload)",
+      "payloadVerified": "verify-windows-package: 336 inputs byte-identical, 2591 package files, sourceSha a1255a71",
+      "packagedNodeSmoke": "12 files, 121 tests: 120 passed, 1 skipped, 0 failed (Node 22.22.2 packaged binary: deepai parser + discovery + maximize contracts + silent-update + qoder + webdav client + fork-journal + local-api security + session-analytics + pricing + session-sync)"
+    },
+    "sha256sums": {
+      "bytes": 212,
+      "anonymousDownloadIdentical": true
+    }
+  },
+  "verification": "docs/fork/evidence/verification-1.5.12.json",
+  "notes": [
+    "Tag pushed before release creation; release created from the existing tag so tag == build source == a1255a71.",
+    "macOS build succeeded on the first dispatch; watcher exited 0 without retries.",
+    "Fix-only release: no upstream integration (UPSTREAM.md checkpoint notes upstream status unchanged).",
+    "Anonymous asset downloads routed via the explicit 127.0.0.1:7897 proxy; API endpoint unaffected.",
+    "In-app update path from a 1.5.11 install relies on the native tray/update side, which 1.5.11 did not break; if the dashboard crash blocks the user, manual overwrite install from the release page is the documented fallback in the release notes."
+  ]
+}
