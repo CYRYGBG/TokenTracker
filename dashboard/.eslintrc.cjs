@@ -33,6 +33,16 @@ module.exports = {
     "no-constant-condition": "off",
     "no-unsafe-finally": "off",
     "react-hooks/exhaustive-deps": "off",
+    // TDZ guard: a same-scope `const` read before its declaration crashes on
+    // first render (the 1.5.11 dashboard outage shipped this way — tsc does
+    // not check .jsx and no page test rendered the broken memo deps array).
+    // Function declarations stay exempt (hoisted, runtime-legal).
+    "no-use-before-define": ["error", {
+      variables: true,
+      functions: false,
+      classes: false,
+      allowNamedExports: true,
+    }],
   },
   overrides: [
     {
@@ -40,6 +50,14 @@ module.exports = {
       rules: {
         "no-unused-vars": "off",
         "@typescript-eslint/no-unused-vars": "off",
+        "no-use-before-define": "off",
+        "@typescript-eslint/no-use-before-define": ["error", {
+          variables: true,
+          functions: false,
+          classes: false,
+          allowNamedExports: true,
+          ignoreTypeReferences: true,
+        }],
       },
     },
   ],

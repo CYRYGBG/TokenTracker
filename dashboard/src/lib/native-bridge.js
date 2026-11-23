@@ -208,7 +208,9 @@ function saveUsageExport({ filename, content, format, signal }, local) {
       if (error) reject(error);
       else resolve(result);
     };
-    const abort = () => finish(new DOMException("Aborted", "AbortError"));
+    // Function declarations (not const arrows): `finish` below removes this
+    // listener, and hoisting keeps that reference use-before-define safe.
+    function abort() { finish(new DOMException("Aborted", "AbortError")); }
     const acknowledge = (detail) => {
       if (!detail || detail.requestId !== requestId) return;
       const savedName = detail.filename;
@@ -222,7 +224,7 @@ function saveUsageExport({ filename, content, format, signal }, local) {
         finish(cloudExportError(code));
       }
     };
-    const receive = (event) => acknowledge(event.detail);
+    function receive(event) { acknowledge(event.detail); }
     window.addEventListener(CLOUD_EXPORT_EVENT, receive);
     signal?.addEventListener("abort", abort, { once: true });
     timer = setTimeout(() => finish(cloudExportError("save_timeout")), 15000);

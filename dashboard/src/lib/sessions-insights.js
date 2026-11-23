@@ -1,3 +1,6 @@
+const USAGE_FIELDS = ["input_tokens", "output_tokens", "cached_input_tokens", "cache_creation_input_tokens", "reasoning_output_tokens", "total_tokens"];
+const PRICING_FIELDS = ["long_context_", "priority_", "priority_long_context_", "ultrafast_", "ultrafast_long_context_"].flatMap((prefix) => USAGE_FIELDS.filter((field) => field !== "total_tokens").map((field) => prefix + field));
+
 export function sessionOwnTokens(session) {
   return finiteValue(session?.own_total_tokens ?? session?.total_tokens);
 }
@@ -73,9 +76,6 @@ function finiteValue(value) {
   const number = Number(value);
   return Number.isFinite(number) && number >= 0 ? number : 0;
 }
-
-const USAGE_FIELDS = ["input_tokens", "output_tokens", "cached_input_tokens", "cache_creation_input_tokens", "reasoning_output_tokens", "total_tokens"];
-const PRICING_FIELDS = ["long_context_", "priority_", "priority_long_context_", "ultrafast_", "ultrafast_long_context_"].flatMap((prefix) => USAGE_FIELDS.filter((field) => field !== "total_tokens").map((field) => prefix + field));
 
 export function sessionModels(session) {
   const observed = Array.isArray(session?.model_usage)

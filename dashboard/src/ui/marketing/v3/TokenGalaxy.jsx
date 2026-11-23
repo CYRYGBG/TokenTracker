@@ -262,7 +262,7 @@ export function TokenGalaxy({ mode = "full", progressRef, className = "" }) {
     // Resize
     let lastW = 0;
     let lastH = 0;
-    function resize() {
+    const resize = () => {
       const w = mount.clientWidth || 1;
       const h = mount.clientHeight || 1;
       if (Math.abs(w - lastW) < 1 && Math.abs(h - lastH) < 1) return;
@@ -278,7 +278,7 @@ export function TokenGalaxy({ mode = "full", progressRef, className = "" }) {
         camera.projectionMatrix.elements[9] = - (h - hView) / h;
         camera.projectionMatrixInverse.copy(camera.projectionMatrix).invert();
       }
-    }
+    };
     ro = new ResizeObserver(() => {
       cancelAnimationFrame(rafResize);
       rafResize = requestAnimationFrame(resize);
@@ -332,7 +332,7 @@ export function TokenGalaxy({ mode = "full", progressRef, className = "" }) {
     let prevT = 0;
     let progressSmooth = 0;
 
-    function animate() {
+    const animate = () => {
       if (disposed) return;
       rafId = requestAnimationFrame(animate);
       try {
@@ -448,7 +448,7 @@ export function TokenGalaxy({ mode = "full", progressRef, className = "" }) {
         cancelAnimationFrame(rafId);
         failToStatic(error);
       }
-    }
+    };
     animate();
     } catch (error) {
       failToStatic(error);

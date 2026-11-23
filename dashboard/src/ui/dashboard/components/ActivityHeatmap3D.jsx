@@ -138,36 +138,7 @@ export function ActivityHeatmap3D({
     return lines;
   }, [weeks.length, angle, UNIT_SIZE, interactive]);
 
-
-  // 双向绑定重置视角句柄
-  useEffect(() => {
-    if (onResetViewRef) {
-      onResetViewRef.current = {
-        reset: () => {
-          setAngle({ yaw: defaultYaw, pitch: defaultPitch });
-          setAutoRotate(false);
-          setZoom(1.0);
-          // 触发波浪生长入场动画
-          triggerGrowthWave();
-        },
-        toggleAutoRotate: (val) => {
-          setAutoRotate(val);
-        }
-      };
-    }
-  }, [onResetViewRef]);
-
-  // 2. 交互与物理惯性 refs
-  const svgRef = useRef(null);
-  const containerRef = useRef(null);
-  const isDraggingRef = useRef(false);
-  const dragStartRef = useRef({ x: 0, y: 0 });
-  const angleStartRef = useRef({ yaw: defaultYaw, pitch: defaultPitch });
-  const velocityRef = useRef({ x: 0, y: 0 });
-  const lastMousePosRef = useRef({ x: 0, y: 0, time: 0 });
-  const rafRef = useRef(null);
-
-  // 3. Voxel 高度波浪生长动画
+  // 3. Voxel 高度波浪生长动画（定义在重置句柄 effect 之前：reset 回调会引用它）
   const [growthWave, setGrowthWave] = useState(0); // 范围 0 到 1
   // RAF handles tracked in refs so we can cancel on unmount / re-trigger.
   // Without these, rapid `interactive` toggles overlapped multiple RAF chains
@@ -198,6 +169,34 @@ export function ActivityHeatmap3D({
     };
     growthRafRef.current = requestAnimationFrame(anim);
   };
+
+  // 双向绑定重置视角句柄
+  useEffect(() => {
+    if (onResetViewRef) {
+      onResetViewRef.current = {
+        reset: () => {
+          setAngle({ yaw: defaultYaw, pitch: defaultPitch });
+          setAutoRotate(false);
+          setZoom(1.0);
+          // 触发波浪生长入场动画
+          triggerGrowthWave();
+        },
+        toggleAutoRotate: (val) => {
+          setAutoRotate(val);
+        }
+      };
+    }
+  }, [onResetViewRef]);
+
+  // 2. 交互与物理惯性 refs
+  const svgRef = useRef(null);
+  const containerRef = useRef(null);
+  const isDraggingRef = useRef(false);
+  const dragStartRef = useRef({ x: 0, y: 0 });
+  const angleStartRef = useRef({ yaw: defaultYaw, pitch: defaultPitch });
+  const velocityRef = useRef({ x: 0, y: 0 });
+  const lastMousePosRef = useRef({ x: 0, y: 0, time: 0 });
+  const rafRef = useRef(null);
 
   useEffect(() => {
     // 首次加载或在 interactive 改变时触发一次生长动画

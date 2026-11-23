@@ -1165,6 +1165,9 @@ export function SkillsPage() {
     });
   };
 
+  const targetLabelFor = (targetId) =>
+    (installedData.targets || []).find((t) => t.id === targetId)?.label || targetId;
+
   const handleToggleTarget = (skill, targetId, enabled) => {
     if (skill?.readOnly || skill?.remote) return Promise.resolve();
     return runMutation(targetBusyKey(skillIdentity(skill), targetId), async () => {
@@ -1200,9 +1203,6 @@ export function SkillsPage() {
       return next;
     });
   }, []);
-
-  const targetLabelFor = (targetId) =>
-    (installedData.targets || []).find((t) => t.id === targetId)?.label || targetId;
 
   const handleBulkSync = (targetId) => {
     const list = (installedData.skills || []).filter(

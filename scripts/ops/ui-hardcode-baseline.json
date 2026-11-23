@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-15T06:35:11.647Z",
+  "generatedAt": "2026-11-23T09:00:02.992Z",
   "root": "dashboard/src",
   "rules": {
     "colors": "hex/rgb(a) literals",
@@ -17,23 +17,6 @@
         ") : avatarSrc && !avatarFailed ? (",
         ") : initialsFromName(displayName) === \"?\" ? ("
       ]
-    },
-    "dashboard/src/components/LeaderboardSummaryCard.test.jsx": {
-      "colors": 1,
-      "rawText": 0,
-      "rawTextTokens": []
-    },
-    "dashboard/src/components/LoginCard.jsx": {
-      "colors": 4,
-      "rawText": 1,
-      "rawTextTokens": [
-        "); const GITHUB_ICON = ("
-      ]
-    },
-    "dashboard/src/components/SortableColumnHeader.jsx": {
-      "colors": 4,
-      "rawText": 0,
-      "rawTextTokens": []
     },
     "dashboard/src/components/leaderboard/CommunityStatsModal.jsx": {
       "colors": 0,
@@ -54,26 +37,22 @@
         "= 1)) && ("
       ]
     },
-    "dashboard/src/components/settings/AccountSection.jsx": {
-      "colors": 0,
+    "dashboard/src/components/LeaderboardSummaryCard.test.jsx": {
+      "colors": 1,
+      "rawText": 0,
+      "rawTextTokens": []
+    },
+    "dashboard/src/components/LoginCard.jsx": {
+      "colors": 4,
       "rawText": 1,
       "rawTextTokens": [
-        "; return ("
+        "); const GITHUB_ICON = ("
       ]
     },
-    "dashboard/src/components/settings/MenuBarSection.jsx": {
-      "colors": 0,
-      "rawText": 1,
-      "rawTextTokens": [
-        "GitHub"
-      ]
-    },
-    "dashboard/src/contexts/LoginModalContext.jsx": {
-      "colors": 0,
-      "rawText": 1,
-      "rawTextTokens": [
-        "setIsOpen(false), []); return ("
-      ]
+    "dashboard/src/components/SortableColumnHeader.jsx": {
+      "colors": 4,
+      "rawText": 0,
+      "rawTextTokens": []
     },
     "dashboard/src/hooks/use-trend-data.issue360.test.tsx": {
       "colors": 2,
@@ -113,6 +92,13 @@
       "colors": 1,
       "rawText": 0,
       "rawTextTokens": []
+    },
+    "dashboard/src/pages/DashboardPage.render.test.jsx": {
+      "colors": 0,
+      "rawText": 1,
+      "rawTextTokens": [
+        "dashboard-shell-ok"
+      ]
     },
     "dashboard/src/pages/IpCheckPage.jsx": {
       "colors": 12,
@@ -480,10 +466,9 @@
     },
     "dashboard/src/ui/dashboard/components/__tests__/TrendMonitor.test.jsx": {
       "colors": 0,
-      "rawText": 2,
+      "rawText": 1,
       "rawTextTokens": [
-        "); expect(plain.container.textContent).not.toContain(\"14:00\"); const zoomed = render(",
-        "); expect(without.queryByRole(\"button\")).toBeNull(); const withCfg = render("
+        "); expect(plain.container.textContent).not.toContain(\"14:00\"); const zoomed = render("
       ]
     },
     "dashboard/src/ui/dashboard/views/DashboardView.jsx": {
@@ -517,15 +502,6 @@
         "grouping"
       ]
     },
-    "dashboard/src/ui/marketing/MarketingLanding.jsx": {
-      "colors": 0,
-      "rawText": 3,
-      "rawTextTokens": [
-        ") : ( // 未登录：Sign In 展示为主行动实色按钮，点击唤起 Modal",
-        ") : signedIn ? ( // 已登录：Open Dashboard 升级为主行动实色按钮",
-        "Token Tracker"
-      ]
-    },
     "dashboard/src/ui/marketing/components/BorderGlow.jsx": {
       "colors": 6,
       "rawText": 0,
@@ -535,6 +511,15 @@
       "colors": 2,
       "rawText": 0,
       "rawTextTokens": []
+    },
+    "dashboard/src/ui/marketing/MarketingLanding.jsx": {
+      "colors": 0,
+      "rawText": 3,
+      "rawTextTokens": [
+        ") : ( // 未登录：Sign In 展示为主行动实色按钮，点击唤起 Modal",
+        ") : signedIn ? ( // 已登录：Open Dashboard 升级为主行动实色按钮",
+        "Token Tracker"
+      ]
     },
     "dashboard/src/ui/marketing/v3/CapabilitiesSection.jsx": {
       "colors": 1,
@@ -564,13 +549,13 @@
         "0 ? Math.max(6, Math.round((tokens / maxTokens) * 100)) : 0; return ("
       ]
     },
-    "dashboard/src/ui/marketing/v3/TokenGalaxy.jsx": {
-      "colors": 2,
+    "dashboard/src/ui/marketing/v3/palette.js": {
+      "colors": 21,
       "rawText": 0,
       "rawTextTokens": []
     },
-    "dashboard/src/ui/marketing/v3/palette.js": {
-      "colors": 21,
+    "dashboard/src/ui/marketing/v3/TokenGalaxy.jsx": {
+      "colors": 2,
       "rawText": 0,
       "rawTextTokens": []
     },

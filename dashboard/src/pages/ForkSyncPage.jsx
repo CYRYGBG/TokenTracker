@@ -99,7 +99,7 @@ export default function ForkSyncSection() {
     let active = true, request = 0;
     const refreshStatus = async () => {
       const id = ++request;
-      try { const value = await forkApi('/api/webdav/status'); if (active && id === request) setStatus(value); } catch {}
+      try { const value = await forkApi('/api/webdav/status'); if (active && id === request) setStatus(value); } catch { /* transient poll failure: keep previous status */ }
     };
     const visible = () => { if (!document.hidden) refreshStatus(); };
     const timer = setInterval(visible,15000);

@@ -100,6 +100,7 @@ export function limitProviderName(id) {
       return copy("limits.provider.devin");
     case "workbuddy":
       return copy("limits.provider.workbuddy");
+    case "workbuddyAi":
       return copy("limits.provider.workbuddy_ai");
     case "deepseek":
       return copy("limits.provider.deepseek");

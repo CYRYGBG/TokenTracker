@@ -1,13 +1,13 @@
 import { ForkDeviceUsageCard } from "../components/ForkDeviceUsageCard.jsx";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useAccountView } from "../contexts/AccountViewContext.jsx";
-import { useActivityHeatmap } from "../hooks/use-activity-heatmap.js";
+import { useActivityHeatmap } from "../hooks/use-activity-heatmap";
 import { useDashboardCardOrder } from "../hooks/use-dashboard-card-order.js";
 import { useProjectUsageSummary } from "../hooks/use-project-usage-summary";
-import { useTrendData } from "../hooks/use-trend-data.js";
-import { useUsageData } from "../hooks/use-usage-data.js";
-import { useUsageLimits } from "../hooks/use-usage-limits.js";
-import { useUsageModelBreakdown } from "../hooks/use-usage-model-breakdown.js";
+import { useTrendData } from "../hooks/use-trend-data";
+import { useUsageData } from "../hooks/use-usage-data";
+import { useUsageLimits } from "../hooks/use-usage-limits";
+import { useUsageModelBreakdown } from "../hooks/use-usage-model-breakdown";
 import {
   isAccessTokenReady,
   normalizeAccessToken,
@@ -52,7 +52,7 @@ import {
 } from "../lib/api";
 import { ActivityHeatmap } from "../ui/dashboard/components/ActivityHeatmap.jsx";
 import { DashboardView } from "../ui/dashboard/views/DashboardView.jsx";
-import { useAccountDevices } from "../hooks/use-account-devices.js";
+import { useAccountDevices } from "../hooks/use-account-devices";
 import { DeviceUsageCard } from "../ui/dashboard/components/DeviceUsageCard.jsx";
 import { formatDeviceLabel } from "../lib/device-label.js";
 import { localDeviceUsage } from "../lib/local-usage-transfer";
@@ -355,6 +355,17 @@ export function DashboardPage({
   const [customTo, setCustomTo] = useState(null);
   const [customRangeOpen, setCustomRangeOpen] = useState(false);
   const period = screenshotMode ? "total" : selectedPeriod;
+  // Rollover-aware "today": the tray keeps this WebView alive for days, so a
+  // mount-time `new Date()` would freeze every request range (and the daily
+  // breakdown) on the mount day. The hook re-checks the local day key every
+  // minute; downstream memos/effects re-run when it flips at midnight.
+  // Must stay above `range`: that memo's dependency array reads todayKey, and
+  // a later `const` in the same scope is a TDZ crash on first render.
+  const todayKey = useDayKey({
+    timeZone,
+    offsetMinutes: tzOffsetMinutes,
+    now: mockNow,
+  });
   const range = useMemo(() => {
     if (period === "custom" && customFrom && customTo) {
       return { from: customFrom, to: customTo };
@@ -511,15 +522,6 @@ export function DashboardPage({
   const trendTimeZone = timeZone;
   const trendTzOffsetMinutes = tzOffsetMinutes;
   const trendTimeZoneLabel = timeZoneLabel;
-  // Rollover-aware "today": the tray keeps this WebView alive for days, so a
-  // mount-time `new Date()` would freeze every request range (and the daily
-  // breakdown) on the mount day. The hook re-checks the local day key every
-  // minute; downstream memos/effects re-run when it flips at midnight.
-  const todayKey = useDayKey({
-    timeZone,
-    offsetMinutes: tzOffsetMinutes,
-    now: mockNow,
-  });
   const dailyBreakdownRange = useMemo(() => {
     return buildDailyBreakdownRange({
       period,
