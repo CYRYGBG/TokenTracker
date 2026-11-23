@@ -15,6 +15,7 @@ import {
 } from "../lib/auth-token";
 import { copy } from "../lib/copy";
 import { useLocale } from "../hooks/useLocale.js";
+import { useDayKey } from "../hooks/use-day-key";
 import { useCurrency } from "../hooks/useCurrency.js";
 import { useTokenFormat } from "../hooks/useTokenFormat.js";
 import { TOKEN_FORMAT_MODES } from "../lib/token-format.js";
@@ -41,7 +42,6 @@ import {
   formatTimeZoneShortLabel,
   getBrowserTimeZone,
   getBrowserTimeZoneOffsetMinutes,
-  getLocalDayKey,
 } from "../lib/timezone";
 import {
   getUserStatus,
@@ -359,12 +359,16 @@ export function DashboardPage({
     if (period === "custom" && customFrom && customTo) {
       return { from: customFrom, to: customTo };
     }
+    // todayKey is an intentional (not value-read) dependency: it flips at
+    // local midnight, and this recompute is what advances from/to to the new
+    // day so usage hooks refetch past the stale range.
     return getRangeForPeriod(period, {
       timeZone,
       offsetMinutes: tzOffsetMinutes,
       now: mockNow,
     });
-  }, [mockNow, period, timeZone, tzOffsetMinutes, customFrom, customTo]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- see comment above
+  }, [mockNow, period, todayKey, timeZone, tzOffsetMinutes, customFrom, customTo]);
   const from = range.from;
   const to = range.to;
 
@@ -507,15 +511,15 @@ export function DashboardPage({
   const trendTimeZone = timeZone;
   const trendTzOffsetMinutes = tzOffsetMinutes;
   const trendTimeZoneLabel = timeZoneLabel;
-  const todayKey = useMemo(
-    () =>
-      getLocalDayKey({
-        timeZone,
-        offsetMinutes: tzOffsetMinutes,
-        date: mockNow || new Date(),
-      }),
-    [mockNow, timeZone, tzOffsetMinutes],
-  );
+  // Rollover-aware "today": the tray keeps this WebView alive for days, so a
+  // mount-time `new Date()` would freeze every request range (and the daily
+  // breakdown) on the mount day. The hook re-checks the local day key every
+  // minute; downstream memos/effects re-run when it flips at midnight.
+  const todayKey = useDayKey({
+    timeZone,
+    offsetMinutes: tzOffsetMinutes,
+    now: mockNow,
+  });
   const dailyBreakdownRange = useMemo(() => {
     return buildDailyBreakdownRange({
       period,

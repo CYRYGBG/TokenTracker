@@ -1,5 +1,12 @@
 # STATUS — 个人同步版事实状态
 
+## 2026-11-23 personal-v1.5.11 集成与验证（构建发布中）
+
+- 基线注意：fork 主线在 1.5.6（11-20）之后由并行会话推进至 1.5.10（11-21，session-sync 系列）。本轮用户报告 bug（每日细目停在 11-21）+ 上游 v1.5.25 一并集成，版本 1.5.10→1.5.11。
+- 用户 bug 根因与修复见 UPSTREAM 2026-11-23 检查点：后端与本地数据均正常（运行中服务器实测返回 11-22/11-23），冻结点在前端 todayKey/range 的 mount-time 求值；新增 useDayKey hook（60 秒跨午夜自检）接入 DashboardPage，测试 4 项。数据无丢失，纯显示/请求范围问题。
+- 摘取上游 DeepAI Code 采集器（第 48 工具，含发现面 5 README + index.html + llms.txt 同步）与 #1152 Windows 最大化工作区修复（分支 b48c6337）。
+- 验证：Node 全量 3976 项（3932 过/43 跳过；唯一失败为新 hook 的 tsc 严格类型报错，修正后复验过）；dashboard 153 文件/1341 项（首跑 jsdom scrollTo 环境抖动 exit=1，复跑全绿）；tsc 0 错；生产构建；六校验器全绿（copy 2348 条）；TokenTrackerWin.Tests 182 项（181 过/1 跳过/0 失败）；主工程构建 0 错。Windows 构建/发布结果见下方完成条目。
+
 ## 2026-11-21 personal-v1.5.10 发布完成（session-sync Codex 上传 409 修复 + 面板工具栏/筛选）
 
 - 用户授权发布后已公开 [personal-v1.5.10](https://github.com/CYRYGBG/TokenTracker/releases/tag/personal-v1.5.10)（release ID 453511962，latest，draft=false/prerelease=false）。标签固定 `8c7152b5`（版本提交；功能提交 `b2796e48`）。资产：DMG 72,543,175 字节（SHA256 `32c3252b…51c1e`）、Windows Setup 299,713,457 字节（SHA256 `e364613f…72fd`）、SHA256SUMS.txt 200 字节。证据 `evidence/release-1.5.10.json`。

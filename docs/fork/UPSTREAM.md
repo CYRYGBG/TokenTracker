@@ -1,6 +1,19 @@
 # UPSTREAM 跟踪与 Fork 改动地图
 
-## 2026-11-19 personal-v1.5.6 集成检查点
+## 2026-11-23 personal-v1.5.11 集成检查点（含用户报告 bug 修复）
+
+基线说明：上次 fork 检查点为 `3f728610`（1.5.6），但 fork 主线已由并行会话推进至 1.5.10（session-sync 系列，见 STATUS）。本轮 fetch upstream 至 `5c9f575b`（官方 v1.5.25：DeepAI Code `5b0a5a2e` + 发布提交）+ 分支 `fix/1152-windows-maximize-taskbar`（`b48c6337`，未合入 main）。摘取：
+
+- **DeepAI Code 采集器 `5b0a5a2e`**（fork 第 48 个工具）：rollout.js（parseDeepaiCodeIncremental，pi 格式会话 + 独立 `deepai` 游标命名空间）、status/init/sync 清单、provider-display、ProviderIcon（DeepaiIcon + DEEPAI/DEEPAI-CODE 两键，fork 行号偏移手工套用）、agent-logos、copy.csv + i18n zh/zh-TW core、locale 校验 allowlist 加 deepai、发现面（README×5、dashboard/index.html、public/llms.txt 全部同步 48 工具——discovery-metadata 测试强制一致）、parser/discovery 测试。package.json 描述为 fork 自有文案，不采纳上游 48 工具描述。
+- **Windows 最大化工作区 `b48c6337`**（分支整体）：DashboardWindow.cs 增加 WM_GETMINMAXINFO 处理（最大化约束在当前显示器 rcWork，PerMonitorV2 设备像素，auto-hide 任务栏自然回退），新模块 MaximizedWorkArea.cs（纯函数 TryCompute），C# 测试 + node 源码契约测试。5 文件干净套用。
+
+**用户报告 bug 修复（非上游）**：仪表盘"每日细目"停在挂载当日（用户截图：11-23 时只显示到 11-21）。根因排查：本地 queue 与 fork-view 合并、运行中服务器 /usage-daily 均正确返回 11-22/11-23（匿名实测命中），瓶颈在前端——DashboardPage 的 `todayKey` 与 `range` useMemo 依赖里无时间源，`new Date()` 挂载时求值一次即冻结；托盘 WebView 跨天不重挂载，from/to 停在挂载日，手动刷新同用旧范围被服务端 `d.day <= to` 过滤。修复：新增 `useDayKey` hook（60 秒核对本地日键，跨午夜翻转触发 range 重算与用量 hooks 重取；mock 模式冻结），DashboardPage 接入，range memo 以 todayKey 为显式重算触发。测试 use-day-key.test.tsx 4 项（假计时器跨午夜/稳定不抖/mock 冻结/时区标签）。注意 offsetMinutes 为东经语义（UTC+8=+480）。ReportsPage 原有 60 秒自刷新模式不受影响。
+
+不纳入：无（本轮上游仅 1 个功能提交 + 发布提交 + 分支修复，全部相关）。
+
+验证：Node 全量 3976 项（唯一失败 = 新 hook 的 TS 严格类型报错，修正 null→undefined 后复验通过；其余 3932 通过/43 跳过）；dashboard 153 文件/1341 项（首跑出现 jsdom window.scrollTo 环境性 unhandled error 致 exit=1，复跑 exit=0 全绿，非本轮引入）；tsc 0 错；生产构建；copy（2348 条）/locale/guardrails/versions（1.5.11）/ui-hardcode/bot-frames/architecture 全绿；TokenTrackerWin.Tests 182 项（181 过、1 跳过、0 失败，含最大化新测试）；主工程 dotnet build 0 错误。
+
+## 2026-11-19 personal-v1.5.6 集成检查点 personal-v1.5.6 集成检查点
 
 用户授权"按推荐跟进并发布双平台新版本"。相对上次基准 `6e1dae77`，upstream/main 前进至 `3f728610`（官方 v1.5.21–v1.5.24 共 21 个非 merge 提交，其中 4 个发布提交）；另有 2 个云账单 release 分支（不适用）。无撤回陷阱。按文件摘取 9 项：
 

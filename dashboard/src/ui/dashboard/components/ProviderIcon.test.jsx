@@ -54,6 +54,17 @@ describe("ProviderIcon", () => {
     expect(icon?.querySelector("circle")).toBeNull();
   });
 
+  it("renders DeepAI Code with the DeepAI mark instead of the placeholder", () => {
+    for (const provider of ["deepai", "DEEPAI", "deepai-code"]) {
+      const { container } = render(<ProviderIcon provider={provider} size={18} />);
+      const icon = container.querySelector("svg");
+
+      expect(icon).toHaveAttribute("width", "18");
+      expect(icon?.querySelector("path")).not.toBeNull();
+      expect(container.querySelector(".text-oai-gray-400")).toBeNull();
+    }
+  });
+
   it("renders MiniMax Code with the MiniMax brand mark", () => {
     const { container } = render(<ProviderIcon provider="minimax-code" size={18} />);
     const icon = container.querySelector("svg");
