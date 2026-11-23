@@ -1,0 +1,40 @@
+{
+  "version": "1.5.11",
+  "sourceCommit": "e77ec1e292dfce7ac1f955d3d4f481fbb6e16c0a",
+  "releasedAt": "2026-11-23T11:19+08:00",
+  "tag": "personal-v1.5.11",
+  "tagTarget": "e77ec1e292dfce7ac1f955d3d4f481fbb6e16c0a",
+  "url": "https://github.com/CYRYGBG/TokenTracker/releases/tag/personal-v1.5.11",
+  "latest": true,
+  "draft": false,
+  "prerelease": false,
+  "artifacts": {
+    "macos-arm64-dmg": {
+      "bytes": 72525311,
+      "sha256": "94f7d260d8d8f109c52272d606999ab788c0576484e6431de0146a043aab40e2",
+      "builtBy": "GitHub Actions run 45101176322 (macos-15, head e77ec1e2; attempt 1, no queue cancellation)",
+      "matchesBuildManifest": true,
+      "fullAnonymousDownloadShaMatches": true
+    },
+    "windows-x64-setup": {
+      "bytes": 299730674,
+      "sha256": "f38c2b8652027dafc43d7297fbce662d92ccc96e88d5982a3c5fb38587ac8205",
+      "builtBy": "local .NET SDK 8 self-contained win-x64 + Inno Setup 6 (ISCC.exe)",
+      "assetNameConvention": "TokenTrackerPersonal-Windows-x64-Setup.exe (version-less red line upheld on first upload, no 1.5.10-style incident)",
+      "payloadVerified": "verify-windows-package: 336 inputs byte-identical, 2591 package files, sourceSha e77ec1e2",
+      "packagedNodeSmoke": "217 tests: 216 passed, 1 skipped, 0 failed (deepai parser + discovery + maximize contracts + silent-update + qoder + webdav + fork-journal + local-api security + session-analytics + pricing + session-sync)"
+    },
+    "sha256sums": {
+      "bytes": 212,
+      "anonymousDownloadIdentical": true
+    }
+  },
+  "verification": "docs/fork/evidence/verification-1.5.11.json",
+  "notes": [
+    "Tag pushed before release creation; release created from the existing tag so tag == build source == e77ec1e2.",
+    "macOS build succeeded on the first dispatch; watcher on standby exited 0.",
+    "Version baseline note: fork mainline had moved 1.5.6 -> 1.5.10 via parallel sessions (session-sync series); this release is 1.5.11 on top of that.",
+    "Anonymous asset downloads again routed via the explicit 127.0.0.1:7897 proxy; API endpoint unaffected.",
+    "No local app installation, no Actions settings changes, no npm or upstream writes."
+  ]
+}

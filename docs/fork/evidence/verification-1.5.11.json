@@ -1,0 +1,88 @@
+{
+  "version": "1.5.11",
+  "sourceCommit": "e77ec1e292dfce7ac1f955d3d4f481fbb6e16c0a",
+  "machine": "Windows x64 (native build)",
+  "bugfix": {
+    "report": "user screenshot 2026-11-23: daily breakdown table stops at 2026-11-21 while local date is 11-23",
+    "rootCause": "DashboardPage computed todayKey/range in mount-time useMemo with no time dependency; resident tray WebView never remounts, so from/to froze on the mount day and manual refresh reused the stale range (server filters d.day <= to). Backend verified healthy: live 127.0.0.1:17680 /usage-daily returned 11-22 (196.4M) and 11-23 (42.8M); fork-view merge contained the buckets; local queue had 77+20 buckets on those days.",
+    "fix": "useDayKey hook (60s local-day recheck, flips across midnight, frozen under mock now) + DashboardPage range memo keyed on todayKey",
+    "regression": "dashboard/src/hooks/use-day-key.test.tsx (4 tests, fake timers)"
+  },
+  "node": {
+    "tests": 3976,
+    "passed": 3932,
+    "skipped": 43,
+    "failed": 0,
+    "note": "single full-suite failure was a real tsc strict error in the new hook (null vs undefined) — fixed and the guardrail test re-verified green"
+  },
+  "dashboard": {
+    "files": 153,
+    "passed": 1341,
+    "failed": 0,
+    "strictTypecheck": true,
+    "productionBuild": true,
+    "note": "first full run exited 1 on a jsdom window.scrollTo unhandled error under parallel load (pre-existing environmental flake, unrelated files); rerun exit=0 all green"
+  },
+  "csharp": {
+    "project": "TokenTrackerWin.Tests",
+    "tests": 182,
+    "passed": 181,
+    "skipped": 1,
+    "failed": 0,
+    "note": "includes MaximizedWorkAreaTests; main TokenTrackerWin.csproj builds with 0 errors"
+  },
+  "validators": [
+    "copy (2348 entries)",
+    "locale",
+    "guardrails",
+    "versions (1.5.11)",
+    "ui-hardcode",
+    "bot-frames",
+    "architecture-guardrails"
+  ],
+  "windows": {
+    "build": ".NET SDK 8 self-contained win-x64 native build on Windows",
+    "installer": "Inno Setup 6 (native ISCC.exe, /DMyAppVersion=1.5.11)",
+    "sourceSha": "e77ec1e292dfce7ac1f955d3d4f481fbb6e16c0a",
+    "matchedInputs": 336,
+    "packageFiles": 2591,
+    "verifyReport": "docs/fork/evidence/windows-package-1.5.11.json",
+    "setupBytes": 299730674,
+    "setupSha256": "f38c2b8652027dafc43d7297fbce662d92ccc96e88d5982a3c5fb38587ac8205",
+    "node22Runtime": "22.22.2 (packaged EmbeddedServer/node.exe, native)",
+    "smokeFiles": 11,
+    "smokeTests": 217,
+    "smokePassed": 216,
+    "smokeSkipped": 1,
+    "smokeFailed": 0,
+    "installerGUIOrRealWindowsTested": false
+  },
+  "macOS": {
+    "workflow": "release-personal-macos.yml (workflow_dispatch, macos-15)",
+    "runId": 45101176322,
+    "headSha": "e77ec1e292dfce7ac1f955d3d4f481fbb6e16c0a",
+    "conclusion": "success",
+    "attempts": 1,
+    "queueCancellations": 0,
+    "dmgBytes": 72525311,
+    "dmgSha256": "94f7d260d8d8f109c52272d606999ab788c0576484e6431de0146a043aab40e2",
+    "dmgShaMatchesBuildManifest": true,
+    "build": "swiftc release, real pinned Vortex (vortexStub=false), darwin-arm64",
+    "artifactDownloadNote": "artifact API id 14785915987 zip (59,669,483 bytes = artifact size), resumable curl"
+  },
+  "remoteAnonymousVerification": {
+    "latestApiResolvesTo": "personal-v1.5.11",
+    "draft": false,
+    "prerelease": false,
+    "sha256sumsBytes": 212,
+    "sha256sumsByteIdentical": true,
+    "dmgFullDownloadShaMatches": true,
+    "rangedFirst1MiBIdentical": ["TokenTrackerPersonal-macOS-arm64.dmg", "TokenTrackerPersonal-Windows-x64-Setup.exe"],
+    "proxyRoute": "127.0.0.1:7897 for asset downloads"
+  },
+  "limitations": [
+    "Windows real installation/GUI/resident behavior not tested",
+    "macOS fullscreen/multiple-display manual interaction not tested",
+    "macOS ad-hoc signature, not notarized"
+  ]
+}

@@ -1,6 +1,14 @@
 # STATUS — 个人同步版事实状态
 
-## 2026-11-23 personal-v1.5.11 集成与验证（构建发布中）
+## 2026-11-23 personal-v1.5.11 双平台发布完成
+
+- 2026-11-23 11:19 前后（Asia/Shanghai）已公开发布 [personal-v1.5.11](https://github.com/CYRYGBG/TokenTracker/releases/tag/personal-v1.5.11)，设为 latest，draft=false / prerelease=false；标签与双平台构建源码固定 `e77ec1e2`（tag 先于 Release 创建）。资产：DMG 72,525,311 字节（SHA256 `94f7d260…b40e2`）、Windows Setup 299,730,674 字节（SHA256 `f38c2b86…8205`）、SHA256SUMS.txt 212 字节；两资产均按惯例无版本号命名（1.5.10 红线首传即合规）。
+- macOS：**首次派发即成功**（run 45101176322，headSha=e77ec1e2，16 步全过，无排队取消）；watcher 待命后正常退出。DMG 哈希与 macos-build.json 一致，匿名全量下载复验一致（artifact id 14785915987）。
+- 远端核验：匿名 API latest 解析为 personal-v1.5.11；SHA256SUMS.txt 匿名下载与本地字节一致；DMG 全量匿名下载 SHA256 一致；两安装包匿名 ranged 0-1MiB 均一致。资产下载走 127.0.0.1:7897 显式代理。
+- 交付现场：`dist/reviewed/`；证据 `evidence/release-1.5.11.json` 与 `evidence/verification-1.5.11.json`（Windows 侧 `windows-package-1.5.11.json`，sourceSha=e77ec1e2，336 输入/2591 文件）。Windows 实机安装/GUI 仍待用户验收；macOS ad-hoc 签名未公证。用户下一步：应用内"检查更新"到 1.5.11——跨天数据冻结的修复需在更新重启后生效（重启后 todayKey 以新代码计算，此后跨天自动刷新）。
+- Windows 构建：bundle-node（Node 22.22.2）→ publish → EmbeddedServer 新鲜重拷 → verify（336 输入/2591 文件/sourceSha e77ec1e2）→ Inno `/DMyAppVersion=1.5.11` → 包内 Node 冒烟 217 项（216 过/1 跳过/0 失败）。
+
+## 2026-11-23 personal-v1.5.11 集成与验证
 
 - 基线注意：fork 主线在 1.5.6（11-20）之后由并行会话推进至 1.5.10（11-21，session-sync 系列）。本轮用户报告 bug（每日细目停在 11-21）+ 上游 v1.5.25 一并集成，版本 1.5.10→1.5.11。
 - 用户 bug 根因与修复见 UPSTREAM 2026-11-23 检查点：后端与本地数据均正常（运行中服务器实测返回 11-22/11-23），冻结点在前端 todayKey/range 的 mount-time 求值；新增 useDayKey hook（60 秒跨午夜自检）接入 DashboardPage，测试 4 项。数据无丢失，纯显示/请求范围问题。
